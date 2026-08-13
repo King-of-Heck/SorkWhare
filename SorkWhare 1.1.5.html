@@ -522,7 +522,7 @@ function compare(orig,rev,opts){
 }
 
 /* ================= UI ================= */
-let fileA=null,fileB=null,lastRows=null,changeOrder=[],curIdx=-1,pageGeom=null,lastSummary=null;
+let fileA=null,fileB=null,lastRows=null,changeOrder=[],curIdx=-1,pageGeom=null,lastSummary=null,estPages=0;
 let resultsShown=false;
 const $=id=>document.getElementById(id);
 function wireDrop(dropId,nameId,which){const d=$(dropId),input=document.createElement('input');input.type='file';input.accept='.docx';input.style.display='none';d.appendChild(input);d.addEventListener('click',()=>input.click());input.addEventListener('change',e=>{if(e.target.files[0])setFile(e.target.files[0],which,d,nameId);});d.addEventListener('dragover',e=>{e.preventDefault();d.classList.add('dragover');});d.addEventListener('dragleave',()=>d.classList.remove('dragover'));d.addEventListener('drop',e=>{e.preventDefault();d.classList.remove('dragover');const f=e.dataTransfer.files[0];if(f)setFile(f,which,d,nameId);});}
@@ -844,7 +844,7 @@ function paginate(){
       }
       used+=h;
     }
-    const st=$('navStatus'); if(st&&st.dataset)st.dataset.pages=pages;
+    estPages=pages; updateNavStatus();
   }catch(e){/* pagination is best-effort; never block the redline */}
 }
 let _pgTimer=null;
@@ -879,6 +879,7 @@ function renderAll(rows,summary){
   $('clist').innerHTML=items;
   $('clist').querySelectorAll('.citem').forEach(el=>el.addEventListener('click',()=>{const cid=+el.dataset.cid;const idx=changeOrder.indexOf(cid);if(idx>=0){curIdx=idx;goToCurrent();}}));
   applyPageGeometry();
+  estPages=0;
   curIdx=changeOrder.length?0:-1; applyFilters(); updateNavStatus();
   // Estimate page breaks after layout settles (needs real rendered heights).
   requestAnimationFrame(()=>requestAnimationFrame(paginate));
@@ -887,7 +888,11 @@ function applyFilters(){const r=$('results');r.classList.toggle('hide-ins',!$('f
   // Hiding/showing paragraphs changes the layout, so re-estimate page breaks.
   schedulePaginate();}
 ['fIns','fDel','fMov','fEq'].forEach(id=>$(id).addEventListener('change',applyFilters));
-function updateNavStatus(){$('navStatus').textContent=changeOrder.length?('Change '+(curIdx+1)+' of '+changeOrder.length):'No changes';}
+function updateNavStatus(){
+  let t=changeOrder.length?('Change '+(curIdx+1)+' of '+changeOrder.length):'No changes';
+  if(estPages>0)t+=' · ~'+estPages+' page'+(estPages===1?'':'s');
+  $('navStatus').textContent=t;
+}
 function goToCurrent(){
   if(curIdx<0||!changeOrder.length)return;
   const cid=changeOrder[curIdx];

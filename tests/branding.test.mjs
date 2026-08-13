@@ -34,3 +34,10 @@ test('print CSS does not force-show filtered paragraphs (#7)', ()=>{
   const printBlock=h.match(/@media print\{[\s\S]*?\n  \}/)[0];
   assert.doesNotMatch(printBlock,/hide-eq .para.equal\{display:flex\}/);
 });
+
+test('page estimate surfaces in nav status (#11)', ()=>{
+  const {__html:h}=loadApp();
+  assert.match(h,/estPages/);
+  assert.match(h,/~'\+estPages\+' page/);
+  assert.doesNotMatch(h,/dataset\.pages/);
+});
