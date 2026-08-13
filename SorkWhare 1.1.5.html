@@ -191,19 +191,21 @@ function u16(b,o){return (b[o]|(b[o+1]<<8));}
 function findEOCD(b){for(let i=b.length-22;i>=0;i--){if(b[i]===0x50&&b[i+1]===0x4b&&b[i+2]===0x05&&b[i+3]===0x06)return i;}return -1;}
 async function inflateRaw(bytes){const ds=new DecompressionStream('deflate-raw');const s=new Blob([bytes]).stream().pipeThrough(ds);return new Uint8Array(await new Response(s).arrayBuffer());}
 async function readZipEntry(buf,target){
-  const eocd=findEOCD(buf); if(eocd<0) throw new Error('Not a valid .docx file.');
+  const eocd=findEOCD(buf); if(eocd<0) throw new Error('Not a valid .docx file (not a ZIP archive).');
   const count=u16(buf,eocd+10); let p=u32(buf,eocd+16);
   for(let i=0;i<count;i++){
     if(u32(buf,p)!==0x02014b50) break;
     const method=u16(buf,p+10),compSize=u32(buf,p+20),nameLen=u16(buf,p+28),extraLen=u16(buf,p+30),comLen=u16(buf,p+32),local=u32(buf,p+42);
     const name=new TextDecoder().decode(buf.slice(p+46,p+46+nameLen));
     if(name===target){const ln=u16(buf,local+26),le=u16(buf,local+28),start=local+30+ln+le,data=buf.slice(start,start+compSize);
-      if(method===0)return data; if(method===8)return await inflateRaw(data); throw new Error('Unsupported compression');}
+      if(method===0)return data;
+      if(method===8){try{return await inflateRaw(data);}catch(e){throw new Error('The .docx appears to be corrupt (could not decompress "'+name+'").');}}
+      throw new Error('Unsupported compression in "'+name+'".');}
     p+=46+nameLen+extraLen+comLen;
   }
   return null;
 }
-async function tryEntry(buf,name){try{const d=await readZipEntry(buf,name);return d?new TextDecoder().decode(d):null;}catch(e){return null;}}
+async function tryEntry(buf,name){const d=await readZipEntry(buf,name);return d?new TextDecoder().decode(d):null;}
 function unxml(s){return (s||'')
   .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'")
   .replace(/&#x([0-9a-fA-F]+);/g,(_,h)=>String.fromCodePoint(parseInt(h,16)))
