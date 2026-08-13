@@ -39,6 +39,8 @@
   .opts label{display:flex;gap:6px;align-items:center;cursor:pointer}
   .opts input[type=number]{width:52px;padding:4px 6px;border:1px solid var(--line);border-radius:6px}
   .err{background:var(--del-bg);border:1px solid #f2b8b5;color:#8a1f19;border-radius:8px;padding:12px 14px;margin-top:12px;font-size:14px}
+  #notice{background:#fff8e1;border-bottom:1px solid #e6d9a8;color:#6b5d1f;padding:8px 22px;font-size:13px}
+  #notice button{background:none;border:none;font-size:14px;color:#6b5d1f;float:right;padding:0 4px;cursor:pointer}
 
   #results{display:none;height:calc(100vh - 52px)}
   .split{display:grid;grid-template-columns:340px 1fr;height:100%}
@@ -158,6 +160,7 @@
 </div>
 
 <div id="results">
+  <div id="notice" style="display:none"></div>
   <div class="split">
     <aside class="summary">
       <h2>Change Summary</h2>
@@ -368,6 +371,7 @@ async function docxToParagraphs(file){
   const styles=parseStyles(stylesXml);
   const numbering=parseNumbering(await tryEntry(buf,'word/numbering.xml'));
   const out=extractStructured(docXml,styles,numbering);
+  out.hasTrackedChanges=/<w:(?:ins|del)[ >]/.test(docXml);
   out.geometry=Object.assign({},parseSectionGeom(docXml),parseDocDefaults(stylesXml));
   return out;
 }
@@ -533,6 +537,14 @@ $('btnCompare').addEventListener('click',async()=>{
     const [oa,ra]=await Promise.all([docxToParagraphs(fileA),docxToParagraphs(fileB)]);
     // Prefer the REVISED doc's geometry (that's the text the redline shows), fall back to original.
     pageGeom=(ra&&ra.geometry)||(oa&&oa.geometry)||null;
+    const tc=[];
+    if(oa.hasTrackedChanges)tc.push(fileA.name);
+    if(ra.hasTrackedChanges)tc.push(fileB.name);
+    const notice=$('notice');
+    if(tc.length){notice.innerHTML='<button title="Dismiss" onclick="this.parentNode.style.display=\'none\'">✕</button>⚠ '
+      +esc(tc.join(' and '))+' contain'+(tc.length===1?'s':'')+' unaccepted tracked changes — compared as if all changes were accepted.';
+      notice.style.display='block';}
+    else notice.style.display='none';
     const {rows,summary}=compare(oa,ra,{ignoreCase:$('optCase').checked,moveMin:+$('optMove').value||5});
     lastRows=rows; renderAll(rows,summary);
     $('setup').style.display='none';$('results').style.display='block';$('navToolbar').style.display='flex';resultsShown=true;
