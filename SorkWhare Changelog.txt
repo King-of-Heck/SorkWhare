@@ -49,7 +49,12 @@ assigned during development (numbering is not sequential/uniform by design).
  - Honest error messages: "not a ZIP archive" vs "appears to be corrupt" vs
    "document.xml not found".
  - Print button now respects the Show filters, matching the native PDF.
- - Validation: Node test suite (node --test tests/) + in-browser smoke test.
+ - Final-review fixes: the page estimate skips filter-hidden paragraphs (their
+   margins had inflated the count); the native PDF's redline parser now also
+   decodes &amp; last (same double-decode class as the unxml fix); capped
+   inline diffs no longer emit an empty <del>/<ins> for a one-sided change.
+ - Validation: Node test suite (30 checks, run with bare "node --test") +
+   in-browser smoke test (counts, navigation, guards, tracked-changes banner).
 
 
 -------------------------------------------------------------------------------
