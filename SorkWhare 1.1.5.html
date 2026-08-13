@@ -1,0 +1,800 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SorkWhare Compare® v1.1.5 — HeckSoft</title>
+<style>
+  :root{
+    --ins:#0b5cad; --ins-bg:#e7f0fb;
+    --del:#b3261e; --del-bg:#fdeceb;
+    --mov:#1b7f3b; --mov-bg:#e6f5ec;
+    --ink:#1f2328; --muted:#5b6570; --line:#e3e6ea; --bg:#eef0f3; --panel:#fff;
+    --nav:#0f2a43; --hi:#fff3bf;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{font-family:"Segoe UI",Arial,Helvetica,sans-serif;margin:0;color:var(--ink);background:var(--bg)}
+  header{background:var(--nav);color:#fff;padding:14px 22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  header h1{margin:0;font-size:18px;font-weight:700;letter-spacing:.2px}
+  header .sub{font-size:11px;color:#b9c7d6;letter-spacing:.03em}
+  .brand{display:flex;align-items:center;gap:11px}
+  .brandmark{image-rendering:pixelated;flex:0 0 auto;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
+  .brandtext{display:flex;flex-direction:column;line-height:1.15}
+  .ver{font-size:10px;font-weight:700;color:#0f2a43;background:#e9b949;border-radius:4px;padding:1px 5px;margin-left:4px;vertical-align:middle;letter-spacing:.04em}
+  header h1 .tm{font-size:9px;font-weight:600;vertical-align:super;margin-left:1px;color:#b9c7d6}
+  .toolbar{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  button{font-family:inherit;font-size:13px;font-weight:600;border:none;border-radius:7px;padding:9px 14px;cursor:pointer}
+  .primary{background:#2f7bd6;color:#fff}.primary:hover{background:#3f8ae4}.primary:disabled{background:#7c8894;cursor:not-allowed}
+  .ghost{background:#22405c;color:#dbe6f1}.ghost:hover{background:#2c4e6e}.ghost:disabled{opacity:.5;cursor:not-allowed}
+  .navbtn{background:#22405c;color:#fff;padding:9px 11px}
+  .setup{max-width:1100px;margin:22px auto;padding:0 18px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .drops{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .drop{border:2px dashed #c4ccd4;border-radius:12px;padding:22px;text-align:center;cursor:pointer;transition:.15s;background:#fbfcfd}
+  .drop.filled{border-color:#2f7d32;background:#f2faf3}.drop.dragover{border-color:var(--nav);background:#eef4fb}
+  .drop h3{margin:0 0 6px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .drop .name{font-weight:600;margin-top:8px;word-break:break-all}.drop small{color:var(--muted)}
+  .opts{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-top:16px;font-size:14px}
+  .opts label{display:flex;gap:6px;align-items:center;cursor:pointer}
+  .opts input[type=number]{width:52px;padding:4px 6px;border:1px solid var(--line);border-radius:6px}
+  .err{background:var(--del-bg);border:1px solid #f2b8b5;color:#8a1f19;border-radius:8px;padding:12px 14px;margin-top:12px;font-size:14px}
+
+  #results{display:none;height:calc(100vh - 52px)}
+  .split{display:grid;grid-template-columns:340px 1fr;height:100%}
+  .summary{background:var(--panel);border-right:1px solid var(--line);overflow:auto;padding:14px}
+  .summary h2{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 10px}
+  .counts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+  .count{border:1px solid var(--line);border-radius:9px;padding:8px 10px;text-align:center}
+  .count .n{font-size:20px;font-weight:700}.count .l{font-size:10px;text-transform:uppercase;color:var(--muted);letter-spacing:.04em}
+  .count.ins .n{color:var(--ins)}.count.del .n{color:var(--del)}.count.mov .n{color:var(--mov)}
+  .cats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+  .cat{font-size:11px;padding:3px 8px;border-radius:20px;background:#eef1f4;color:#333;border:1px solid var(--line)}
+  .filters{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;font-size:12px;border-top:1px solid var(--line);padding-top:10px}
+  .filters label{display:flex;gap:6px;align-items:center;cursor:pointer}
+  .clist{display:flex;flex-direction:column;gap:6px}
+  .citem{border:1px solid var(--line);border-left:4px solid #bbb;border-radius:8px;padding:8px 10px;cursor:pointer;font-size:13px;line-height:1.4;transition:.1s}
+  .citem:hover{background:#f6f8fa}
+  .citem.active{background:var(--hi);border-color:#e0c14a}
+  .citem.inserted{border-left-color:var(--ins)}.citem.deleted{border-left-color:var(--del)}
+  .citem.changed{border-left-color:#e0a72e}.citem.moved{border-left-color:var(--mov)}
+  .citem .cid{font-weight:700;margin-right:6px}
+  .citem .tag{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  .citem .snip{display:block;margin-top:3px;color:#333}
+  .citem .snip del{color:var(--del)}.citem .snip ins{color:var(--ins)}
+
+  .docpane{overflow:auto;padding:34px 40px;background:var(--bg)}
+  #paper{background:#fff;border:1px solid var(--line);border-radius:8px;padding:44px 52px;max-width:900px;margin:0 auto;line-height:1.45;font-size:15px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+  #paper .docttl{text-align:center;font-size:16px;font-weight:700;margin-bottom:4px}
+  #paper .docmeta{text-align:center;color:var(--muted);font-size:12px;margin-bottom:24px;border-bottom:1px solid var(--line);padding-bottom:12px}
+
+  .para{margin:0 0 11px;position:relative;padding-left:16px;display:flex;align-items:flex-start;gap:10px}
+  .para::before{content:"";position:absolute;left:0;top:3px;bottom:3px;width:3px;border-radius:2px;background:transparent}
+  .para.changed::before{background:#e0a72e}.para.inserted::before{background:var(--ins)}
+  .para.deleted::before{background:var(--del)}.para[class*="moved"]::before{background:var(--mov)}
+  .marker{flex:0 0 auto;min-width:26px;color:#111;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .body{flex:1 1 auto;min-width:0}
+  .para.bold .body{font-weight:700}
+  .para.h1 .body{font-size:19px;font-weight:700;margin:6px 0 2px}.para.h1 .marker{font-size:19px}
+  .para.h2 .body{font-size:16px;font-weight:700}.para.h2 .marker{font-size:16px}
+  .para.h3 .body{font-size:14px;font-weight:700}
+  .para.h4 .body,.para.h5 .body,.para.h6 .body{font-size:14px;font-weight:600;font-style:italic}
+
+  ins{color:var(--ins);background:var(--ins-bg);text-decoration:underline;padding:0 1px;border-radius:2px}
+  del{color:var(--del);background:var(--del-bg);text-decoration:line-through;padding:0 1px;border-radius:2px}
+  .moved{color:var(--mov);background:var(--mov-bg);text-decoration:underline;text-decoration-style:dotted;padding:0 1px;border-radius:2px}
+  .moved-src{color:var(--mov);background:var(--mov-bg);text-decoration:line-through;padding:0 1px;border-radius:2px;opacity:.85}
+  .anchor{font-size:10px;font-weight:700;color:var(--mov);border:1px solid var(--mov);border-radius:10px;padding:0 5px;margin-left:6px;white-space:nowrap;vertical-align:middle}
+  .cbadge{font-size:9px;font-weight:700;color:#fff;background:#98a3ad;border-radius:9px;padding:1px 5px;margin-right:6px;vertical-align:middle}
+  .para.changed .cbadge{background:#e0a72e}.para.inserted .cbadge{background:var(--ins)}
+  .para.deleted .cbadge{background:var(--del)}.para[class*="moved"] .cbadge{background:var(--mov)}
+
+  .para.target-flash{animation:flash 1.4s ease}
+  @keyframes flash{0%{background:var(--hi)}100%{background:transparent}}
+  /* Word page breaks: on-screen divider (informational) + real break for print/PDF */
+  .pgbreak-sep,.pgbreak-auto{display:flex;align-items:center;gap:10px;margin:16px 0 14px;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.09em}
+  .pgbreak-sep::before,.pgbreak-sep::after{content:"";flex:1;border-top:1px dashed #b7c0ca}
+  .pgbreak-auto::before,.pgbreak-auto::after{content:"";flex:1;border-top:1px dotted #cbd3db}
+  .pgbreak-auto{color:#9aa4ae}
+  .pgbreak-sep span,.pgbreak-auto span{white-space:nowrap}
+  .para.pgbreak{break-before:page;page-break-before:always}
+
+  #paper b,.body b{font-weight:700}
+  ins b,del b,.moved b,.moved-src b{font-weight:700}
+  .hide-eq .para.equal{display:none}
+  .hide-ins .para.inserted{display:none}
+  .hide-del .para.deleted{display:none}
+  .hide-mov .para[class*="moved"]{display:none}
+
+  @media print{
+    @page{margin:20mm 16mm}
+    header,.setup,.summary,.toolbar,.filters{display:none !important}
+    body{background:#fff}
+    #results{display:block !important;height:auto}
+    .split{display:block}
+    .docpane{overflow:visible;padding:0;background:#fff}
+    #paper{border:none;box-shadow:none;max-width:none;padding:0;font-size:12px}
+    .para::before{display:none}.para{padding-left:0}
+    .hide-eq .para.equal{display:flex}
+    ins{background:transparent}del{background:transparent}.moved,.moved-src{background:transparent}
+    .pgbreak-sep,.pgbreak-auto{display:none !important}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <svg class="brandmark" width="34" height="35" viewBox="0 0 18 19" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="3" y="0" width="1" height="1" fill="#e9b949"/><rect x="8" y="0" width="2" height="1" fill="#e9b949"/><rect x="14" y="0" width="1" height="1" fill="#e9b949"/><rect x="2" y="1" width="2" height="1" fill="#e9b949"/><rect x="7" y="1" width="1" height="1" fill="#e9b949"/><rect x="8" y="1" width="1" height="1" fill="#f6d97a"/><rect x="9" y="1" width="1" height="1" fill="#e9b949"/><rect x="13" y="1" width="2" height="1" fill="#e9b949"/><rect x="2" y="2" width="2" height="1" fill="#e9b949"/><rect x="6" y="2" width="4" height="1" fill="#e9b949"/><rect x="12" y="2" width="2" height="1" fill="#e9b949"/><rect x="15" y="2" width="1" height="1" fill="#e9b949"/><rect x="1" y="3" width="16" height="1" fill="#e9b949"/><rect x="1" y="4" width="6" height="1" fill="#e9b949"/><rect x="7" y="4" width="1" height="1" fill="#e2231a"/><rect x="8" y="4" width="2" height="1" fill="#e9b949"/><rect x="10" y="4" width="1" height="1" fill="#e2231a"/><rect x="11" y="4" width="6" height="1" fill="#e9b949"/><rect x="1" y="5" width="16" height="1" fill="#e9b949"/><rect x="3" y="6" width="12" height="1" fill="#f3efe3"/><rect x="2" y="7" width="14" height="1" fill="#f3efe3"/><rect x="1" y="8" width="16" height="1" fill="#f3efe3"/><rect x="1" y="9" width="2" height="1" fill="#f3efe3"/><rect x="3" y="9" width="3" height="1" fill="#20242b"/><rect x="6" y="9" width="6" height="1" fill="#f3efe3"/><rect x="12" y="9" width="3" height="1" fill="#20242b"/><rect x="15" y="9" width="2" height="1" fill="#f3efe3"/><rect x="1" y="10" width="2" height="1" fill="#f3efe3"/><rect x="3" y="10" width="3" height="1" fill="#20242b"/><rect x="6" y="10" width="6" height="1" fill="#f3efe3"/><rect x="12" y="10" width="3" height="1" fill="#20242b"/><rect x="15" y="10" width="2" height="1" fill="#f3efe3"/><rect x="1" y="11" width="2" height="1" fill="#f3efe3"/><rect x="3" y="11" width="3" height="1" fill="#20242b"/><rect x="6" y="11" width="2" height="1" fill="#f3efe3"/><rect x="8" y="11" width="2" height="1" fill="#cfc8b4"/><rect x="10" y="11" width="2" height="1" fill="#f3efe3"/><rect x="12" y="11" width="3" height="1" fill="#20242b"/><rect x="15" y="11" width="2" height="1" fill="#f3efe3"/><rect x="1" y="12" width="7" height="1" fill="#f3efe3"/><rect x="8" y="12" width="2" height="1" fill="#cfc8b4"/><rect x="10" y="12" width="7" height="1" fill="#f3efe3"/><rect x="1" y="13" width="6" height="1" fill="#f3efe3"/><rect x="7" y="13" width="4" height="1" fill="#20242b"/><rect x="11" y="13" width="6" height="1" fill="#f3efe3"/><rect x="2" y="14" width="14" height="1" fill="#f3efe3"/><rect x="2" y="15" width="1" height="1" fill="#cfc8b4"/><rect x="3" y="15" width="12" height="1" fill="#f3efe3"/><rect x="15" y="15" width="1" height="1" fill="#cfc8b4"/><rect x="3" y="16" width="1" height="1" fill="#f3efe3"/><rect x="4" y="16" width="1" height="1" fill="#20242b"/><rect x="5" y="16" width="2" height="1" fill="#f3efe3"/><rect x="7" y="16" width="1" height="1" fill="#20242b"/><rect x="8" y="16" width="2" height="1" fill="#f3efe3"/><rect x="10" y="16" width="1" height="1" fill="#20242b"/><rect x="11" y="16" width="2" height="1" fill="#f3efe3"/><rect x="13" y="16" width="1" height="1" fill="#20242b"/><rect x="14" y="16" width="1" height="1" fill="#f3efe3"/><rect x="3" y="17" width="1" height="1" fill="#f3efe3"/><rect x="4" y="17" width="1" height="1" fill="#20242b"/><rect x="5" y="17" width="2" height="1" fill="#f3efe3"/><rect x="7" y="17" width="1" height="1" fill="#20242b"/><rect x="8" y="17" width="2" height="1" fill="#f3efe3"/><rect x="10" y="17" width="1" height="1" fill="#20242b"/><rect x="11" y="17" width="2" height="1" fill="#f3efe3"/><rect x="13" y="17" width="1" height="1" fill="#20242b"/><rect x="14" y="17" width="1" height="1" fill="#f3efe3"/><rect x="4" y="18" width="10" height="1" fill="#f3efe3"/></svg>
+    <div class="brandtext">
+      <h1>SorkWhare Compare<sup class="tm">®</sup> <span class="ver">v1.1.5</span></h1>
+      <div class="sub">HeckSoft — a King of Heck Company™</div>
+    </div>
+  </div>
+  <div class="toolbar" id="navToolbar" style="display:none">
+    <span id="navStatus" style="font-size:12px;color:#b9c7d6"></span>
+    <button class="navbtn" id="btnPrev" title="Previous change">◀ Prev</button>
+    <button class="navbtn" id="btnNext" title="Next change">Next ▶</button>
+    <button class="ghost" id="btnNew">New comparison</button>
+    <button class="ghost" id="btnPrint" title="Browser print (may add page headers/footers)">🖨 Print</button>
+    <button class="primary" id="btnPdf" title="Download a clean PDF — no browser headers/footers">⬇ PDF</button>
+  </div>
+</header>
+
+<div class="setup" id="setup">
+  <div class="card">
+    <div class="drops">
+      <div class="drop" id="dropA"><h3>Original (v1)</h3><small>Click or drag a .docx here</small><div class="name" id="nameA"></div></div>
+      <div class="drop" id="dropB"><h3>Revised (v2)</h3><small>Click or drag a .docx here</small><div class="name" id="nameB"></div></div>
+    </div>
+    <div class="opts">
+      <label><input type="checkbox" id="optCase"> Ignore case</label>
+      <label><input type="checkbox" id="optWs" checked> Ignore whitespace</label>
+      <label>Move threshold (words): <input type="number" id="optMove" value="5" min="2" max="10"></label>
+      <button class="primary" id="btnCompare" disabled style="margin-left:auto">Compare ▶</button>
+    </div>
+    <div id="err"></div>
+    <p style="font-size:12px;color:var(--muted);margin:14px 0 0">
+      Runs entirely in your browser — no install, no internet, no upload. Files never leave your computer.
+    </p>
+  </div>
+</div>
+
+<div id="results">
+  <div class="split">
+    <aside class="summary">
+      <h2>Change Summary</h2>
+      <div class="counts">
+        <div class="count"><div class="n" id="cTotal">0</div><div class="l">Total</div></div>
+        <div class="count ins"><div class="n" id="cIns">0</div><div class="l">Insertions</div></div>
+        <div class="count del"><div class="n" id="cDel">0</div><div class="l">Deletions</div></div>
+        <div class="count mov"><div class="n" id="cMov">0</div><div class="l">Moves</div></div>
+      </div>
+      <div class="cats" id="catRow"></div>
+      <div class="filters">
+        <strong style="font-size:11px;color:var(--muted);text-transform:uppercase">Show</strong>
+        <label><input type="checkbox" id="fIns" checked> Insertions</label>
+        <label><input type="checkbox" id="fDel" checked> Deletions</label>
+        <label><input type="checkbox" id="fMov" checked> Moves</label>
+        <label><input type="checkbox" id="fEq" checked> Unchanged text</label>
+      </div>
+      <div class="clist" id="clist"></div>
+    </aside>
+    <main class="docpane"><div id="paper"></div></main>
+  </div>
+</div>
+
+<script>
+/* ================= DOCX (ZIP) reader — pure JS ================= */
+function u32(b,o){return (b[o]|(b[o+1]<<8)|(b[o+2]<<16)|(b[o+3]<<24))>>>0;}
+function u16(b,o){return (b[o]|(b[o+1]<<8));}
+function findEOCD(b){for(let i=b.length-22;i>=0;i--){if(b[i]===0x50&&b[i+1]===0x4b&&b[i+2]===0x05&&b[i+3]===0x06)return i;}return -1;}
+async function inflateRaw(bytes){const ds=new DecompressionStream('deflate-raw');const s=new Blob([bytes]).stream().pipeThrough(ds);return new Uint8Array(await new Response(s).arrayBuffer());}
+async function readZipEntry(buf,target){
+  const eocd=findEOCD(buf); if(eocd<0) throw new Error('Not a valid .docx file.');
+  const count=u16(buf,eocd+10); let p=u32(buf,eocd+16);
+  for(let i=0;i<count;i++){
+    if(u32(buf,p)!==0x02014b50) break;
+    const method=u16(buf,p+10),compSize=u32(buf,p+20),nameLen=u16(buf,p+28),extraLen=u16(buf,p+30),comLen=u16(buf,p+32),local=u32(buf,p+42);
+    const name=new TextDecoder().decode(buf.slice(p+46,p+46+nameLen));
+    if(name===target){const ln=u16(buf,local+26),le=u16(buf,local+28),start=local+30+ln+le,data=buf.slice(start,start+compSize);
+      if(method===0)return data; if(method===8)return await inflateRaw(data); throw new Error('Unsupported compression');}
+    p+=46+nameLen+extraLen+comLen;
+  }
+  return null;
+}
+async function tryEntry(buf,name){try{const d=await readZipEntry(buf,name);return d?new TextDecoder().decode(d):null;}catch(e){return null;}}
+function unxml(s){return (s||'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'");}
+
+/* ================= styles.xml & numbering.xml ================= */
+// Parse a <w:ind ...> attribute string into twips {left,hanging,firstLine}; null if none.
+function _indFrom(str){if(!str)return null;const g=re=>{const m=str.match(re);return m?+m[1]:null;};const left=g(/w:left="(-?\d+)"/),hanging=g(/w:hanging="(\d+)"/),firstLine=g(/w:firstLine="(\d+)"/);if(left==null&&hanging==null&&firstLine==null)return null;return{left,hanging,firstLine};}
+function parseStyles(xml){const map={};if(!xml)return map;const blocks=xml.match(/<w:style [\s\S]*?<\/w:style>/g)||[];for(const b of blocks){const id=(b.match(/w:styleId="([^"]+)"/)||[])[1];if(!id)continue;const name=(b.match(/<w:name w:val="([^"]+)"/)||[])[1]||'';const numId=(b.match(/<w:numId w:val="(\d+)"/)||[])[1];const ilvl=(b.match(/<w:ilvl w:val="(\d+)"/)||[])[1];const outl=(b.match(/<w:outlineLvl w:val="(\d+)"/)||[])[1];const based=(b.match(/<w:basedOn w:val="([^"]+)"/)||[])[1];
+    // Paragraph alignment (w:jc) and indentation (w:ind) carried on the STYLE. Many
+    // legal templates set "justified" body and indents at the style level, not inline.
+    const jc=(b.match(/<w:jc w:val="([^"]+)"/)||[])[1]||null;
+    const indM=b.match(/<w:ind\b([^>]*?)\/?>/); const ind=indM?_indFrom(indM[1]):null;
+    map[id]={name,numId:numId?+numId:null,ilvl:ilvl?+ilvl:0,outlineLvl:outl!==undefined?+outl:null,basedOn:based||null,jc,ind};}
+  // Resolve numId/ilvl AND jc/ind through the basedOn inheritance chain (legal MultiLevel
+  // styles only declare these on a parent; children inherit them via basedOn).
+  function resolve(id,seen){seen=seen||new Set();if(!id||seen.has(id))return;seen.add(id);const st=map[id];if(!st)return;if(st.basedOn){resolve(st.basedOn,seen);const par=map[st.basedOn];if(par){if(st.numId==null&&par.numId!=null){st.numId=par.numId;if(st.ilvl==null)st.ilvl=par.ilvl;}if(st.jc==null&&par.jc!=null)st.jc=par.jc;if(st.ind==null&&par.ind!=null)st.ind=par.ind;}}}
+  for(const id in map)resolve(id);
+  return map;}
+function parseNumbering(xml){const numToAbs={},abs={},styleToNum={};if(!xml)return{numToAbs,abs,styleToNum};const nums=xml.match(/<w:num w:numId="\d+"[\s\S]*?<\/w:num>/g)||[];for(const n of nums){const id=(n.match(/w:numId="(\d+)"/)||[])[1],a=(n.match(/<w:abstractNumId w:val="(\d+)"/)||[])[1];if(id&&a)numToAbs[+id]=+a;}const absBlocks=xml.match(/<w:abstractNum w:abstractNumId="\d+"[\s\S]*?<\/w:abstractNum>/g)||[];for(const ab of absBlocks){const aid=+(ab.match(/w:abstractNumId="(\d+)"/)||[])[1];const levels={};const lvls=ab.match(/<w:lvl w:ilvl="\d+"[\s\S]*?<\/w:lvl>/g)||[];for(const lv of lvls){const il=+(lv.match(/w:ilvl="(\d+)"/)||[])[1];const fmt=(lv.match(/<w:numFmt w:val="([^"]+)"/)||[])[1]||'decimal';const txt=unxml((lv.match(/<w:lvlText w:val="([^"]*)"/)||[])[1]||'');const start=+((lv.match(/<w:start w:val="(\d+)"/)||[])[1]||1);const pStyle=(lv.match(/<w:pStyle w:val="([^"]+)"/)||[])[1]||null;const lIndM=lv.match(/<w:ind\b([^>]*?)\/?>/);const ind=lIndM?_indFrom(lIndM[1]):null;const ljc=(lv.match(/<w:jc w:val="([^"]+)"/)||[])[1]||null;levels[il]={fmt,txt,start,pStyle,ind,jc:ljc};}abs[aid]=levels;}for(const [numId,aid] of Object.entries(numToAbs)){const levels=abs[aid]||{};for(const [il,lvl] of Object.entries(levels)){if(lvl.pStyle&&!styleToNum[lvl.pStyle])styleToNum[lvl.pStyle]={numId:+numId,ilvl:+il};}}return{numToAbs,abs,styleToNum};}
+function roman(n){const t=[[1000,'m'],[900,'cm'],[500,'d'],[400,'cd'],[100,'c'],[90,'xc'],[50,'l'],[40,'xl'],[10,'x'],[9,'ix'],[5,'v'],[4,'iv'],[1,'i']];let r='';for(const[v,s]of t){while(n>=v){r+=s;n-=v;}}return r||String(n);}
+function letters(n,up){let s='';while(n>0){n--;s=String.fromCharCode((up?65:97)+(n%26))+s;n=Math.floor(n/26);}return s;}
+function fmtNum(n,fmt){switch(fmt){case'lowerLetter':return letters(n,false);case'upperLetter':return letters(n,true);case'lowerRoman':return roman(n);case'upperRoman':return roman(n).toUpperCase();case'decimalZero':return n<10?'0'+n:String(n);default:return String(n);}}
+const BULLETS=['•','◦','▪','‣','·'];
+
+function extractStructured(docXml,styles,numbering){
+  const {numToAbs,abs,styleToNum}=numbering; const counters={}; const out=[];
+  const paras=docXml.match(/<w:p[ >][\s\S]*?<\/w:p>/g)||[];
+  // Carries a page break forward when it lives in an empty paragraph, or when it
+  // occurs AFTER text (Word puts following content on the next page in both cases).
+  let pendingBreak=false;
+  for(const p of paras){
+    // ---- Page-break detection (manual break, pageBreakBefore, section break) ----
+    const pPr=(p.match(/<w:pPr>[\s\S]*?<\/w:pPr>/)||[''])[0];
+    const hasBreakBefore=/<w:pageBreakBefore\b(?:[^>]*w:val="(?:0|false|off)")?[^>]*\/>/.test(pPr)
+                         && !/<w:pageBreakBefore\b[^>]*w:val="(?:0|false|off)"/.test(pPr);
+    const firstTextIdx=p.search(/<w:t(?:\s[^>]*)?>/);
+    const pageBrIdx=p.search(/<w:br\s+w:type="page"\s*\/>/);
+    const hasPageBr=pageBrIdx!==-1;
+    const brBeforeText=hasPageBr&&(firstTextIdx===-1||pageBrIdx<firstTextIdx);
+    // A <w:sectPr> INSIDE a paragraph marks the last para of a section; the break
+    // takes effect AFTER it (unless the section type is continuous/nextColumn).
+    const sectPr=(pPr.match(/<w:sectPr[\s\S]*?<\/w:sectPr>/)||[''])[0];
+    let sectBreak=false;
+    if(sectPr){const stype=(sectPr.match(/<w:type w:val="([^"]+)"/)||[])[1]||'nextPage';sectBreak=!(stype==='continuous'||stype==='nextColumn');}
+    // Run-aware extraction capturing PER-CHARACTER bold, so bold "defined terms"
+    // (e.g. OPG, Wesleyville Site) can be rendered inline — not just whole-para bold.
+    let chars=[]; // array of {c, b}
+    const runRe=/<w:r[ >][\s\S]*?<\/w:r>/g; let rm;
+    while((rm=runRe.exec(p))!==null){
+      const run=rm[0];
+      const rpr=(run.match(/<w:rPr>[\s\S]*?<\/w:rPr>/)||[''])[0];
+      let bold=false; const bm=rpr.match(/<w:b(?:\s+w:val="([^"]*)")?\s*\/>/);
+      if(bm){const v=bm[1];bold=!(v==='false'||v==='0');}
+      const tRe=/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>|<w:tab\/>|<w:br\/>/g; let m;
+      while((m=tRe.exec(run))!==null){
+        let piece; if(m[1]!==undefined)piece=unxml(m[1]); else if(m[0].indexOf('tab')!==-1)piece='\t'; else piece=' ';
+        for(const ch of piece)chars.push({c:ch,b:bold});
+      }
+    }
+    if(!chars.length){ const tRe=/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>|<w:tab\/>|<w:br\/>/g; let m;
+      while((m=tRe.exec(p))!==null){ let piece; if(m[1]!==undefined)piece=unxml(m[1]); else if(m[0].indexOf('tab')!==-1)piece='\t'; else piece=' '; for(const ch of piece)chars.push({c:ch,b:false}); } }
+    // Normalize (whitespace -> single space, trim) while keeping bold aligned to chars.
+    const norm=chars.map(o=>({c:(/\s/.test(o.c)?' ':o.c),b:o.b}));
+    const coll=[]; for(const o of norm){ if(o.c===' '&&coll.length&&coll[coll.length-1].c===' '){coll[coll.length-1].b=coll[coll.length-1].b||o.b;continue;} coll.push({c:o.c,b:o.b}); }
+    while(coll.length&&coll[0].c===' ')coll.shift();
+    while(coll.length&&coll[coll.length-1].c===' ')coll.pop();
+    let text=coll.map(o=>o.c).join('');
+    // Compact bold character ranges [start,end) over the normalized text.
+    const boldRuns=[]; let bs=-1;
+    for(let k=0;k<coll.length;k++){ if(coll[k].b){ if(bs<0)bs=k; } else if(bs>=0){ boldRuns.push([bs,k]); bs=-1; } }
+    if(bs>=0)boldRuns.push([bs,coll.length]);
+    // Whole-paragraph bold ratio (for headings/fully-bold clauses) from non-space chars.
+    let boldChars=0,totalChars=0; for(const o of coll){ if(o.c===' ')continue; totalChars++; if(o.b)boldChars++; }
+    if(!text){
+      // Empty paragraph is dropped from the redline, but a manual/section break it
+      // carries must survive — hand it to the next real paragraph.
+      if(hasBreakBefore||hasPageBr||sectBreak) pendingBreak=true;
+      continue;
+    }
+    const isBold = totalChars>0 && (boldChars/totalChars)>=0.6;
+    // This paragraph starts a new page if a break was pending, if it declares
+    // pageBreakBefore, or if it contains a manual break BEFORE any of its text.
+    let pageBreakBefore = pendingBreak || hasBreakBefore || (hasPageBr && brBeforeText);
+    pendingBreak=false;
+    // A break that sits AFTER this paragraph's text, or a section break on this
+    // paragraph, pushes the FOLLOWING paragraph to a new page.
+    if((hasPageBr && !brBeforeText) || sectBreak) pendingBreak=true;
+
+    const styleId=(p.match(/<w:pStyle w:val="([^"]+)"/)||[])[1]||null; const st=styleId?styles[styleId]:null;
+    // Heading ONLY from an explicit Heading N / Title style. Bold is handled separately
+    // via real run formatting (isBold), so numbered body clauses are never over-bolded.
+    let heading=null;
+    if(styleId){ if(/^Title$/i.test(styleId))heading=1;
+      else{const hn=(st&&st.name&&st.name.match(/heading\s*(\d)/i))||styleId.match(/Heading(\d)/i);
+        if(hn)heading=Math.min(6,+hn[1]);}}
+
+    let numId=null,ilvl=0; const inlineNum=p.match(/<w:numPr>[\s\S]*?<\/w:numPr>/);
+    if(inlineNum){const ni=inlineNum[0].match(/<w:numId w:val="(\d+)"/),il=inlineNum[0].match(/<w:ilvl w:val="(\d+)"/);if(ni)numId=+ni[1];if(il)ilvl=+il[1];}
+    if(numId==null&&st&&st.numId){numId=st.numId;ilvl=st.ilvl||0;}
+    if(numId==null&&styleId&&styleToNum[styleId]){numId=styleToNum[styleId].numId;ilvl=styleToNum[styleId].ilvl;}
+
+    let marker='',isNumbered=false,lvlObj=null;
+    if(numId!=null&&numId!==0){const aid=numToAbs[numId],lvl=abs[aid]&&abs[aid][ilvl];
+      if(lvl){lvlObj=lvl;isNumbered=true; if(lvl.fmt==='bullet'){marker=BULLETS[Math.min(ilvl,BULLETS.length-1)];}
+        else{
+          // Single cascading counter keyed by LEVEL: a shallower increment resets deeper
+          // levels, so "(a)" restarts under each new numbered section (Word behaviour).
+          counters[ilvl]=(counters[ilvl]==null?(lvl.start-1):counters[ilvl])+1;
+          for(const k in counters)if(+k>ilvl)delete counters[k];
+          marker=(lvl.txt||'%1.').replace(/%(\d+)/g,(_,d)=>{const li=+d-1,lv=abs[aid][li]||{},cv=counters[li]!=null?counters[li]:(lv.start||1);return fmtNum(cv,lv.fmt||'decimal');});
+        }}}
+
+    // ---- Alignment (w:jc): paragraph overrides numbering level, which overrides style.
+    const pJc=(pPr.match(/<w:jc w:val="([^"]+)"/)||[])[1]||null;
+    let align=pJc||(lvlObj&&lvlObj.jc)||(st&&st.jc)||null;
+    if(align==='both'||align==='distribute')align='justify';
+    else if(align==='right'||align==='end')align='right';
+    else if(align==='center')align='center';
+    else align='left';
+    // ---- Indentation (w:ind, twips): same precedence. Stored in points (twips/20).
+    const pIndM=pPr.match(/<w:ind\b([^>]*?)\/?>/); const pInd=pIndM?_indFrom(pIndM[1]):null;
+    const indSrc=pInd||(lvlObj&&lvlObj.ind)||(st&&st.ind)||null;
+    const tw=v=>(v==null?null:v/20);
+    const indLeftPt=tw(indSrc&&indSrc.left)||0;
+    const indHangingPt=tw(indSrc&&indSrc.hanging)||0;
+    const indFirstLinePt=tw(indSrc&&indSrc.firstLine)||0;
+
+    out.push({text,heading,isNumbered,marker,ilvl,isBold,pageBreakBefore,align,indLeftPt,indHangingPt,indFirstLinePt,boldRuns});
+  }
+  return out;
+}
+/* Page geometry from the LAST <w:sectPr> (the document/body section). Twips→inches
+   (1440 twips = 1 inch). Used to reproduce Word's automatic pagination as closely as
+   possible when we hand the layout to the browser for print/PDF. */
+function parseSectionGeom(docXml){
+  const sect=(docXml.match(/<w:sectPr[\s\S]*?<\/w:sectPr>/g)||[]).pop()||'';
+  const g={wIn:8.5,hIn:11,mt:1,mr:1,mb:1,ml:1};
+  const sz=sect.match(/<w:pgSz\b[^>]*\/?>/);
+  if(sz){const w=+(sz[0].match(/w:w="(\d+)"/)||[])[1]||12240,h=+(sz[0].match(/w:h="(\d+)"/)||[])[1]||15840;g.wIn=w/1440;g.hIn=h/1440;}
+  const mar=sect.match(/<w:pgMar\b[^>]*\/?>/);
+  if(mar){const gv=(re,d)=>{const m=mar[0].match(re);return m?(+m[1])/1440:d;};g.mt=gv(/w:top="(-?\d+)"/,1);g.mb=gv(/w:bottom="(-?\d+)"/,1);g.ml=gv(/w:left="(\d+)"/,1);g.mr=gv(/w:right="(\d+)"/,1);}
+  return g;
+}
+/* Default body font size (half-points→pt) and family from styles.xml docDefaults,
+   falling back to the Normal style. Font metrics drive where lines — and therefore
+   pages — break, so matching these meaningfully improves fidelity. */
+function parseDocDefaults(xml){
+  const d={fontPt:11,font:null};
+  if(!xml)return d;
+  const dd=(xml.match(/<w:docDefaults[\s\S]*?<\/w:docDefaults>/)||[''])[0];
+  const normal=(xml.match(/<w:style [^>]*w:styleId="Normal"[\s\S]*?<\/w:style>/)||[''])[0];
+  const scope=dd+normal;
+  const sz=(scope.match(/<w:sz w:val="(\d+)"/)||[])[1];
+  if(sz)d.fontPt=(+sz)/2;
+  const f=(scope.match(/<w:rFonts[^>]*w:ascii="([^"]+)"/)||[])[1];
+  if(f)d.font=f;
+  return d;
+}
+async function docxToParagraphs(file){
+  const buf=new Uint8Array(await file.arrayBuffer());
+  const docXml=await tryEntry(buf,'word/document.xml'); if(!docXml)throw new Error('document.xml not found — is this a real .docx?');
+  const stylesXml=await tryEntry(buf,'word/styles.xml');
+  const styles=parseStyles(stylesXml);
+  const numbering=parseNumbering(await tryEntry(buf,'word/numbering.xml'));
+  const out=extractStructured(docXml,styles,numbering);
+  out.geometry=Object.assign({},parseSectionGeom(docXml),parseDocDefaults(stylesXml));
+  return out;
+}
+
+/* ================= diff engine ================= */
+function lcsOps(a,b){const n=a.length,m=b.length,dp=Array.from({length:n+1},()=>new Uint32Array(m+1));for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)dp[i][j]=a[i]===b[j]?dp[i+1][j+1]+1:Math.max(dp[i+1][j],dp[i][j+1]);const ops=[];let i=0,j=0;while(i<n&&j<m){if(a[i]===b[j]){ops.push(['equal',i,j]);i++;j++;}else if(dp[i+1][j]>=dp[i][j+1]){ops.push(['delete',i,j]);i++;}else{ops.push(['insert',i,j]);j++;}}while(i<n){ops.push(['delete',i,j]);i++;}while(j<m){ops.push(['insert',i,j]);j++;}return ops;}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function tok(t){return String(t||'').match(/\w+|[^\w\s]|\s+/gu)||[];}
+function wordsOnly(t){return String(t||'').toLowerCase().match(/\w+/gu)||[];}
+function inlineDiff(o,n){const a=tok(o),b=tok(n),ops=lcsOps(a,b);let out='',mode=null,buf='';const flush=()=>{if(!buf)return;if(mode==='del')out+='<del>'+esc(buf)+'</del>';else if(mode==='ins')out+='<ins>'+esc(buf)+'</ins>';else out+=esc(buf);buf='';};for(const[tag,i,j]of ops){const piece=tag==='insert'?b[j]:a[i],mm=tag==='equal'?'eq':(tag==='delete'?'del':'ins');if(mm!==mode){flush();mode=mm;}buf+=piece;}flush();return out;}
+// True if character index i falls within any [start,end) bold range.
+function _inRuns(runs,i){if(!runs)return false;for(const r of runs){if(i>=r[0]&&i<r[1])return true;if(r[0]>i)break;}return false;}
+// Escape text and wrap maximal bold ranges in <b>. Keeps defined-term bolding inline.
+function boldWrap(text,runs){if(!runs||!runs.length)return esc(text);let out='',pos=0;for(const[s,e]of runs){if(s>pos)out+=esc(text.slice(pos,s));out+='<b>'+esc(text.slice(s,e))+'</b>';pos=e;}if(pos<text.length)out+=esc(text.slice(pos));return out;}
+// Per-token bold flags: a token is bold if a majority of its non-space chars are bold.
+function _tokBold(tokens,runs){const f=new Array(tokens.length).fill(false);if(!runs||!runs.length)return f;let off=0;for(let i=0;i<tokens.length;i++){const tk=tokens[i],len=tk.length;let cnt=0,bc=0;for(let c=0;c<len;c++){if(/\s/.test(tk[c]))continue;cnt++;if(_inRuns(runs,off+c))bc++;}f[i]=cnt>0&&(bc/cnt)>=0.5;off+=len;}return f;}
+// Inline word-diff that ALSO preserves inline bold on both sides.
+function inlineDiffB(o,n,ob,nb){const a=tok(o),b=tok(n),ops=lcsOps(a,b),af=_tokBold(a,ob),bf=_tokBold(b,nb);
+  let out='',mode=null,bold=null,buf='';
+  const flush=()=>{if(!buf)return;let inner=esc(buf);if(bold)inner='<b>'+inner+'</b>';if(mode==='del')out+='<del>'+inner+'</del>';else if(mode==='ins')out+='<ins>'+inner+'</ins>';else out+=inner;buf='';};
+  for(const[tag,i,j]of ops){const isIns=tag==='insert';const piece=isIns?b[j]:a[i];const mm=tag==='equal'?'eq':(tag==='delete'?'del':'ins');const bb=isIns?bf[j]:af[i];if(mm!==mode||bb!==bold){flush();mode=mm;bold=bb;}buf+=piece;}
+  flush();return out;}
+function sim(a,b){const ta=tok(a).filter(x=>x.trim()),tb=tok(b).filter(x=>x.trim());if(!ta.length&&!tb.length)return 1;const ops=lcsOps(ta,tb);let c=0;for(const[t]of ops)if(t==='equal')c++;return(2*c)/(ta.length+tb.length);}
+function norm2(t,ic){t=t.replace(/\s+/g,' ').trim();if(ic)t=t.toLowerCase();return t;}
+function categorize(o,n){const wa=wordsOnly(o).join(' '),wb=wordsOnly(n).join(' ');if(wa===wb&&o!==n)return 'punctuation';return 'content';}
+
+function compare(orig,rev,opts){
+  const ic=opts.ignoreCase, moveMin=opts.moveMin||5;
+  const oT=orig.map(o=>norm2(o.text,ic)), rT=rev.map(o=>norm2(o.text,ic));
+  const ops=lcsOps(oT,rT);
+  const segs=[]; for(const[tag,i,j]of ops){const last=segs[segs.length-1];if(last&&last.tag===tag)last.items.push([i,j]);else segs.push({tag,items:[[i,j]]});}
+  const rows=[],pureDel=[],pureIns=[];
+  for(let s=0;s<segs.length;s++){
+    const seg=segs[s];
+    if(seg.tag==='equal'){for(const[i,j]of seg.items)rows.push({type:'equal',oi:i,ni:j,meta:rev[j],html:boldWrap(rev[j].text,rev[j].boldRuns)});continue;}
+    let dels=[],ins=[];
+    if(seg.tag==='delete'){dels=seg.items.map(([i])=>i);if(segs[s+1]&&segs[s+1].tag==='insert'){ins=segs[s+1].items.map(([,j])=>j);s++;}}
+    else{ins=seg.items.map(([,j])=>j);if(segs[s+1]&&segs[s+1].tag==='delete'){dels=segs[s+1].items.map(([i])=>i);s++;}}
+    const used=new Set(),paired=[];
+    for(const di of dels){let best=-1,bs=0;for(const ji of ins){if(used.has(ji))continue;const v=sim(oT[di],rT[ji]);if(v>bs){bs=v;best=ji;}}if(best>=0&&bs>=0.5){used.add(best);paired.push([di,best]);}else paired.push([di,-1]);}
+    const done=new Set();
+    for(const[di,ji]of paired){
+      if(ji>=0){rows.push({type:'changed',oi:di,ni:ji,meta:rev[ji],html:inlineDiffB(orig[di].text,rev[ji].text,orig[di].boldRuns,rev[ji].boldRuns),cat:categorize(oT[di],rT[ji])});done.add(ji);}
+      else{const r={type:'deleted',oi:di,meta:orig[di],html:'<del>'+boldWrap(orig[di].text,orig[di].boldRuns)+'</del>'};rows.push(r);pureDel.push(r);}
+    }
+    for(const ji of ins)if(!done.has(ji)){const r={type:'inserted',ni:ji,meta:rev[ji],html:'<ins>'+boldWrap(rev[ji].text,rev[ji].boldRuns)+'</ins>'};rows.push(r);pureIns.push(r);}
+  }
+  for(const dr of pureDel){
+    if(dr.moved)continue; const dw=wordsOnly(oT[dr.oi]); if(dw.length<moveMin)continue;
+    let best=null,bestSim=0;
+    for(const ir of pureIns){if(ir.moved)continue;const iw=wordsOnly(rT[ir.ni]);if(iw.length<moveMin)continue;const v=sim(oT[dr.oi],rT[ir.ni]);if(v>bestSim){bestSim=v;best=ir;}}
+    if(best&&bestSim>=0.8){
+      dr.type='moved-from';dr.moved=true;dr.partner=best;
+      best.type='moved-to';best.moved=true;best.partner=dr;
+      best.html='<span class="moved">'+(bestSim<1?inlineDiffB(orig[dr.oi].text,rev[best.ni].text,orig[dr.oi].boldRuns,rev[best.ni].boldRuns):boldWrap(rev[best.ni].text,rev[best.ni].boldRuns))+'</span>';
+      dr.html='<span class="moved-src">'+boldWrap(orig[dr.oi].text,orig[dr.oi].boldRuns)+'</span>';
+    }
+  }
+  const summary={insertions:0,deletions:0,moves:0,content:0,numbering:0,punctuation:0,total:0};
+  let n=0;
+  for(const r of rows){
+    if(r.type==='equal')continue;
+    if(r.type==='moved-from'||r.type==='moved-to'){ if(r.partner&&r.partner.cid){r.cid=r.partner.cid;} else {r.cid=++n;summary.moves++;} continue; }
+    r.cid=++n;
+    if(r.type==='inserted'){summary.insertions++;summary.content++;}
+    else if(r.type==='deleted'){summary.deletions++;summary.content++;}
+    else if(r.type==='changed'){ if(r.cat==='punctuation')summary.punctuation++; else summary.content++; summary.insertions++;summary.deletions++; }
+  }
+  summary.total=summary.insertions+summary.deletions+summary.moves;
+  return {rows,summary};
+}
+
+/* ================= UI ================= */
+let fileA=null,fileB=null,lastRows=null,changeOrder=[],curIdx=-1,pageGeom=null,lastSummary=null;
+const $=id=>document.getElementById(id);
+function wireDrop(dropId,nameId,which){const d=$(dropId),input=document.createElement('input');input.type='file';input.accept='.docx';input.style.display='none';d.appendChild(input);d.addEventListener('click',()=>input.click());input.addEventListener('change',e=>{if(e.target.files[0])setFile(e.target.files[0],which,d,nameId);});d.addEventListener('dragover',e=>{e.preventDefault();d.classList.add('dragover');});d.addEventListener('dragleave',()=>d.classList.remove('dragover'));d.addEventListener('drop',e=>{e.preventDefault();d.classList.remove('dragover');const f=e.dataTransfer.files[0];if(f)setFile(f,which,d,nameId);});}
+function setFile(f,which,d,nameId){if(!f.name.toLowerCase().endsWith('.docx')){showErr('Please choose a .docx file.');return;}if(which==='A')fileA=f;else fileB=f;d.classList.add('filled');$(nameId).textContent=f.name;$('btnCompare').disabled=!(fileA&&fileB);showErr('');}
+function showErr(m){$('err').innerHTML=m?('<div class="err">'+m+'</div>'):'';}
+wireDrop('dropA','nameA','A');wireDrop('dropB','nameB','B');
+
+$('btnCompare').addEventListener('click',async()=>{
+  showErr('');$('btnCompare').disabled=true;$('btnCompare').textContent='Comparing…';
+  try{
+    if(typeof DecompressionStream==='undefined')throw new Error('Browser too old — use recent Edge or Chrome.');
+    const [oa,ra]=await Promise.all([docxToParagraphs(fileA),docxToParagraphs(fileB)]);
+    // Prefer the REVISED doc's geometry (that's the text the redline shows), fall back to original.
+    pageGeom=(ra&&ra.geometry)||(oa&&oa.geometry)||null;
+    const {rows,summary}=compare(oa,ra,{ignoreCase:$('optCase').checked,moveMin:+$('optMove').value||5});
+    lastRows=rows; renderAll(rows,summary);
+    $('setup').style.display='none';$('results').style.display='block';$('navToolbar').style.display='flex';
+  }catch(err){showErr(err.message||String(err));}
+  finally{$('btnCompare').disabled=false;$('btnCompare').textContent='Compare ▶';}
+});
+$('btnNew').addEventListener('click',()=>{$('results').style.display='none';$('navToolbar').style.display='none';$('setup').style.display='block';});
+
+function exportPdf(){
+  const paper=document.getElementById('paper');
+  if(!paper||!paper.innerHTML.trim()){ showErr('Run a comparison first, then export to PDF.'); return; }
+  try{
+    const styles=Array.from(document.querySelectorAll('style')).map(s=>s.textContent).join('\n');
+    const viewClasses=(document.getElementById('results').className||'');
+    // Drive @page size/margins and body font from the source document's real geometry so
+    // the browser's automatic pagination reproduces Word's page breaks as closely as possible.
+    const g=pageGeom;
+    const pageCss=g
+      ? '@page{size:'+g.wIn.toFixed(3)+'in '+g.hIn.toFixed(3)+'in;margin:'+g.mt.toFixed(3)+'in '+g.mr.toFixed(3)+'in '+g.mb.toFixed(3)+'in '+g.ml.toFixed(3)+'in}'
+        +'#paper{font-size:'+(g.fontPt||11)+'pt;line-height:1.15;font-family:'+(g.font?('"'+g.font+'",'):'')+'\'Times New Roman\',Georgia,serif}'
+      : '@page{margin:20mm 16mm}';
+    const html='<!doctype html><html><head><meta charset="utf-8"><title>Redline Comparison</title>'
+      +'<style>'+styles+'</style>'
+      +'<style>'+pageCss+' html,body{background:#fff;margin:0;height:auto}'
+      +'.docpane{overflow:visible;padding:0;background:#fff} '
+      +'#paper{border:none;box-shadow:none;max-width:none;margin:0;padding:0;width:auto}'
+      +'.pgbreak-auto{display:none !important}</style></head>'
+      +'<body class="'+viewClasses+'"><div class="docpane"><div id="paper">'+paper.innerHTML+'</div></div></body></html>';
+    const f=document.createElement('iframe');
+    f.setAttribute('aria-hidden','true');
+    // Give the iframe a real (offscreen) size — some browsers won't paginate/print a 0x0 frame.
+    f.style.cssText='position:fixed;left:-10000px;top:0;width:816px;height:1056px;border:0;opacity:0;';
+    document.body.appendChild(f);
+    const idoc=f.contentWindow.document; idoc.open(); idoc.write(html); idoc.close();
+    const go=()=>{ try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){ window.print(); }
+                   setTimeout(()=>{ try{ f.remove(); }catch(_){} },1500); };
+    if(idoc.readyState==='complete') setTimeout(go,150); else f.onload=()=>setTimeout(go,150);
+  }catch(e){ try{ window.print(); }catch(_){ showErr('Your browser blocked printing — press Ctrl+P to save as PDF.'); } }
+}
+
+/* ============================================================================
+   Native vector-PDF generator (pure JS, offline, no libraries).
+   Writes a real multi-page PDF and downloads it — no browser print dialog, so
+   NO auto-injected page headers/footers. Uses the base-14 Times family (no font
+   embedding needed) and the browser's Canvas measureText for accurate line
+   wrapping, honouring the source document's real page geometry & pagination.
+   ============================================================================ */
+const PT=72; // points per inch
+// Times-Roman AFM advance widths (units/1000 em) so text can be measured accurately
+// even when Canvas is unavailable (old browsers / headless). Unlisted chars -> 500.
+const TIMESW={' ':250,'!':333,'"':408,'#':500,'$':500,'%':833,'&':778,"'":180,'(':333,')':333,'*':500,'+':564,',':250,'-':333,'.':250,'/':278,'0':500,'1':500,'2':500,'3':500,'4':500,'5':500,'6':500,'7':500,'8':500,'9':500,':':278,';':278,'<':564,'=':564,'>':564,'?':444,'@':921,'A':722,'B':667,'C':667,'D':722,'E':611,'F':556,'G':722,'H':722,'I':333,'J':389,'K':722,'L':611,'M':889,'N':722,'O':722,'P':556,'Q':722,'R':667,'S':556,'T':611,'U':722,'V':722,'W':944,'X':722,'Y':722,'Z':611,'[':333,'\\':278,']':333,'^':469,'_':500,'`':333,'a':444,'b':500,'c':444,'d':500,'e':444,'f':333,'g':500,'h':500,'i':278,'j':278,'k':500,'l':278,'m':778,'n':500,'o':500,'p':500,'q':500,'r':333,'s':389,'t':278,'u':500,'v':500,'w':722,'x':500,'y':500,'z':444,'{':480,'|':200,'}':480,'~':541,'\u2018':333,'\u2019':333,'\u201C':444,'\u201D':444,'\u2013':500,'\u2014':1000,'\u2022':350,'\u00A0':250};
+function timesWidth(t,size,bold){let u=0;for(const ch of t){const w=TIMESW[ch];u+=(w!=null?w:500);}return u/1000*size*(bold?1.05:1);}
+function fmt(n){return (Math.round(n*100)/100).toString();}
+function pdfEsc(s){return s.replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)').replace(/[\r\n]/g,'');}
+// Map Unicode → WinAnsi bytes (fonts declare /Encoding/WinAnsiEncoding).
+const WINANSI={0x2018:0x91,0x2019:0x92,0x201C:0x93,0x201D:0x94,0x2022:0x95,0x2013:0x96,0x2014:0x97,0x2026:0x85,0x2122:0x99,0x2039:0x8B,0x203A:0x9B,0x2020:0x86,0x2021:0x87,0x2030:0x89,0x0152:0x8C,0x0153:0x9C,0x0178:0x9F,0x017D:0x8E,0x017E:0x9E,0x0192:0x83,0x02C6:0x88,0x02DC:0x98};
+function encWin(s){let o='';for(const ch of s){let c=ch.codePointAt(0),b;
+  if(c<0x80)b=c; else if(WINANSI[c]!==undefined)b=WINANSI[c]; else if(c>=0xA0&&c<=0xFF)b=c;
+  else if(c===0x25E6||c===0x25AA||c===0x2023||c===0x2043)b=0x95; /* other bullets → • */
+  else if(c===0x2192||c===0x25B6)b=0x3E; /* → ▶ */ else if(c===0x25C0)b=0x3C; /* ◀ */
+  else b=0x3F; /* ? */
+  o+=String.fromCharCode(b);} return o;}
+function pdfFontKey(bold,italic){return bold&&italic?'F4':bold?'F2':italic?'F3':'F1';}
+// Redline colours as PDF "r g b" (0-1), matching the on-screen palette.
+function pdfStyle(meta,kind,bodyPt,runBold){
+  const h=meta.heading; let size=bodyPt,bold=(!!meta.isBold||!!runBold),italic=false;
+  if(h===1){size=bodyPt*1.6;bold=true;} else if(h===2){size=bodyPt*1.35;bold=true;}
+  else if(h===3){size=bodyPt*1.18;bold=true;} else if(h>=4){size=bodyPt;bold=true;italic=true;}
+  let color='0 0 0',underline=false,strike=false;
+  if(kind==='ins'){color='0.043 0.361 0.678';underline=true;}
+  else if(kind==='del'){color='0.702 0.149 0.118';strike=true;}
+  else if(kind==='moved'){color='0.106 0.498 0.231';underline=true;}
+  else if(kind==='moved-src'){color='0.106 0.498 0.231';strike=true;}
+  return {size,bold,italic,color,underline,strike};
+}
+// Parse our generated redline HTML into typed runs (eq/ins/del/moved/moved-src).
+function pdfParseRuns(html){
+  const out=[],stack=[]; let bold=0; const re=/<ins>|<\/ins>|<del>|<\/del>|<span class="moved">|<span class="moved-src">|<\/span>|<b>|<\/b>|[^<]+/g; let m;
+  while((m=re.exec(html))){const t=m[0];
+    if(t==='<ins>')stack.push('ins'); else if(t==='<del>')stack.push('del');
+    else if(t==='<span class="moved">')stack.push('moved'); else if(t==='<span class="moved-src">')stack.push('moved-src');
+    else if(t==='</ins>'||t==='</del>'||t==='</span>')stack.pop();
+    else if(t==='<b>')bold++; else if(t==='</b>')bold=Math.max(0,bold-1);
+    else out.push({text:t.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>'),kind:stack.length?stack[stack.length-1]:'eq',bold:bold>0});
+  } return out;
+}
+function generateRedlinePdf(opts){
+  opts=opts||{};
+  const rows=opts.rows||lastRows||[];
+  const g=opts.geom||pageGeom||{wIn:8.5,hIn:11,mt:1,mr:1,mb:1,ml:1,fontPt:11,font:'Times New Roman'};
+  const summary=opts.summary||lastSummary;
+  const faName=opts.fileAName!=null?opts.fileAName:((fileA&&fileA.name)||'');
+  const fbName=opts.fileBName!=null?opts.fileBName:((fileB&&fileB.name)||'');
+  const Wpt=g.wIn*PT,Hpt=g.hIn*PT,mlPt=g.ml*PT,mrPt=g.mr*PT,mtPt=g.mt*PT,mbPt=g.mb*PT;
+  const contentRight=Wpt-mrPt, bodyPt=g.fontPt||11;
+  const show=opts.show||{ins:$('fIns').checked,del:$('fDel').checked,mov:$('fMov').checked,eq:$('fEq').checked};
+  let ctx=null; try{ctx=document.createElement('canvas').getContext('2d');}catch(_){}
+  const measure=(t,size,bold,italic)=>{ if(!t)return 0;
+    if(ctx){ctx.font=(italic?'italic ':'')+(bold?'bold ':'')+(size*96/72)+'px "Times New Roman", Georgia, serif';return ctx.measureText(t).width*0.75;}
+    return timesWidth(t,size,bold); };
+  const pages=[]; let ops=null,penY=0;
+  const newPage=()=>{ops=[];pages.push(ops);penY=Hpt-mtPt;};
+  const seg=(x,baseline,text,st)=>{ if(text==null||text==='')return;
+    const fk=st.font||pdfFontKey(st.bold,st.italic);
+    ops.push('BT','/'+fk+' '+fmt(st.size)+' Tf',st.color+' rg','1 0 0 1 '+fmt(x)+' '+fmt(baseline)+' Tm','('+pdfEsc(encWin(text))+') Tj','ET');
+    if(st.underline||st.strike){const w=measure(text,st.size,st.bold,st.italic);
+      const yl=st.strike?(baseline+st.size*0.26):(baseline-1.3);
+      ops.push(st.color+' RG','0.6 w',fmt(x)+' '+fmt(yl)+' m '+fmt(x+w)+' '+fmt(yl)+' l S');}
+  };
+  newPage();
+  // ---- Compact banner (identifies the comparison; only on page 1) ----
+  let by=penY;
+  seg(mlPt,by-13,'Redline Comparison',{size:13,bold:true,italic:false,color:'0.12 0.16 0.26',font:'F5',underline:false,strike:false});
+  by-=20;
+  seg(mlPt,by-9,'Original: '+faName+'   \u2192   Revised: '+fbName,{size:9,bold:false,italic:false,color:'0.36 0.40 0.44',font:'F5',underline:false,strike:false});
+  by-=12;
+  seg(mlPt,by-9,'Generated '+new Date().toLocaleString()+'   \u2022   '+((summary&&summary.total)||0)+' change'+(((summary&&summary.total)===1)?'':'s'),{size:9,bold:false,italic:false,color:'0.36 0.40 0.44',font:'F5',underline:false,strike:false});
+  by-=14;
+  ops.push('0.85 0.87 0.90 RG','0.8 w',fmt(mlPt)+' '+fmt(by)+' m '+fmt(contentRight)+' '+fmt(by)+' l S');
+  by-=16; penY=by;
+  // ---- Body paragraphs ----
+  let firstContent=true;
+  for(const row of rows){
+    const t=row.type;
+    if(t==='equal'&&!show.eq)continue;
+    if(t==='inserted'&&!show.ins)continue;
+    if(t==='deleted'&&!show.del)continue;
+    if((t==='moved-to'||t==='moved-from')&&!show.mov)continue;
+    const meta=row.meta||{};
+    // Real Word indentation (points), from w:ind on the paragraph / numbering level / style.
+    // Body text sits at (margin + left); the marker hangs left at (left - hanging).
+    const indLeftPt=meta.indLeftPt||0, indHangPt=meta.indHangingPt||0, indFLPt=meta.indFirstLinePt||0;
+    const bodyX=mlPt+indLeftPt;
+    const markerText=meta.marker||'';
+    const markerX=mlPt+indLeftPt-(indHangPt||0);
+    const base=pdfStyle(meta,'eq',bodyPt);
+    const align=meta.align||'left';
+    // atoms
+    const atoms=[];
+    for(const r of pdfParseRuns(row.html||'')){const st=pdfStyle(meta,r.kind,bodyPt,r.bold);
+      const toks=r.text.match(/\S+|\s+/g)||[];
+      for(const tk of toks)atoms.push({text:tk,st});}
+    // wrap: first line may carry a first-line indent; wrapped lines use the left indent.
+    const availFor=li=>Math.max(40,contentRight-(bodyX+(li===0?indFLPt:0)));
+    const lines=[]; let cur=[],curW=0;
+    for(const a of atoms){const isSp=/^\s+$/.test(a.text);const w=measure(a.text,a.st.size,a.st.bold,a.st.italic);
+      if(!cur.length&&isSp)continue;
+      if(curW+w>availFor(lines.length)&&cur.length){lines.push(cur);cur=[];curW=0;if(isSp)continue;}
+      cur.push(a);curW+=w;}
+    if(cur.length)lines.push(cur);
+    if(!lines.length)lines.push([{text:'',st:base}]);
+    // explicit page break before this paragraph
+    if(meta.pageBreakBefore&&!firstContent)newPage();
+    for(let li=0;li<lines.length;li++){
+      const line=lines[li];
+      let maxSize=base.size; for(const a of line)if(a.st.size>maxSize)maxSize=a.st.size;
+      const lineHeight=maxSize*1.15, ascent=maxSize*0.8;
+      if(penY-lineHeight<mbPt)newPage();
+      const baseline=penY-ascent;
+      if(li===0&&markerText)seg(markerX,baseline,markerText,base);
+      const lineStartX=bodyX+(li===0?indFLPt:0), lineAvail=contentRight-lineStartX;
+      // Natural width and gap count (interior spaces) for alignment maths.
+      let natural=0,gaps=0;
+      for(let k=0;k<line.length;k++){const a=line[k];natural+=measure(a.text,a.st.size,a.st.bold,a.st.italic);
+        if(/^\s+$/.test(a.text)&&k!==line.length-1)gaps++;}
+      const isLast=(li===lines.length-1);
+      let x=lineStartX, extraPerGap=0;
+      if(align==='center')x=lineStartX+Math.max(0,(lineAvail-natural)/2);
+      else if(align==='right')x=lineStartX+Math.max(0,(lineAvail-natural));
+      else if(align==='justify'&&!isLast&&gaps>0){const extra=lineAvail-natural;if(extra>0)extraPerGap=extra/gaps;}
+      for(let k=0;k<line.length;k++){const a=line[k];seg(x,baseline,a.text,a.st);
+        x+=measure(a.text,a.st.size,a.st.bold,a.st.italic);
+        if(extraPerGap&&/^\s+$/.test(a.text)&&k!==line.length-1)x+=extraPerGap;}
+      penY-=lineHeight;
+    }
+    penY-=6; firstContent=false;
+  }
+  // ---- Assemble PDF objects ----
+  const fonts=[['F1','Times-Roman'],['F2','Times-Bold'],['F3','Times-Italic'],['F4','Times-BoldItalic'],['F5','Helvetica-Bold']];
+  const firstPageObj=3+fonts.length;
+  const kids=[]; for(let i=0;i<pages.length;i++)kids.push((firstPageObj+2*i)+' 0 R');
+  const fontRes=fonts.map((f,i)=>'/'+f[0]+' '+(3+i)+' 0 R').join(' ');
+  const parts=[];
+  parts[1]='<</Type/Catalog/Pages 2 0 R>>';
+  parts[2]='<</Type/Pages/Count '+pages.length+'/Kids['+kids.join(' ')+']/MediaBox[0 0 '+fmt(Wpt)+' '+fmt(Hpt)+']>>';
+  fonts.forEach((f,i)=>{parts[3+i]='<</Type/Font/Subtype/Type1/BaseFont/'+f[1]+'/Encoding/WinAnsiEncoding>>';});
+  for(let i=0;i<pages.length;i++){const pn=firstPageObj+2*i,cn=pn+1;const content=pages[i].join('\n');
+    parts[pn]='<</Type/Page/Parent 2 0 R/Resources<</Font<<'+fontRes+'>>/ProcSet[/PDF/Text]>>/Contents '+cn+' 0 R>>';
+    parts[cn]='<</Length '+content.length+'>>\nstream\n'+content+'\nendstream';}
+  let pdf='%PDF-1.4\n'; const off=[];
+  for(let n=1;n<parts.length;n++){off[n]=pdf.length;pdf+=n+' 0 obj\n'+parts[n]+'\nendobj\n';}
+  const xrefStart=pdf.length, count=parts.length;
+  pdf+='xref\n0 '+count+'\n0000000000 65535 f \n';
+  for(let n=1;n<count;n++)pdf+=(''+off[n]).padStart(10,'0')+' 00000 n \n';
+  pdf+='trailer\n<</Size '+count+'/Root 1 0 R>>\nstartxref\n'+xrefStart+'\n%%EOF';
+  return {pdf,pages:pages.length};
+}
+function downloadPdf(){
+  if(!lastRows||!lastRows.length){showErr('Run a comparison first, then download the PDF.');return;}
+  try{
+    const {pdf}=generateRedlinePdf();
+    const bytes=new Uint8Array(pdf.length); for(let i=0;i<pdf.length;i++)bytes[i]=pdf.charCodeAt(i)&0xff;
+    const blob=new Blob([bytes],{type:'application/pdf'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url;
+    a.download=((fileB&&fileB.name)?fileB.name.replace(/\.docx$/i,''):'document')+' — Redline.pdf';
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{try{URL.revokeObjectURL(url);a.remove();}catch(_){}},1500);
+  }catch(e){showErr('PDF generation failed: '+(e&&e.message||e));}
+}
+$('btnPdf').addEventListener('click',downloadPdf);
+$('btnPrint').addEventListener('click',exportPdf);
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&(e.key==='p'||e.key==='P')&&document.getElementById('results').style.display!=='none'){
+    e.preventDefault(); downloadPdf();
+  }
+});
+
+function markerHtml(meta,minW){return '<span class="marker" style="min-width:'+minW.toFixed(1)+'px">'+esc((meta&&meta.marker)||'')+'</span>';}
+function paraHtml(row,pageBreak){
+  const meta=row.meta||{},cls=['para',row.type];
+  if(meta.heading)cls.push('h'+meta.heading);
+  if(meta.isBold)cls.push('bold');
+  if(pageBreak)cls.push('pgbreak');
+  // Real Word indents (pt) -> px. Marker hangs at (left-hanging); body sits at left.
+  const PX=4/3, leftPt=meta.indLeftPt||0, hangPt=meta.indHangingPt||0;
+  const markerText=(meta.marker||'');
+  const blockLeftPx=Math.max(0,(markerText?(leftPt-hangPt):leftPt))*PX;
+  const markerMinPx=markerText?Math.max(0,hangPt*PX-10):0; // -10 offsets the flex gap
+  const align=meta.align||'left';
+  let anchor='';
+  if(row.type==='moved-to')anchor='<span class="anchor" title="Moved from earlier">▲ moved</span>';
+  if(row.type==='moved-from')anchor='<span class="anchor" title="Moved to later">▼ moved</span>';
+  const badge=row.cid?('<span class="cbadge">'+row.cid+'</span>'):'';
+  const id=row.cid?(' id="chg-'+row.cid+(row.type==='moved-from'?'-from':'')+'"'):'';
+  const paraStyle=blockLeftPx>0.5?(' style="margin-left:'+blockLeftPx.toFixed(1)+'px"'):'';
+  const bodyStyle=(align!=='left')?(' style="text-align:'+align+'"'):'';
+  return '<p class="'+cls.join(' ')+'"'+id+paraStyle+' data-cid="'+(row.cid||'')+'">'+markerHtml(meta,markerMinPx)+
+         '<span class="body"'+bodyStyle+'>'+badge+row.html+anchor+'</span></p>';
+}
+function snippetHtml(row){let s=row.html;const plain=s.replace(/<[^>]+>/g,'');if(plain.length>90){s=row.html.slice(0,160);}return s;}
+function typeLabel(t){return t==='inserted'?'Insertion':t==='deleted'?'Deletion':t==='changed'?'Amendment':t==='moved-to'?'Move (to)':t==='moved-from'?'Move (from)':t;}
+
+/* Style the on-screen "paper" to the ACTUAL Word page: real width, margins (as padding),
+   default font & size. This makes the browser wrap lines — and therefore estimate page
+   breaks — the same way it will when printing, so screen and PDF agree. 96 CSS px = 1in. */
+function applyPageGeometry(){
+  const paper=$('paper'); if(!paper)return;
+  if(!pageGeom){paper.removeAttribute('style');return;}
+  const g=pageGeom, PX=96;
+  paper.style.width=(g.wIn*PX)+'px';
+  paper.style.maxWidth='none';
+  paper.style.padding=(g.mt*PX)+'px '+(g.mr*PX)+'px '+(g.mb*PX)+'px '+(g.ml*PX)+'px';
+  paper.style.fontSize=(g.fontPt||11)+'pt';
+  paper.style.fontFamily=(g.font?('"'+g.font+'",'):'')+'"Times New Roman",Georgia,serif';
+  paper.style.lineHeight='1.15';
+}
+/* Estimate Word's AUTOMATIC page breaks by filling each page top-to-bottom with the
+   rendered blocks and marking where the next block would overflow the printable height.
+   This is an approximation (browser font metrics ≠ Word's), but with real geometry it
+   lands close. Explicit breaks (.pgbreak-sep) always force a new page. */
+function paginate(){
+  try{
+    const paper=$('paper'); if(!paper||!pageGeom)return;
+    paper.querySelectorAll('.pgbreak-auto').forEach(e=>e.remove());
+    const g=pageGeom, PX=96;
+    const pageContent=(g.hIn-g.mt-g.mb)*PX;      // printable height per page, in px
+    if(!(pageContent>60))return;
+    const mb=el=>{const s=getComputedStyle(el);return (parseFloat(s.marginTop)||0)+(parseFloat(s.marginBottom)||0);};
+    let used=0, pages=1;
+    const kids=Array.prototype.slice.call(paper.children);
+    for(const el of kids){
+      const cl=el.classList;
+      // The redline banner isn't part of the Word doc — don't let it consume page 1.
+      if(cl.contains('docttl')||cl.contains('docmeta'))continue;
+      if(cl.contains('pgbreak-sep')){ used=0; pages++; continue; }   // explicit break: hard reset
+      const h=el.offsetHeight+mb(el);
+      if(used>0 && used+h>pageContent){
+        const mk=document.createElement('div');
+        mk.className='pgbreak-auto'; mk.setAttribute('aria-hidden','true');
+        mk.innerHTML='<span>Page break</span>';
+        paper.insertBefore(mk,el);
+        pages++; used=0;
+      }
+      used+=h;
+    }
+    const st=$('navStatus'); if(st&&st.dataset)st.dataset.pages=pages;
+  }catch(e){/* pagination is best-effort; never block the redline */}
+}
+let _pgTimer=null;
+function schedulePaginate(){ if(_pgTimer)clearTimeout(_pgTimer); _pgTimer=setTimeout(paginate,120); }
+window.addEventListener('resize',schedulePaginate);
+
+function renderAll(rows,summary){
+  lastSummary=summary;
+  $('cTotal').textContent=summary.total;$('cIns').textContent=summary.insertions;$('cDel').textContent=summary.deletions;$('cMov').textContent=summary.moves;
+  const cats=[];if(summary.content)cats.push(['Content',summary.content]);if(summary.punctuation)cats.push(['Punctuation',summary.punctuation]);if(summary.numbering)cats.push(['Numbering',summary.numbering]);if(summary.moves)cats.push(['Moves',summary.moves]);
+  $('catRow').innerHTML=cats.map(([l,n])=>'<span class="cat">'+l+': '+n+'</span>').join('');
+  const now=new Date().toLocaleString();
+  let html='<div class="docttl">Redline Comparison</div><div class="docmeta">Original: <b>'+esc(fileA.name)+'</b> &nbsp;→&nbsp; Revised: <b>'+esc(fileB.name)+'</b><br>Generated '+esc(now)+' &nbsp;•&nbsp; '+summary.total+' change'+(summary.total===1?'':'s')+'</div>';
+  let firstPara=true;
+  for(const r of rows){
+    // Honour Word page breaks in print/PDF. Suppress on the very first paragraph so
+    // the document never opens with a blank leading page.
+    const brk = !!(r.meta && r.meta.pageBreakBefore) && !firstPara;
+    if(brk) html+='<div class="pgbreak-sep" aria-hidden="true"><span>Page break</span></div>';
+    html+=paraHtml(r,brk);
+    firstPara=false;
+  }
+  $('paper').innerHTML=html;
+  const seen=new Set(); changeOrder=[]; let items='';
+  for(const r of rows){
+    if(r.type==='equal'||r.type==='moved-from')continue;
+    if(r.cid&&seen.has(r.cid))continue; if(r.cid)seen.add(r.cid);
+    changeOrder.push(r.cid);
+    const cls=r.type.startsWith('moved')?'moved':r.type;
+    items+='<div class="citem '+cls+'" data-cid="'+r.cid+'"><span class="cid">'+r.cid+'</span><span class="tag">'+typeLabel(r.type)+'</span><span class="snip">'+snippetHtml(r)+'</span></div>';
+  }
+  $('clist').innerHTML=items;
+  $('clist').querySelectorAll('.citem').forEach(el=>el.addEventListener('click',()=>{const cid=+el.dataset.cid;const idx=changeOrder.indexOf(cid);if(idx>=0){curIdx=idx;goToCurrent();}}));
+  applyPageGeometry();
+  curIdx=changeOrder.length?0:-1; applyFilters(); updateNavStatus();
+  // Estimate page breaks after layout settles (needs real rendered heights).
+  requestAnimationFrame(()=>requestAnimationFrame(paginate));
+}
+function applyFilters(){const r=$('results');r.classList.toggle('hide-ins',!$('fIns').checked);r.classList.toggle('hide-del',!$('fDel').checked);r.classList.toggle('hide-mov',!$('fMov').checked);r.classList.toggle('hide-eq',!$('fEq').checked);
+  // Hiding/showing paragraphs changes the layout, so re-estimate page breaks.
+  schedulePaginate();}
+['fIns','fDel','fMov','fEq'].forEach(id=>$(id).addEventListener('change',applyFilters));
+function updateNavStatus(){$('navStatus').textContent=changeOrder.length?('Change '+(curIdx+1)+' of '+changeOrder.length):'No changes';}
+function goToCurrent(){
+  if(curIdx<0||!changeOrder.length)return;
+  const cid=changeOrder[curIdx];
+  document.querySelectorAll('.citem').forEach(el=>el.classList.toggle('active',+el.dataset.cid===cid));
+  const activeItem=document.querySelector('.citem[data-cid="'+cid+'"]'); if(activeItem)activeItem.scrollIntoView({block:'nearest'});
+  const target=document.getElementById('chg-'+cid)||document.querySelector('.para[data-cid="'+cid+'"]');
+  if(target){target.scrollIntoView({behavior:'smooth',block:'center'});target.classList.remove('target-flash');void target.offsetWidth;target.classList.add('target-flash');}
+  updateNavStatus();
+}
+$('btnPrev').addEventListener('click',()=>{if(curIdx>0){curIdx--;goToCurrent();}});
+$('btnNext').addEventListener('click',()=>{if(curIdx<changeOrder.length-1){curIdx++;goToCurrent();}});
+document.addEventListener('keydown',e=>{if($('results').style.display==='none')return;if(e.key==='ArrowDown'||e.key==='j'){e.preventDefault();$('btnNext').click();}if(e.key==='ArrowUp'||e.key==='k'){e.preventDefault();$('btnPrev').click();}});
+</script>
+</body>
+</html>
