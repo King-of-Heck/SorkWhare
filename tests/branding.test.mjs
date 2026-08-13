@@ -15,3 +15,9 @@ test('branding: HeckSoft + v1.1.5, no HeckNet, no v1.1.4', ()=>{
   assert.doesNotMatch(h,/HeckNet/);
   assert.match(h,/<span class="ver">v1\.1\.5<\/span>/);
 });
+
+test('dead "Ignore whitespace" checkbox is gone (#2)', ()=>{
+  const {__html:h}=loadApp();
+  assert.doesNotMatch(h,/optWs/);
+  assert.doesNotMatch(h,/Ignore whitespace/);
+});
