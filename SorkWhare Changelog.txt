@@ -17,6 +17,42 @@ assigned during development (numbering is not sequential/uniform by design).
 
 
 -------------------------------------------------------------------------------
+ v1.1.5  -  Robustness release                       (2026-08-13)
+-------------------------------------------------------------------------------
+ - Project is now a git repository (baseline tagged v1.1.4); proper semver from
+   here on: patch = fixes, minor = features, major = breaking.
+ - Finished the HeckSoft rename that v1.1.4's changelog claimed (browser title
+   and header tagline still said "HeckNet").
+ - Removed the "Ignore whitespace" checkbox: it was never wired up, and the
+   extractor always normalizes whitespace before the diff (correct for legal
+   comparison), so the option was structurally a no-op.
+ - "Total" now counts unique numbered changes and always agrees with the
+   "Change X of Y" navigation; new "Amendments" chip shows composition
+   (Insertions/Deletions tiles keep their old per-side meanings).
+ - Ctrl+P and j/k no longer misfire on the setup screen (state flag instead of
+   inline-style sniffing).
+ - Sidebar snippets are truncated tag-safely (no more broken HTML bleeding
+   colours into the change list).
+ - XML entity decoding fixed (&amp; decoded last; numeric &#NNN;/&#xHHH;
+   references now supported).
+ - Diff engine rebuilt for bounded memory: common prefix/suffix trimming,
+   patience-style recursion on unique paragraphs, exact DP on small middles.
+   Identical output for normal documents; 10,000-paragraph compares no longer
+   risk a tab crash. Inline diffs cap at 4,000 tokens/side (whole-paragraph
+   replace beyond that).
+ - Paragraph pairing and move detection use a cheap bag-of-words upper bound
+   before running full LCS similarity — same pairings, much faster on heavily
+   rewritten documents.
+ - Warns when a source document contains unaccepted tracked changes (compared
+   as if all changes were accepted — which is what the engine always did).
+ - Nav status shows the estimated page count ("~N pages").
+ - Honest error messages: "not a ZIP archive" vs "appears to be corrupt" vs
+   "document.xml not found".
+ - Print button now respects the Show filters, matching the native PDF.
+ - Validation: Node test suite (node --test tests/) + in-browser smoke test.
+
+
+-------------------------------------------------------------------------------
  v1.1.4  -  Branding: new logo + "HeckSoft"        (2026-07-30)
 -------------------------------------------------------------------------------
  - Replaced the header logo with a new pixel-art crowned skull (rounded
