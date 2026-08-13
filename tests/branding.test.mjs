@@ -28,3 +28,9 @@ test('keyboard handlers guard on resultsShown, not style.display (#3)', ()=>{
   assert.doesNotMatch(h,/style\.display!=='none'/);
   assert.doesNotMatch(h,/style\.display==='none'\)return/);
 });
+
+test('print CSS does not force-show filtered paragraphs (#7)', ()=>{
+  const {__html:h}=loadApp();
+  const printBlock=h.match(/@media print\{[\s\S]*?\n  \}/)[0];
+  assert.doesNotMatch(printBlock,/hide-eq .para.equal\{display:flex\}/);
+});
