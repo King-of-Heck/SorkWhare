@@ -403,7 +403,7 @@ function compare(orig,rev,opts){
   const rows=[],pureDel=[],pureIns=[];
   for(let s=0;s<segs.length;s++){
     const seg=segs[s];
-    if(seg.tag==='equal'){for(const[i,j]of seg.items)rows.push({type:'equal',oi:i,ni:j,meta:rev[j],html:boldWrap(rev[j].text,rev[j].boldRuns)});continue;}
+    if(seg.tag==='equal'){for(const[i,j]of seg.items){if(i===j){rows.push({type:'equal',oi:i,ni:j,meta:rev[j],html:boldWrap(rev[j].text,rev[j].boldRuns)});}else{const fr={type:'moved-from',oi:i,ni:j,meta:orig[i],html:'<span class="moved-src">'+boldWrap(orig[i].text,orig[i].boldRuns)+'</span>'},tr={type:'moved-to',oi:i,ni:j,meta:rev[j],html:'<span class="moved">'+boldWrap(rev[j].text,rev[j].boldRuns)+'</span>'};fr.partner=tr;tr.partner=fr;rows.push(fr,tr);}}continue;}
     let dels=[],ins=[];
     if(seg.tag==='delete'){dels=seg.items.map(([i])=>i);if(segs[s+1]&&segs[s+1].tag==='insert'){ins=segs[s+1].items.map(([,j])=>j);s++;}}
     else{ins=seg.items.map(([,j])=>j);if(segs[s+1]&&segs[s+1].tag==='delete'){dels=segs[s+1].items.map(([i])=>i);s++;}}
@@ -427,7 +427,7 @@ function compare(orig,rev,opts){
       dr.html='<span class="moved-src">'+boldWrap(orig[dr.oi].text,orig[dr.oi].boldRuns)+'</span>';
     }
   }
-  const summary={insertions:0,deletions:0,moves:0,content:0,numbering:0,punctuation:0,total:0};
+  const summary={insertions:0,deletions:0,moves:0,amendments:0,content:0,numbering:0,punctuation:0,total:0};
   let n=0;
   for(const r of rows){
     if(r.type==='equal')continue;
@@ -435,9 +435,9 @@ function compare(orig,rev,opts){
     r.cid=++n;
     if(r.type==='inserted'){summary.insertions++;summary.content++;}
     else if(r.type==='deleted'){summary.deletions++;summary.content++;}
-    else if(r.type==='changed'){ if(r.cat==='punctuation')summary.punctuation++; else summary.content++; summary.insertions++;summary.deletions++; }
+    else if(r.type==='changed'){ summary.amendments++; if(r.cat==='punctuation')summary.punctuation++; else summary.content++; summary.insertions++;summary.deletions++; }
   }
-  summary.total=summary.insertions+summary.deletions+summary.moves;
+  summary.total=n; // unique numbered changes — matches "Change X of Y" navigation
   return {rows,summary};
 }
 
@@ -765,7 +765,7 @@ window.addEventListener('resize',schedulePaginate);
 function renderAll(rows,summary){
   lastSummary=summary;
   $('cTotal').textContent=summary.total;$('cIns').textContent=summary.insertions;$('cDel').textContent=summary.deletions;$('cMov').textContent=summary.moves;
-  const cats=[];if(summary.content)cats.push(['Content',summary.content]);if(summary.punctuation)cats.push(['Punctuation',summary.punctuation]);if(summary.numbering)cats.push(['Numbering',summary.numbering]);if(summary.moves)cats.push(['Moves',summary.moves]);
+  const cats=[];if(summary.amendments)cats.push(['Amendments',summary.amendments]);if(summary.content)cats.push(['Content',summary.content]);if(summary.punctuation)cats.push(['Punctuation',summary.punctuation]);if(summary.numbering)cats.push(['Numbering',summary.numbering]);if(summary.moves)cats.push(['Moves',summary.moves]);
   $('catRow').innerHTML=cats.map(([l,n])=>'<span class="cat">'+l+': '+n+'</span>').join('');
   const now=new Date().toLocaleString();
   let html='<div class="docttl">Redline Comparison</div><div class="docmeta">Original: <b>'+esc(fileA.name)+'</b> &nbsp;→&nbsp; Revised: <b>'+esc(fileB.name)+'</b><br>Generated '+esc(now)+' &nbsp;•&nbsp; '+summary.total+' change'+(summary.total===1?'':'s')+'</div>';
