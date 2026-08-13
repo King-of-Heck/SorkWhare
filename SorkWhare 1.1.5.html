@@ -203,7 +203,11 @@ async function readZipEntry(buf,target){
   return null;
 }
 async function tryEntry(buf,name){try{const d=await readZipEntry(buf,name);return d?new TextDecoder().decode(d):null;}catch(e){return null;}}
-function unxml(s){return (s||'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'");}
+function unxml(s){return (s||'')
+  .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'")
+  .replace(/&#x([0-9a-fA-F]+);/g,(_,h)=>String.fromCodePoint(parseInt(h,16)))
+  .replace(/&#(\d+);/g,(_,d)=>String.fromCodePoint(+d))
+  .replace(/&amp;/g,'&');}
 
 /* ================= styles.xml & numbering.xml ================= */
 // Parse a <w:ind ...> attribute string into twips {left,hanging,firstLine}; null if none.
