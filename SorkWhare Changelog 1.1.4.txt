@@ -1,0 +1,253 @@
+  _   _                    _       ____               __    _
+| | | |    ___     ___   | | __  / ___|     ___     / _|  | |_
+| |_| |   / _ \   / __|  | |/ /  \___ \    / _ \   | |_   | __| 
+|  _  |  |  __/  | (__   |   <    ___) |  | (_) |  |  _|  | |_
+|_| |_|   \___|   \___|  |_|\_\  |____/    \___/   |_|     \__|
+
+===============================================================================
+ SorkWhare Compare (R) - HeckSoft, a King of Heck Company (TM)
+ (originally "DocCompare" through v0.2.4)
+ CHANGELOG
+ A single-file, offline, browser-based Word (.docx) redline / compare tool.
+ No install, no internet, no upload - files never leave the machine.
+===============================================================================
+
+Newest version first. Dates in 2026. Version numbers are preserved as they were
+assigned during development (numbering is not sequential/uniform by design).
+
+
+-------------------------------------------------------------------------------
+ v1.1.4  -  Branding: new logo + "HeckSoft"        (2026-07-30)
+-------------------------------------------------------------------------------
+ - Replaced the header logo with a new pixel-art crowned skull (rounded
+   five-jewel crown, round eye sockets), navy + gold, hand-built as a
+   self-contained inline SVG (no external assets).
+ - Renamed the company line from "HeckNet" to "HeckSoft" (browser title +
+   header tagline).
+ - No functional/engine changes; all v1.1.x features left intact.
+
+
+-------------------------------------------------------------------------------
+ v1.1.3  -  Faithful paragraph formatting            (2026-07-29)
+-------------------------------------------------------------------------------
+ - Fixed lost paragraph JUSTIFICATION and too-narrow indents.
+ - Now parses Word alignment (w:jc) and indentation (w:ind: left / hanging /
+   first-line) from the paragraph, the numbering level, and the style
+   (with basedOn inheritance).
+ - Body text renders justified; title centered; numbered clauses use the
+   document's real indents:  "1." at 0.5in,  "(a)" at 1.0in,  "(i)" at 1.5in,
+   each with a proper hanging indent for the marker.
+ - Applied in BOTH the on-screen view and the native PDF (justify distributes
+   space on all lines except the last; center/right supported).
+ - Added a Times-Roman font-metrics table so text measures accurately even
+   when the browser Canvas API is unavailable.
+ - Root cause noted: the page margins were always correct; the "narrow
+   margins" look was really the too-shallow flat indent.
+ - Validation: 8/8 headless checks.
+
+
+-------------------------------------------------------------------------------
+ v1.0.5  -  Native vector-PDF export                 (2026-07-29)
+-------------------------------------------------------------------------------
+ - The "PDF" button now builds a REAL PDF file in pure JavaScript and
+   downloads it directly - no browser print dialog, so NO auto-injected
+   date / URL / page-number headers and footers.
+ - Pure JS, fully offline, no libraries: writes valid PDF 1.4 (catalog,
+   pages, per-page content streams, xref, trailer) using the base-14 Times
+   family (no font embedding). Output text is selectable / searchable.
+ - Honours page geometry (v1.0.4) and explicit page breaks (v1.0.3);
+   reproduces the redline palette (insert = blue underline, delete = red
+   strikethrough, move = green). WinAnsi encoding for smart quotes, dashes,
+   bullets, accents. Saves as "<revised> - Redline.pdf".
+ - Removed the word "estimated" from the on-screen page-break divider label.
+ - Fixed the browser Print button (it had rendered into a 0x0 iframe that
+   some Chromium builds refuse to print); it is now a secondary "Print"
+   option (the path that can add browser headers/footers).
+ - Validation: generator self-checks 14/14; verified with poppler (pdfinfo:
+   9 pages, Letter) and pypdf (selectable text).
+
+
+-------------------------------------------------------------------------------
+ v1.0.4  -  Reproduce Word's automatic pagination    (2026-07-29)
+-------------------------------------------------------------------------------
+ - Fixed a document that is 9 pages in Word showing only one page break.
+ - Diagnosis: the .docx stored only ONE explicit break; the other ~8 page
+   transitions are Word's automatic content-flow pagination and are not
+   stored in the file at all.
+ - Added parsing of real page geometry from the section properties (page
+   size and margins, twips -> inches) and the document's default font size
+   and family.
+ - The on-screen "paper" and the print/PDF @page are now driven by that real
+   geometry, so the browser's automatic pagination lands close to Word's; an
+   estimated page-break divider is shown on screen where content overflows.
+ - Honest limitation: this is an approximation - browser line-breaking differs
+   slightly from Word's, so estimated breaks can drift a line or two over many
+   pages. Explicit breaks remain exact.
+ - Validation: geometry parse 7/7; explicit-break regression 5/5.
+
+
+-------------------------------------------------------------------------------
+ v1.0.3  -  Honour Word page breaks in print/PDF     (2026-07-29)
+-------------------------------------------------------------------------------
+ - The redline now paginates like the source Word document for the breaks the
+   file actually stores. Detects three signals per paragraph:
+     1. "Page break before" paragraph formatting (respects the off value).
+     2. Manual page break (Ctrl+Enter):
+          - before the paragraph's text -> break belongs to this paragraph;
+          - after the text              -> break belongs to the next one.
+        A break sitting in an otherwise empty paragraph is carried forward
+        (previously it was dropped with the empty paragraph).
+     3. In-paragraph section break: Next Page / Odd / Even (or none) breaks
+        after the paragraph; Continuous / New Column do not.
+ - On screen, a "Page break" divider is shown; a real page break is emitted
+   for print/PDF; suppressed on the very first paragraph so the document
+   never opens with a blank leading page.
+ - Validation: 9/9 synthetic break cases.
+
+
+-------------------------------------------------------------------------------
+ v1.0  -  Initial branded release + workbench        (2026-07-28)
+-------------------------------------------------------------------------------
+ - First branded release: renamed "DocCompare" -> "SorkWhare Compare". Company line "HeckNet".
+ - Single self-contained HTML file chosen because the work laptop is locked
+   down (no Python, no admin installs); runs entirely in Edge/Chrome.
+ - Consolidated the engine and UI matured across the 0.1.x / 0.2.x builds:
+     * Pure-JS ZIP reader unpacks the .docx (document.xml, styles.xml,
+       numbering.xml).
+     * Paragraph-level LCS diff with word-level inline redline.
+     * Move detection (>= 5 words, high similarity).
+     * Formatting: headings, list numbering, and bullets, including legal
+       multi-level numbering linked via paragraph style + basedOn.
+     * Sub-numbering restart handled by a cascading counter keyed by level,
+       so "(a)" restarts under each new numbered section.
+     * Heading bolding limited to real Heading/Title styles (no over-bolding
+       of numbered body clauses).
+     * Change Summary sidebar with categorized counts, change navigation
+       (Prev/Next), and filters (Insertions / Deletions / Moves / Unchanged).
+     * Full-document view on by default.
+     * HTML/PDF output.
+ - Established the zip-to-OneDrive persistence workflow with NOTES.md and a
+   session log so future sessions resume quickly.
+ - Validation: test suite 24/24 against the real protocol documents.
+
+
+===============================================================================
+ PRE-1.0 DEVELOPMENT  ("DocCompare")   -   2026-07-28
+ Iterative browser-app builds before the SorkWhare rebrand.
+===============================================================================
+
+-------------------------------------------------------------------------------
+ v0.2.4  -  Clean PDF export via hidden iframe
+-------------------------------------------------------------------------------
+ - Replaced the plain window.print() with an exportPdf() routine that renders
+   into a hidden iframe, clones the page's styles, and preserves the current
+   on-screen filter (e.g. show/hide unchanged) in the printed output.
+ - Avoids scroll-container clipping and popup blockers; Ctrl/Cmd+P now routes
+   through the same clean export when results are showing.
+ - (This is the direct ancestor of the later "Print" path; the native
+   vector-PDF generator did not arrive until v1.0.5.)
+
+-------------------------------------------------------------------------------
+ v0.2.3  -  Faithful bold (fix "everything bold")
+-------------------------------------------------------------------------------
+ - Rewrote paragraph extraction to be run-aware: each <w:r> run's bold state
+   is read and a bold-character ratio is accumulated (isBold >= 60%).
+ - Bold is now driven by ACTUAL run formatting rather than outline level, so
+   true section headings (e.g. "Background") render bold while numbered body
+   clauses that merely contain a few bold defined terms stay normal weight.
+ - Added the .para.bold styling and the 'bold' class in paragraph rendering.
+
+-------------------------------------------------------------------------------
+ v0.2.2  -  Correct headings & multilevel numbering
+-------------------------------------------------------------------------------
+ - Heading detection restricted to an explicit "Heading N" / "Title" style;
+   stopped inferring headings from outlineLvl (which had been enlarging/
+   bolding legal sub-paragraphs like "(e)").
+ - Numbering counter reworked to a single cascading counter keyed by LEVEL
+   (not by list id): incrementing a shallower level (a new section "2.")
+   resets deeper levels so "(a)" restarts under each section - even when the
+   section headings and sub-clauses live on different list definitions.
+ - A heading also resets any deeper numbered sub-lists beneath it.
+
+-------------------------------------------------------------------------------
+ v0.2.1  -  Defaults & heading style polish
+-------------------------------------------------------------------------------
+ - "Unchanged text" now shown by default (filter checked on load).
+ - Minor heading typography tweaks (h4-h6 rendered at 600 weight, italic).
+
+-------------------------------------------------------------------------------
+ v0.2.0  -  Workshare-style redline baseline
+-------------------------------------------------------------------------------
+ - Consolidation checkpoint of the redline UI: left "Change Summary" sidebar
+   with Total / Insertions / Deletions / Moves counts, category chips, a
+   clickable change list, filters, and Prev/Next change navigation with
+   keyboard shortcuts (arrows / j / k).
+ - Move detection with an adjustable move-threshold (words) option.
+ - Styles/numbering parsing incl. style-to-number mapping (styleToNum).
+
+-------------------------------------------------------------------------------
+ v0.1.2  -  Focused redline rewrite
+-------------------------------------------------------------------------------
+ - Streamlined the "Workshare-style" redline into the split summary + document
+   layout with the categorized change list and filter checkboxes.
+ - Kept paragraph/word LCS diff and move detection; simplified away the
+   table-grid and risk-term features from 0.1.1 to sharpen the core redline.
+ - "Unchanged text" filter off by default at this stage.
+
+-------------------------------------------------------------------------------
+ v0.1.1  -  "Workshare-style" rewrite (major)
+-------------------------------------------------------------------------------
+ - Reworked into a full-height app with a setup screen and a results screen.
+ - Added a Change Summary sidebar: total, insertions/deletions/moves, and a
+   by-category breakdown (Content / Numbering / Punctuation / Tables).
+ - MOVE DETECTION (moved-out / moved-in) with a move tag in the document.
+ - TABLE diffing: balanced-tag parser walks <w:tbl>/<w:tr>/<w:tc> and renders
+   inserted / deleted / changed table cells.
+ - Character-level detail option (word vs character inline diff).
+ - Change navigation (Prev/Next, keyboard) with current-change highlight.
+ - Retained the key-legal-term risk flags from 0.1.0.
+ - Options: ignore whitespace, ignore case, character-level detail, show
+   unchanged text, flag key legal terms.
+
+-------------------------------------------------------------------------------
+ v0.1.0  -  First working build  ("DocCompare - Word Document Blackline")
+-------------------------------------------------------------------------------
+ - The original proof of concept. Runs entirely in the browser; no install,
+   no internet, no upload.
+ - Pure-JS .docx (ZIP) reader using DecompressionStream; parses document.xml,
+   styles.xml and numbering.xml with no external libraries.
+ - Structured extraction preserving headings, list numbering and bullets
+   (decimal / letter / roman / bullet formats, multi-level indent).
+ - Paragraph-level LCS blackline with word-level inline insert/delete, and
+   similarity-based pairing of changed paragraphs.
+ - Stats bar (Amended / Inserted / Deleted / Unchanged) and a printable
+   blackline document view.
+ - "Flag key legal terms" scanner (liability, indemnity, termination,
+   assignment/change of control, confidentiality, governing law, warranty,
+   IP, insurance, term, payment/price).
+ - Options: ignore case, ignore whitespace, show unchanged text, flag key
+   legal terms. PDF via browser print.
+
+
+===============================================================================
+ KNOWN LIMITATIONS (current)
+===============================================================================
+ - Pagination approximates Word's layout engine; over many pages a break can
+   drift by a line or two. Explicit page breaks are exact.
+ - The native PDF reproduces the redline content and formatting (justification,
+   Word indents, inline bold) but not every Word visual: tables render as
+   text; no headers/footers/footnotes/images; italic and underline from the
+   source are not yet tracked (only bold).
+
+===============================================================================
+ IDEAS / PARKED
+===============================================================================
+ - Track inline italic + underline from the source (same technique as bold).
+ - Optional clean "Page X of Y" footer inside the native PDF.
+ - Table-grid rendering in the PDF (the on-screen table diff existed back in
+   v0.1.1; bringing it into the native PDF is still open).
+ - True redline .docx output.
+ - Re-add the "key legal terms" risk flags (from v0.1.0/0.1.1) if wanted.
+ - Set the crowned-skull mark as the browser tab favicon.
+ - Electron + Word-COM for pixel-perfect pagination (parked; needs install).
+
