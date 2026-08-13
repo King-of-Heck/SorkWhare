@@ -14,3 +14,11 @@ test('unxml decodes numeric entities', ()=>{
 test('unxml still decodes the named five', ()=>{
   assert.equal(unxml('&lt;a&gt; &quot;q&quot; &apos;s&apos;'),'<a> "q" \'s\'');
 });
+
+test('pdfParseRuns decodes &amp; last — literal &lt; survives to PDF (final review)', ()=>{
+  const {pdfParseRuns}=loadApp();
+  const runs=pdfParseRuns('<ins>&amp;lt; and &amp;amp;</ins>');
+  assert.equal(runs.length,1);
+  assert.equal(runs[0].text,'&lt; and &amp;');
+  assert.equal(runs[0].kind,'ins');
+});

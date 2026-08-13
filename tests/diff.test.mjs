@@ -57,6 +57,17 @@ test('safeInline caps huge paragraphs (#8)', ()=>{
   assert.match(out,/<ins>.*<\/ins>$/);
 });
 
+test('safeInline capped fallback omits empty sides (final review)', ()=>{
+  const {safeInline}=ctx;
+  const big=Array.from({length:4500},(_,i)=>'w'+i).join(' ');
+  const insOnly=safeInline('',big,[],[]);
+  assert.ok(!insOnly.includes('<del>'),'no empty <del>');
+  assert.match(insOnly,/^<ins>/);
+  const delOnly=safeInline(big,'',[],[]);
+  assert.ok(!delOnly.includes('<ins>'),'no empty <ins>');
+  assert.match(delOnly,/^<del>/);
+});
+
 // Verbatim old implementation from v1.1.4, kept private to this test file so
 // we can fuzz for EXACT op-sequence parity (not just LCS-length parity).
 function oldLcsOps(a,b){const n=a.length,m=b.length,dp=Array.from({length:n+1},()=>new Uint32Array(m+1));for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)dp[i][j]=a[i]===b[j]?dp[i+1][j+1]+1:Math.max(dp[i+1][j],dp[i][j+1]);const ops=[];let i=0,j=0;while(i<n&&j<m){if(a[i]===b[j]){ops.push(['equal',i,j]);i++;j++;}else if(dp[i+1][j]>=dp[i][j+1]){ops.push(['delete',i,j]);i++;}else{ops.push(['insert',i,j]);j++;}}while(i<n){ops.push(['delete',i,j]);i++;}while(j<m){ops.push(['insert',i,j]);j++;}return ops;}
