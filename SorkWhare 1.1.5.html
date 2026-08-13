@@ -373,7 +373,60 @@ async function docxToParagraphs(file){
 }
 
 /* ================= diff engine ================= */
-function lcsOps(a,b){const n=a.length,m=b.length,dp=Array.from({length:n+1},()=>new Uint32Array(m+1));for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)dp[i][j]=a[i]===b[j]?dp[i+1][j+1]+1:Math.max(dp[i+1][j],dp[i][j+1]);const ops=[];let i=0,j=0;while(i<n&&j<m){if(a[i]===b[j]){ops.push(['equal',i,j]);i++;j++;}else if(dp[i+1][j]>=dp[i][j+1]){ops.push(['delete',i,j]);i++;}else{ops.push(['insert',i,j]);j++;}}while(i<n){ops.push(['delete',i,j]);i++;}while(j<m){ops.push(['insert',i,j]);j++;}return ops;}
+/* LCS diff with bounded memory: trim common prefix/suffix, DP on small middles
+   (identical output to the old implementation), patience-style recursion on
+   unique anchors for large ones, replace-all as the anchorless last resort. */
+const DP_CELL_CAP=1000000; // max (n*m) cells the exact DP may allocate (~4MB)
+function lcsOps(a,b){const ops=[];_diff(a,0,a.length,b,0,b.length,ops);return ops;}
+function _dpOps(a,a0,a1,b,b0,b1,ops){
+  const n=a1-a0,m=b1-b0,dp=Array.from({length:n+1},()=>new Uint32Array(m+1));
+  for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)dp[i][j]=a[a0+i]===b[b0+j]?dp[i+1][j+1]+1:Math.max(dp[i+1][j],dp[i][j+1]);
+  let i=0,j=0;
+  while(i<n&&j<m){if(a[a0+i]===b[b0+j]){ops.push(['equal',a0+i,b0+j]);i++;j++;}
+    else if(dp[i+1][j]>=dp[i][j+1]){ops.push(['delete',a0+i,b0+j]);i++;}
+    else{ops.push(['insert',a0+i,b0+j]);j++;}}
+  while(i<n){ops.push(['delete',a0+i,b0+j]);i++;}
+  while(j<m){ops.push(['insert',a0+i,b0+j]);j++;}
+}
+function _diff(a,a0,a1,b,b0,b1,ops){
+  while(a0<a1&&b0<b1&&a[a0]===b[b0]){ops.push(['equal',a0,b0]);a0++;b0++;}
+  let suf=0;
+  while(a1>a0&&b1>b0&&a[a1-1]===b[b1-1]){a1--;b1--;suf++;}
+  const n=a1-a0,m=b1-b0;
+  if(n===0){for(let j=b0;j<b1;j++)ops.push(['insert',a0,j]);}
+  else if(m===0){for(let i=a0;i<a1;i++)ops.push(['delete',i,b0]);}
+  else if(n*m<=DP_CELL_CAP){_dpOps(a,a0,a1,b,b0,b1,ops);}
+  else{
+    const anchors=_uniqueAnchors(a,a0,a1,b,b0,b1);
+    if(!anchors.length){
+      for(let i=a0;i<a1;i++)ops.push(['delete',i,b0]);
+      for(let j=b0;j<b1;j++)ops.push(['insert',a1,j]);
+    }else{
+      let pa=a0,pb=b0;
+      for(const[ai,bi]of anchors){_diff(a,pa,ai,b,pb,bi,ops);ops.push(['equal',ai,bi]);pa=ai+1;pb=bi+1;}
+      _diff(a,pa,a1,b,pb,b1,ops);
+    }
+  }
+  for(let k=0;k<suf;k++)ops.push(['equal',a1+k,b1+k]);
+}
+function _uniqueAnchors(a,a0,a1,b,b0,b1){
+  // Elements occurring exactly once in each slice, chained by longest
+  // increasing subsequence of b-positions (patience diff anchors).
+  const ca=new Map(),cb=new Map();
+  for(let i=a0;i<a1;i++){const v=a[i];ca.set(v,ca.has(v)?-1:i);}
+  for(let j=b0;j<b1;j++){const v=b[j];cb.set(v,cb.has(v)?-1:j);}
+  const pairs=[];
+  for(let i=a0;i<a1;i++){const v=a[i];if(ca.get(v)===i){const j=cb.get(v);if(j!=null&&j>=0)pairs.push([i,j]);}}
+  const tails=[],tailIdx=[],prev=new Array(pairs.length);
+  for(let p=0;p<pairs.length;p++){const j=pairs[p][1];
+    let lo=0,hi=tails.length;
+    while(lo<hi){const mid=(lo+hi)>>1;if(tails[mid]<j)lo=mid+1;else hi=mid;}
+    tails[lo]=j;tailIdx[lo]=p;prev[p]=lo>0?tailIdx[lo-1]:-1;
+  }
+  const out=[];let p=tails.length?tailIdx[tails.length-1]:-1;
+  while(p>=0){out.push(pairs[p]);p=prev[p];}
+  return out.reverse();
+}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function tok(t){return String(t||'').match(/\w+|[^\w\s]|\s+/gu)||[];}
 function wordsOnly(t){return String(t||'').toLowerCase().match(/\w+/gu)||[];}
@@ -390,6 +443,14 @@ function inlineDiffB(o,n,ob,nb){const a=tok(o),b=tok(n),ops=lcsOps(a,b),af=_tokB
   const flush=()=>{if(!buf)return;let inner=esc(buf);if(bold)inner='<b>'+inner+'</b>';if(mode==='del')out+='<del>'+inner+'</del>';else if(mode==='ins')out+='<ins>'+inner+'</ins>';else out+=inner;buf='';};
   for(const[tag,i,j]of ops){const isIns=tag==='insert';const piece=isIns?b[j]:a[i];const mm=tag==='equal'?'eq':(tag==='delete'?'del':'ins');const bb=isIns?bf[j]:af[i];if(mm!==mode||bb!==bold){flush();mode=mm;bold=bb;}buf+=piece;}
   flush();return out;}
+// Inline diff with a token cap: beyond it, LCS quality/latency isn't worth it —
+// render the change as a whole-paragraph replace instead.
+const INLINE_TOKEN_CAP=4000;
+function safeInline(o,n,ob,nb){
+  if(tok(o).length>INLINE_TOKEN_CAP||tok(n).length>INLINE_TOKEN_CAP)
+    return '<del>'+boldWrap(o,ob)+'</del><ins>'+boldWrap(n,nb)+'</ins>';
+  return inlineDiffB(o,n,ob,nb);
+}
 function sim(a,b){const ta=tok(a).filter(x=>x.trim()),tb=tok(b).filter(x=>x.trim());if(!ta.length&&!tb.length)return 1;const ops=lcsOps(ta,tb);let c=0;for(const[t]of ops)if(t==='equal')c++;return(2*c)/(ta.length+tb.length);}
 function norm2(t,ic){t=t.replace(/\s+/g,' ').trim();if(ic)t=t.toLowerCase();return t;}
 function categorize(o,n){const wa=wordsOnly(o).join(' '),wb=wordsOnly(n).join(' ');if(wa===wb&&o!==n)return 'punctuation';return 'content';}
@@ -410,7 +471,7 @@ function compare(orig,rev,opts){
     for(const di of dels){let best=-1,bs=0;for(const ji of ins){if(used.has(ji))continue;const v=sim(oT[di],rT[ji]);if(v>bs){bs=v;best=ji;}}if(best>=0&&bs>=0.5){used.add(best);paired.push([di,best]);}else paired.push([di,-1]);}
     const done=new Set();
     for(const[di,ji]of paired){
-      if(ji>=0){rows.push({type:'changed',oi:di,ni:ji,meta:rev[ji],html:inlineDiffB(orig[di].text,rev[ji].text,orig[di].boldRuns,rev[ji].boldRuns),cat:categorize(oT[di],rT[ji])});done.add(ji);}
+      if(ji>=0){rows.push({type:'changed',oi:di,ni:ji,meta:rev[ji],html:safeInline(orig[di].text,rev[ji].text,orig[di].boldRuns,rev[ji].boldRuns),cat:categorize(oT[di],rT[ji])});done.add(ji);}
       else{const r={type:'deleted',oi:di,meta:orig[di],html:'<del>'+boldWrap(orig[di].text,orig[di].boldRuns)+'</del>'};rows.push(r);pureDel.push(r);}
     }
     for(const ji of ins)if(!done.has(ji)){const r={type:'inserted',ni:ji,meta:rev[ji],html:'<ins>'+boldWrap(rev[ji].text,rev[ji].boldRuns)+'</ins>'};rows.push(r);pureIns.push(r);}
@@ -422,7 +483,7 @@ function compare(orig,rev,opts){
     if(best&&bestSim>=0.8){
       dr.type='moved-from';dr.moved=true;dr.partner=best;
       best.type='moved-to';best.moved=true;best.partner=dr;
-      best.html='<span class="moved">'+(bestSim<1?inlineDiffB(orig[dr.oi].text,rev[best.ni].text,orig[dr.oi].boldRuns,rev[best.ni].boldRuns):boldWrap(rev[best.ni].text,rev[best.ni].boldRuns))+'</span>';
+      best.html='<span class="moved">'+(bestSim<1?safeInline(orig[dr.oi].text,rev[best.ni].text,orig[dr.oi].boldRuns,rev[best.ni].boldRuns):boldWrap(rev[best.ni].text,rev[best.ni].boldRuns))+'</span>';
       dr.html='<span class="moved-src">'+boldWrap(orig[dr.oi].text,orig[dr.oi].boldRuns)+'</span>';
     }
   }
