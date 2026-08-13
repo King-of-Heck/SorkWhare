@@ -403,7 +403,7 @@ function compare(orig,rev,opts){
   const rows=[],pureDel=[],pureIns=[];
   for(let s=0;s<segs.length;s++){
     const seg=segs[s];
-    if(seg.tag==='equal'){for(const[i,j]of seg.items){if(i===j){rows.push({type:'equal',oi:i,ni:j,meta:rev[j],html:boldWrap(rev[j].text,rev[j].boldRuns)});}else{const fr={type:'moved-from',oi:i,ni:j,meta:orig[i],html:'<span class="moved-src">'+boldWrap(orig[i].text,orig[i].boldRuns)+'</span>'},tr={type:'moved-to',oi:i,ni:j,meta:rev[j],html:'<span class="moved">'+boldWrap(rev[j].text,rev[j].boldRuns)+'</span>'};fr.partner=tr;tr.partner=fr;rows.push(fr,tr);}}continue;}
+    if(seg.tag==='equal'){for(const[i,j]of seg.items)rows.push({type:'equal',oi:i,ni:j,meta:rev[j],html:boldWrap(rev[j].text,rev[j].boldRuns)});continue;}
     let dels=[],ins=[];
     if(seg.tag==='delete'){dels=seg.items.map(([i])=>i);if(segs[s+1]&&segs[s+1].tag==='insert'){ins=segs[s+1].items.map(([,j])=>j);s++;}}
     else{ins=seg.items.map(([,j])=>j);if(segs[s+1]&&segs[s+1].tag==='delete'){dels=segs[s+1].items.map(([i])=>i);s++;}}
