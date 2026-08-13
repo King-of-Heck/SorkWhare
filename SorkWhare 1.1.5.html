@@ -443,6 +443,7 @@ function compare(orig,rev,opts){
 
 /* ================= UI ================= */
 let fileA=null,fileB=null,lastRows=null,changeOrder=[],curIdx=-1,pageGeom=null,lastSummary=null;
+let resultsShown=false;
 const $=id=>document.getElementById(id);
 function wireDrop(dropId,nameId,which){const d=$(dropId),input=document.createElement('input');input.type='file';input.accept='.docx';input.style.display='none';d.appendChild(input);d.addEventListener('click',()=>input.click());input.addEventListener('change',e=>{if(e.target.files[0])setFile(e.target.files[0],which,d,nameId);});d.addEventListener('dragover',e=>{e.preventDefault();d.classList.add('dragover');});d.addEventListener('dragleave',()=>d.classList.remove('dragover'));d.addEventListener('drop',e=>{e.preventDefault();d.classList.remove('dragover');const f=e.dataTransfer.files[0];if(f)setFile(f,which,d,nameId);});}
 function setFile(f,which,d,nameId){if(!f.name.toLowerCase().endsWith('.docx')){showErr('Please choose a .docx file.');return;}if(which==='A')fileA=f;else fileB=f;d.classList.add('filled');$(nameId).textContent=f.name;$('btnCompare').disabled=!(fileA&&fileB);showErr('');}
@@ -458,11 +459,11 @@ $('btnCompare').addEventListener('click',async()=>{
     pageGeom=(ra&&ra.geometry)||(oa&&oa.geometry)||null;
     const {rows,summary}=compare(oa,ra,{ignoreCase:$('optCase').checked,moveMin:+$('optMove').value||5});
     lastRows=rows; renderAll(rows,summary);
-    $('setup').style.display='none';$('results').style.display='block';$('navToolbar').style.display='flex';
+    $('setup').style.display='none';$('results').style.display='block';$('navToolbar').style.display='flex';resultsShown=true;
   }catch(err){showErr(err.message||String(err));}
   finally{$('btnCompare').disabled=false;$('btnCompare').textContent='Compare ▶';}
 });
-$('btnNew').addEventListener('click',()=>{$('results').style.display='none';$('navToolbar').style.display='none';$('setup').style.display='block';});
+$('btnNew').addEventListener('click',()=>{$('results').style.display='none';$('navToolbar').style.display='none';$('setup').style.display='block';resultsShown=false;});
 
 function exportPdf(){
   const paper=document.getElementById('paper');
@@ -669,7 +670,7 @@ function downloadPdf(){
 $('btnPdf').addEventListener('click',downloadPdf);
 $('btnPrint').addEventListener('click',exportPdf);
 document.addEventListener('keydown',e=>{
-  if((e.ctrlKey||e.metaKey)&&(e.key==='p'||e.key==='P')&&document.getElementById('results').style.display!=='none'){
+  if((e.ctrlKey||e.metaKey)&&(e.key==='p'||e.key==='P')&&resultsShown){
     e.preventDefault(); downloadPdf();
   }
 });
@@ -810,7 +811,7 @@ function goToCurrent(){
 }
 $('btnPrev').addEventListener('click',()=>{if(curIdx>0){curIdx--;goToCurrent();}});
 $('btnNext').addEventListener('click',()=>{if(curIdx<changeOrder.length-1){curIdx++;goToCurrent();}});
-document.addEventListener('keydown',e=>{if($('results').style.display==='none')return;if(e.key==='ArrowDown'||e.key==='j'){e.preventDefault();$('btnNext').click();}if(e.key==='ArrowUp'||e.key==='k'){e.preventDefault();$('btnPrev').click();}});
+document.addEventListener('keydown',e=>{if(!resultsShown)return;if(e.key==='ArrowDown'||e.key==='j'){e.preventDefault();$('btnNext').click();}if(e.key==='ArrowUp'||e.key==='k'){e.preventDefault();$('btnPrev').click();}});
 </script>
 </body>
 </html>

@@ -21,3 +21,10 @@ test('dead "Ignore whitespace" checkbox is gone (#2)', ()=>{
   assert.doesNotMatch(h,/optWs/);
   assert.doesNotMatch(h,/Ignore whitespace/);
 });
+
+test('keyboard handlers guard on resultsShown, not style.display (#3)', ()=>{
+  const {__html:h}=loadApp();
+  assert.match(h,/let\s+resultsShown\s*=\s*false/);
+  assert.doesNotMatch(h,/style\.display!=='none'/);
+  assert.doesNotMatch(h,/style\.display==='none'\)return/);
+});
