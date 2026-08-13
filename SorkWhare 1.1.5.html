@@ -697,7 +697,20 @@ function paraHtml(row,pageBreak){
   return '<p class="'+cls.join(' ')+'"'+id+paraStyle+' data-cid="'+(row.cid||'')+'">'+markerHtml(meta,markerMinPx)+
          '<span class="body"'+bodyStyle+'>'+badge+row.html+anchor+'</span></p>';
 }
-function snippetHtml(row){let s=row.html;const plain=s.replace(/<[^>]+>/g,'');if(plain.length>90){s=row.html.slice(0,160);}return s;}
+function snippetHtml(row){
+  // Tag-safe truncation: walk tags/text, keep ~90 visible chars, close open tags.
+  const LIMIT=90; const re=/<[^>]+>|[^<]+/g; let m,out='',vis=0; const stack=[];
+  while(vis<LIMIT&&(m=re.exec(row.html))){
+    const t=m[0];
+    if(t[0]==='<'){
+      out+=t;
+      if(t[1]==='/')stack.pop(); else stack.push(t.match(/^<(\w+)/)[1]);
+    }else if(vis+t.length<=LIMIT){ out+=t; vis+=t.length; }
+    else { out+=t.slice(0,LIMIT-vis)+'…'; vis=LIMIT; }
+  }
+  while(stack.length)out+='</'+stack.pop()+'>';
+  return out;
+}
 function typeLabel(t){return t==='inserted'?'Insertion':t==='deleted'?'Deletion':t==='changed'?'Amendment':t==='moved-to'?'Move (to)':t==='moved-from'?'Move (from)':t;}
 
 /* Style the on-screen "paper" to the ACTUAL Word page: real width, margins (as padding),
