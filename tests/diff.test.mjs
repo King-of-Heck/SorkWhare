@@ -56,3 +56,27 @@ test('safeInline caps huge paragraphs (#8)', ()=>{
   assert.match(out,/^<del>/);
   assert.match(out,/<ins>.*<\/ins>$/);
 });
+
+// Verbatim old implementation from v1.1.4, kept private to this test file so
+// we can fuzz for EXACT op-sequence parity (not just LCS-length parity).
+function oldLcsOps(a,b){const n=a.length,m=b.length,dp=Array.from({length:n+1},()=>new Uint32Array(m+1));for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)dp[i][j]=a[i]===b[j]?dp[i+1][j+1]+1:Math.max(dp[i+1][j],dp[i][j+1]);const ops=[];let i=0,j=0;while(i<n&&j<m){if(a[i]===b[j]){ops.push(['equal',i,j]);i++;j++;}else if(dp[i+1][j]>=dp[i][j+1]){ops.push(['delete',i,j]);i++;}else{ops.push(['insert',i,j]);j++;}}while(i<n){ops.push(['delete',i,j]);i++;}while(j<m){ops.push(['insert',i,j]);j++;}return ops;}
+
+test('parity with old DP on small inputs (exact op sequence)', ()=>{
+  // deterministic PRNG so the test is reproducible
+  let seed=42; const rnd=()=>((seed=(seed*1103515245+12345)&0x7fffffff)/0x80000000);
+  const ALPHA=['a','b','c'];
+  for(let t=0;t<20000;t++){
+    const na=Math.floor(rnd()*6),nb=Math.floor(rnd()*6);
+    const a=Array.from({length:na},()=>ALPHA[Math.floor(rnd()*3)]);
+    const b=Array.from({length:nb},()=>ALPHA[Math.floor(rnd()*3)]);
+    // lcsOps runs inside loadApp()'s vm context (a separate JS realm), so its
+    // returned arrays carry that realm's Array.prototype; assert.deepEqual
+    // treats that as unequal to same-shaped arrays built in this realm even
+    // though every value matches. JSON round-trip normalizes both sides to
+    // this realm's plain arrays before comparing — a test-only fix, values
+    // are plain [string,number,number] tuples so this loses nothing.
+    const got=JSON.parse(JSON.stringify(lcsOps(a,b)));
+    const want=JSON.parse(JSON.stringify(oldLcsOps(a,b)));
+    assert.deepEqual(got,want,`divergence at trial ${t}: a=${JSON.stringify(a)} b=${JSON.stringify(b)}`);
+  }
+});

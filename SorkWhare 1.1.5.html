@@ -389,6 +389,7 @@ function _dpOps(a,a0,a1,b,b0,b1,ops){
   while(j<m){ops.push(['insert',a0+i,b0+j]);j++;}
 }
 function _diff(a,a0,a1,b,b0,b1,ops){
+  if((a1-a0)*(b1-b0)<=DP_CELL_CAP){_dpOps(a,a0,a1,b,b0,b1,ops);return;}
   while(a0<a1&&b0<b1&&a[a0]===b[b0]){ops.push(['equal',a0,b0]);a0++;b0++;}
   let suf=0;
   while(a1>a0&&b1>b0&&a[a1-1]===b[b1-1]){a1--;b1--;suf++;}
