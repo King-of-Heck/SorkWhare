@@ -734,8 +734,16 @@ function generateRedlinePdf(opts){
   const contentRight=Wpt-mrPt, bodyPt=g.fontPt||11;
   const show=opts.show||{ins:$('fIns').checked,del:$('fDel').checked,mov:$('fMov').checked,eq:$('fEq').checked};
   let ctx=null; try{ctx=document.createElement('canvas').getContext('2d');}catch(_){}
+  // Use the document's real font when we can both MEASURE it (Canvas) and expect the
+  // viewer to render it (installed locally). Otherwise: v1.1.5 base-14 Times path.
+  const docFont=String(g.font||'').trim();
+  let useDocFont=false;
+  try{useDocFont=!!(ctx&&docFont&&!/^times\s*new\s*roman$/i.test(docFont)
+    &&typeof document!=='undefined'&&document.fonts&&typeof document.fonts.check==='function'
+    &&document.fonts.check('12px "'+docFont.replace(/"/g,'')+'"'));}catch(_){useDocFont=false;}
+  const famCss=(useDocFont?('"'+docFont.replace(/"/g,'')+'", '):'')+'"Times New Roman", Georgia, serif';
   const measure=(t,size,bold,italic)=>{ if(!t)return 0;
-    if(ctx){ctx.font=(italic?'italic ':'')+(bold?'bold ':'')+(size*96/72)+'px "Times New Roman", Georgia, serif';return ctx.measureText(t).width*0.75;}
+    if(ctx){ctx.font=(italic?'italic ':'')+(bold?'bold ':'')+(size*96/72)+'px '+famCss;return ctx.measureText(t).width*0.75;}
     return timesWidth(t,size,bold); };
   const pages=[]; let ops=null,penY=0;
   const newPage=()=>{ops=[];pages.push(ops);penY=Hpt-mtPt;};
@@ -842,15 +850,37 @@ function generateRedlinePdf(opts){
     }
     penY-=p.spaceAfterPt;
   }
-  // ---- Assemble PDF objects ----
-  const fonts=[['F1','Times-Roman'],['F2','Times-Bold'],['F3','Times-Italic'],['F4','Times-BoldItalic'],['F5','Helvetica-Bold']];
-  const firstPageObj=3+fonts.length;
-  const kids=[]; for(let i=0;i<pages.length;i++)kids.push((firstPageObj+2*i)+' 0 R');
-  const fontRes=fonts.map((f,i)=>'/'+f[0]+' '+(3+i)+' 0 R').join(' ');
-  const parts=[];
+  // ---- Assemble PDF objects: base-14 Times, or non-embedded TrueType named after the doc font. ----
+  const parts=[];let nextObj=3;const fontRefs={};
+  if(useDocFont){
+    const psBase=docFont.replace(/[^\x21-\x7E]/g,'').replace(/\s+/g,'')||'DocFont';
+    const REVW={};for(const u in WINANSI)REVW[WINANSI[u]]=+u;
+    const winChar=c=>String.fromCodePoint(REVW[c]!=null?REVW[c]:c);
+    const styles=[['F1','',false,false],['F2',',Bold',true,false],['F3',',Italic',false,true],['F4',',BoldItalic',true,true]];
+    for(const[key,suf,bo,it]of styles){
+      const name=psBase+suf;
+      const w=[];for(let c=32;c<=255;c++)w.push(Math.round(measure(winChar(c),1000,bo,it))||500);
+      const descN=nextObj++;
+      parts[descN]='<</Type/FontDescriptor/FontName/'+name+'/Flags 32/FontBBox[-250 -300 1300 1000]'
+        +'/ItalicAngle '+(it?-12:0)+'/Ascent 800/Descent -250/CapHeight 700/StemV '+(bo?160:80)+'>>';
+      const fontN=nextObj++;
+      parts[fontN]='<</Type/Font/Subtype/TrueType/BaseFont/'+name+'/FirstChar 32/LastChar 255'
+        +'/Widths['+w.join(' ')+']/Encoding/WinAnsiEncoding/FontDescriptor '+descN+' 0 R>>';
+      fontRefs[key]=fontN;
+    }
+    const f5=nextObj++;
+    parts[f5]='<</Type/Font/Subtype/Type1/BaseFont/Helvetica-Bold/Encoding/WinAnsiEncoding>>';
+    fontRefs.F5=f5;
+  }else{
+    const base14=[['F1','Times-Roman'],['F2','Times-Bold'],['F3','Times-Italic'],['F4','Times-BoldItalic'],['F5','Helvetica-Bold']];
+    for(const[key,bf]of base14){const n=nextObj++;
+      parts[n]='<</Type/Font/Subtype/Type1/BaseFont/'+bf+'/Encoding/WinAnsiEncoding>>';fontRefs[key]=n;}
+  }
+  const firstPageObj=nextObj;
+  const kids=[];for(let i=0;i<pages.length;i++)kids.push((firstPageObj+2*i)+' 0 R');
+  const fontRes=Object.keys(fontRefs).map(k=>'/'+k+' '+fontRefs[k]+' 0 R').join(' ');
   parts[1]='<</Type/Catalog/Pages 2 0 R>>';
   parts[2]='<</Type/Pages/Count '+pages.length+'/Kids['+kids.join(' ')+']/MediaBox[0 0 '+fmt(Wpt)+' '+fmt(Hpt)+']>>';
-  fonts.forEach((f,i)=>{parts[3+i]='<</Type/Font/Subtype/Type1/BaseFont/'+f[1]+'/Encoding/WinAnsiEncoding>>';});
   for(let i=0;i<pages.length;i++){const pn=firstPageObj+2*i,cn=pn+1;const content=pages[i].join('\n');
     parts[pn]='<</Type/Page/Parent 2 0 R/Resources<</Font<<'+fontRes+'>>/ProcSet[/PDF/Text]>>/Contents '+cn+' 0 R>>';
     parts[cn]='<</Length '+content.length+'>>\nstream\n'+content+'\nendstream';}

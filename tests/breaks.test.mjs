@@ -129,3 +129,30 @@ test('generateRedlinePdf: first paragraph spaceBefore suppressed at top of page 
   const b=generateRedlinePdf({rows:[row('hello world',{spaceBeforePt:100000})],geom:GEOM,show:SHOW,summary:{total:0}});
   assert.equal(b.pages,a.pages);
 });
+
+test('generateRedlinePdf: Node fallback path stays base-14 Times (no document.fonts here)', ()=>{
+  const {generateRedlinePdf}=ctx;
+  const g=Object.assign({},GEOM,{font:'Calibri'});
+  const r=generateRedlinePdf({rows:[row('hello world')],geom:g,show:SHOW,summary:{total:0}});
+  assert.match(r.pdf,/\/Times-Roman/);
+  assert.doesNotMatch(r.pdf,/\/Calibri/);
+});
+
+test('generateRedlinePdf: doc-font branch emits TrueType + Widths + Descriptor', ()=>{
+  // Simulate a browser: stub document.fonts.check and a Canvas 2d context.
+  const ctx2=loadApp();
+  ctx2.document.fonts={check:()=>true};
+  const fake={font:'',measureText:t=>({width:t.length*7})};
+  ctx2.document.createElement=(tag)=>tag==='canvas'
+    ?{getContext:()=>fake}
+    :{style:{},setAttribute(){},addEventListener(){},appendChild(){},remove(){},click(){},classList:{add(){},remove(){}},dataset:{}};
+  const g=Object.assign({},GEOM,{font:'Calibri'});
+  const r=ctx2.generateRedlinePdf({rows:[{type:'equal',meta:M('hello world'),html:'hello world'}],
+    geom:g,show:SHOW,summary:{total:0}});
+  assert.match(r.pdf,/\/Subtype\/TrueType/);
+  assert.match(r.pdf,/\/BaseFont\/Calibri\b/);
+  assert.match(r.pdf,/\/BaseFont\/Calibri,Bold/);
+  assert.match(r.pdf,/\/FontDescriptor/);
+  assert.match(r.pdf,/\/Widths\[/);
+  assert.match(r.pdf,/\/BaseFont\/Helvetica-Bold/); // banner untouched
+});
