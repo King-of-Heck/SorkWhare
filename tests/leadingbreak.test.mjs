@@ -7,16 +7,17 @@ const M=(extra)=>Object.assign({text:'x',heading:null,isNumbered:false,marker:''
   boldRuns:[],styleId:null,spaceBeforePt:null,spaceAfterPt:null,lineSpacing:null,
   lineExactPt:null,lineRule:null,keepNext:false,keepLines:false,contextualSpacing:false},extra||{});
 
-test('C7: first paragraph carries no forced break; page break lands only where authored', ()=>{
+test('C7: first paragraph never forces a break even when it carries pageBreakBefore; later breaks survive', ()=>{
   const {bodyRowsHtml}=ctx;
   const rows=[
-    {type:'equal',ni:0,meta:M({}),html:'first'},
+    {type:'equal',ni:0,meta:M({pageBreakBefore:true}),html:'first'},
     {type:'inserted',ni:1,meta:M({pageBreakBefore:true}),html:'second'},
   ];
   const html=bodyRowsHtml(rows);
-  // The FIRST paragraph must never carry .pgbreak (that would open a blank leading page).
+  // The FIRST paragraph must never carry .pgbreak (that would open a blank leading page),
+  // even though it itself authored a pageBreakBefore.
   const firstParaClass=(html.match(/class="para[^"]*"/)||[''])[0];
-  assert.doesNotMatch(firstParaClass,/pgbreak/,'first paragraph must not force a break');
+  assert.doesNotMatch(firstParaClass,/pgbreak/,'first paragraph must not force a break even when it authored one');
   // The authored break on paragraph 2 is still represented.
-  assert.match(html,/pgbreak/,'the authored page break is present on a later paragraph');
+  assert.match(html,/pgbreak/,'the authored break on a later paragraph is still present');
 });
