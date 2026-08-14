@@ -550,6 +550,27 @@ function inlineDiff(o,n){const a=tok(o),b=tok(n),ops=lcsOps(a,b);let out='',mode
 function _inRuns(runs,i){if(!runs)return false;for(const r of runs){if(i>=r[0]&&i<r[1])return true;if(r[0]>i)break;}return false;}
 // Escape text and wrap maximal bold ranges in <b>. Keeps defined-term bolding inline.
 function boldWrap(text,runs){if(!runs||!runs.length)return esc(text);let out='',pos=0;for(const[s,e]of runs){if(s>pos)out+=esc(text.slice(pos,s));out+='<b>'+esc(text.slice(s,e))+'</b>';pos=e;}if(pos<text.length)out+=esc(text.slice(pos));return out;}
+function _fmtAt(spans,pos){for(const sp of spans)if(pos>=sp.s&&pos<sp.e)return sp;return null;}
+function _fmtDesc(a,b){const d=[];
+  if(a.b!==b.b)d.push('bold '+(b.b?'added':'removed'));
+  if(a.i!==b.i)d.push('italic '+(b.i?'added':'removed'));
+  if(a.u!==b.u)d.push('underline '+(b.u?'added':'removed'));
+  if(a.f!==b.f)d.push('font '+a.f+' → '+b.f);
+  if(a.z!==b.z)d.push('size '+a.z+' → '+b.z);
+  return d.join('; ');}
+function _fmtEq(a,b){return a&&b&&a.b===b.b&&a.i===b.i&&a.u===b.u&&a.f===b.f&&a.z===b.z;}
+function fmtDiff(a,b){
+  const end=Math.max(a.length?a[a.length-1].e:0,b.length?b[b.length-1].e:0);
+  const out=[]; let run=null;
+  for(let pos=0;pos<end;pos++){ const av=_fmtAt(a,pos),bv=_fmtAt(b,pos);
+    if(!av||!bv){ if(run){out.push(run);run=null;} continue; }
+    if(_fmtEq(av,bv)){ if(run){out.push(run);run=null;} continue; }
+    const desc=_fmtDesc(av,bv);
+    if(run&&run.desc===desc&&run.e===pos)run.e=pos+1;
+    else{ if(run)out.push(run); run={s:pos,e:pos+1,desc}; } }
+  if(run)out.push(run);
+  return out;
+}
 // Per-token bold flags: a token is bold if a majority of its non-space chars are bold.
 function _tokBold(tokens,runs){const f=new Array(tokens.length).fill(false);if(!runs||!runs.length)return f;let off=0;for(let i=0;i<tokens.length;i++){const tk=tokens[i],len=tk.length;let cnt=0,bc=0;for(let c=0;c<len;c++){if(/\s/.test(tk[c]))continue;cnt++;if(_inRuns(runs,off+c))bc++;}f[i]=cnt>0&&(bc/cnt)>=0.5;off+=len;}return f;}
 // Coalesce DENSE alternating replacements. A "span" is a maximal run of segments
