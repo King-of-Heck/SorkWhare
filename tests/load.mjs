@@ -13,7 +13,7 @@ function stubEl(){
   return el;
 }
 
-export function loadApp(file='SorkWhare 1.1.5.html'){
+export function loadApp(file='SorkWhare 1.2.0.html'){
   const html=readFileSync(new URL('../'+file, import.meta.url),'utf8');
   const m=html.match(/<script>([\s\S]*)<\/script>/);
   if(!m) throw new Error('no <script> block found in '+file);
