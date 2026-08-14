@@ -84,3 +84,39 @@ test('C4 [CORRECTNESS B3] one-phrase replace containing a bold word is not over-
   assert.equal((out.match(/<ins>/g)||[]).length,1,out);
   assert.match(out,/^the <del>[\s\S]*<\/del><ins>[\s\S]*<\/ins> here$/);
 });
+
+/* ---- C5: move detection (needs displacement across >=3 equal paras) ---- */
+// PARITY: MATCH — a word-rich paragraph (>=moveMin words) relocated across four
+// unchanged paragraphs falls out of the paragraph-level LCS and registers as a
+// move, per the documented displacement rule (ledger: C5).
+test('C5 [PARITY M] a paragraph relocated across four equal paras registers as a move', async()=>{
+  const A=['THE RELOCATED CLAUSE WITH PLENTY OF DISTINCT WORDS',
+           'clause one stays put here','clause two stays put here',
+           'clause three stays put here','clause four stays put here'].map(para).join('');
+  const B=['clause one stays put here','clause two stays put here',
+           'clause three stays put here','clause four stays put here',
+           'THE RELOCATED CLAUSE WITH PLENTY OF DISTINCT WORDS'].map(para).join('');
+  const {summary}=await dcompare(A,B,{moveMin:5});
+  assert.equal(summary.moves,1);
+});
+// PARITY: MATCH — documented invariant (NOTES.md "Engine gotchas"): a lone adjacent
+// swap is absorbed by the paragraph-level LCS as equal (no displacement across >=3
+// unchanged paragraphs), so it must NOT register as a move (ledger: C5).
+test('C5 [CORRECTNESS] a lone adjacent swap is absorbed as equal (no false move)', async()=>{
+  const A=[para('alpha content one'),para('beta content two')].join('');
+  const B=[para('beta content two'),para('alpha content one')].join('');
+  const {summary}=await dcompare(A,B,{moveMin:5});
+  assert.equal(summary.moves,0);
+});
+
+/* ---- C6: split / merged paragraphs ---- */
+// PARITY: MATCH — SorkWhare has no dedicated split-paragraph detector (unlike
+// Litera's distinct split flag); one paragraph becoming two is diffed at the
+// paragraph-LCS level as a delete+insert pair, which still surfaces as at least
+// one numbered change (ledger: C6).
+test('C6 [PARITY M] one paragraph split into two produces a numbered change', async()=>{
+  const A=para('The parties agree to cooperate in good faith and to share information.');
+  const B=para('The parties agree to cooperate in good faith.')+para('They shall share information.');
+  const {summary}=await dcompare(A,B);
+  assert.ok(summary.total>=1,'a split paragraph must produce at least one numbered change');
+});
