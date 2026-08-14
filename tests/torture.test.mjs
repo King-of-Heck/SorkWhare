@@ -120,3 +120,37 @@ test('C6 [PARITY M] one paragraph split into two produces a numbered change', as
   const {summary}=await dcompare(A,B);
   assert.ok(summary.total>=1,'a split paragraph must produce at least one numbered change');
 });
+
+/* ---- C7: tables — ragged tblGrid-less table, changed cell diffs inline ---- */
+const {extractStructured,bodyRowsHtml}=ctx;
+const NUM0={numToAbs:{},abs:{},styleToNum:{}};
+const TC=t=>'<w:tc><w:p><w:r><w:t>'+t+'</w:t></w:r></w:p></w:tc>';
+const TBL_NOGRID=rowsArr=>'<w:tbl>'+rowsArr.map(cells=>'<w:tr>'+cells.map(TC).join('')+'</w:tr>').join('')+'</w:tbl>';
+
+test('C7 [CORRECTNESS] ragged tblGrid-less table keeps one column count; changed cell diffs inline', ()=>{
+  const A=extractStructured(doc(TBL_NOGRID([['Metric','Target','Notes'],['Uptime','99.1%']])),{},NUM0);
+  const B=extractStructured(doc(TBL_NOGRID([['Metric','Target','Notes'],['Uptime','99.5%']])),{},NUM0);
+  const {rows}=compare(A,B,{});
+  const cols=[...new Set(rows.filter(r=>r.meta&&r.meta.tbl).map(r=>r.meta.tbl.cols))];
+  assert.deepEqual(cols,[3],'ragged rows share one column count (max over rows)');
+  assert.match(bodyRowsHtml(rows),/<del>99\.1<\/del><ins>99\.5<\/ins>/);
+});
+test('C7 [PARITY M] an added table row renders inside the same table', ()=>{
+  const A=extractStructured(doc(TBL_NOGRID([['Metric','42 MW'],['Uptime','99.1%']])),{},NUM0);
+  const B=extractStructured(doc(TBL_NOGRID([['Metric','45 MW'],['Uptime','99.1%'],['Latency','200ms']])),{},NUM0);
+  const {rows,summary}=compare(A,B,{});
+  const html=bodyRowsHtml(rows);
+  assert.equal((html.match(/<table class="ctable">/g)||[]).length,1);
+  assert.match(html,/<ins>Latency<\/ins>/);
+  assert.ok(summary.total>=2);
+});
+
+/* ---- C8: change counting = unique cid count (nav "of N") ---- */
+test('C8 [CORRECTNESS] summary.total equals unique cid count; per-side tiles may exceed it', async()=>{
+  const A=[para('alpha beta gamma'),para('stays put here'),para('to be removed entirely here')].join('');
+  const B=[para('alpha beta DELTA'),para('stays put here'),para('a freshly inserted line here')].join('');
+  const {rows,summary}=await dcompare(A,B);
+  const cids=new Set(rows.filter(r=>r.cid).map(r=>r.cid));
+  assert.equal(summary.total,cids.size,'total = unique numbered changes');
+  assert.ok(summary.insertions+summary.deletions>=summary.total,'per-side tiles legitimately sum to more');
+});
