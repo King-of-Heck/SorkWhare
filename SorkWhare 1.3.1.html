@@ -406,9 +406,12 @@ function extractStructured(docXml,styles,numbering,defaults){
     if(blk.lastIndexOf('<w:tbl',0)===0){
       const gw=(blk.match(/<w:gridCol[^>]*w:w="(\d+)"/g)||[]).map(g=>+(g.match(/w:w="(\d+)"/)||[])[1]);
       const trs=blk.match(/<w:tr[ >][\s\S]*?<\/w:tr>/g)||[];
+      // No tblGrid -> ragged rows would otherwise split into separate tables.
+      // Pin ONE column count for the whole table: the widest row.
+      const maxCells=trs.reduce((m,tr)=>Math.max(m,(tr.match(/<w:tc[ >]/g)||[]).length),0);
+      const cols=gw.length||maxCells;
       trs.forEach((trXml,ri)=>{
         const tcs=trXml.match(/<w:tc[ >][\s\S]*?<\/w:tc>/g)||[];
-        const cols=gw.length||tcs.length;
         tcs.forEach((tc,ci)=>{
           const cps=tc.match(/<w:p[ >][\s\S]*?<\/w:p>/g)||[];
           for(const p of cps)processPara(p,{ti,ri,ci,cols,gw});
