@@ -19,7 +19,7 @@ const item=t=>P('<w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numP
 write('torture-R3-A.docx',item('First obligation.')+item('Second obligation.')+item('Third obligation.'));
 write('torture-R3-B.docx',item('First obligation.')+item('New inserted obligation.')+item('Second obligation.')+item('Third obligation.'));
 
-// R6 categorization: one doc pair exercising insert + delete + move + formatting together
+// R6 categorization: one doc pair exercising insert + delete + move together
 const many='This clause has enough distinct words to qualify as a move under the rule.';
 write('torture-R6-A.docx',P(R(many,false))+P(R('Clause to be deleted entirely.',false))+P(R('Alpha stays.',false))+P(R('Beta stays.',false))+P(R('Gamma stays.',false)));
 write('torture-R6-B.docx',P(R('Alpha stays.',false))+P(R('Beta stays.',false))+P(R('Gamma stays.',false))+P(R('A brand new inserted clause here.',false))+P(R(many,false)));

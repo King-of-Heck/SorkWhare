@@ -117,8 +117,10 @@ test('C5 [CORRECTNESS] a lone adjacent swap is absorbed as equal (no false move)
 test('C6 [PARITY M] one paragraph split into two produces a numbered change', async()=>{
   const A=para('The parties agree to cooperate in good faith and to share information.');
   const B=para('The parties agree to cooperate in good faith.')+para('They shall share information.');
-  const {summary}=await dcompare(A,B);
-  assert.ok(summary.total>=1,'a split paragraph must produce at least one numbered change');
+  const {rows,summary}=await dcompare(A,B);
+  assert.equal(summary.total,2,'split paragraph = two numbered changes');
+  assert.equal(rows.filter(r=>r.type==='changed').length,1,'original paragraph becomes a changed row');
+  assert.equal(rows.filter(r=>r.type==='inserted').length,1,'the split-off sentence becomes an inserted row');
 });
 
 /* ---- C7: tables — ragged tblGrid-less table, changed cell diffs inline ---- */
