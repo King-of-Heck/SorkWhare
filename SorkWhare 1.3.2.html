@@ -550,6 +550,29 @@ function inlineDiff(o,n){const a=tok(o),b=tok(n),ops=lcsOps(a,b);let out='',mode
 function _inRuns(runs,i){if(!runs)return false;for(const r of runs){if(i>=r[0]&&i<r[1])return true;if(r[0]>i)break;}return false;}
 // Escape text and wrap maximal bold ranges in <b>. Keeps defined-term bolding inline.
 function boldWrap(text,runs){if(!runs||!runs.length)return esc(text);let out='',pos=0;for(const[s,e]of runs){if(s>pos)out+=esc(text.slice(pos,s));out+='<b>'+esc(text.slice(s,e))+'</b>';pos=e;}if(pos<text.length)out+=esc(text.slice(pos));return out;}
+// Render `text` in its revised formatting (bold/italic/underline via nested tags),
+// with each diff range additionally wrapped in a titled <span class="fmtchg">.
+// Font/size differences are described in the tooltip (via diff.desc), not re-rendered
+// as glyphs — see fmtDiff's _fmtDesc for the description text.
+function fmtWrap(text,spans,diff){
+  const inDiff=pos=>diff.find(d=>pos>=d.s&&pos<d.e)||null;
+  const spanAt=pos=>{for(const sp of spans)if(pos>=sp.s&&pos<sp.e)return sp;return null;};
+  let out='',i=0;
+  while(i<text.length){
+    const sp=spanAt(i)||{b:false,i:false,u:false,f:null,z:null},d=inDiff(i);
+    let j=i+1;
+    while(j<text.length){const s2=spanAt(j)||sp,d2=inDiff(j);
+      if(s2.b!==sp.b||s2.i!==sp.i||s2.u!==sp.u||s2.f!==sp.f||s2.z!==sp.z)break;
+      if((d?d.desc:null)!==(d2?d2.desc:null))break; j++;}
+    let inner=esc(text.slice(i,j));
+    if(sp.b)inner='<b>'+inner+'</b>';
+    if(sp.i)inner='<i>'+inner+'</i>';
+    if(sp.u)inner='<u>'+inner+'</u>';
+    if(d)inner='<span class="fmtchg" title="'+esc(d.desc)+'">'+inner+'</span>';
+    out+=inner; i=j;
+  }
+  return out;
+}
 function _fmtAt(spans,pos){for(const sp of spans)if(pos>=sp.s&&pos<sp.e)return sp;return null;}
 function _fmtDesc(a,b){const d=[];
   if(a.b!==b.b)d.push('bold '+(b.b?'added':'removed'));
@@ -669,7 +692,11 @@ function compare(orig,rev,opts){
   const rows=[],pureDel=[],pureIns=[];
   for(let s=0;s<segs.length;s++){
     const seg=segs[s];
-    if(seg.tag==='equal'){for(const[i,j]of seg.items)rows.push({type:'equal',oi:i,ni:j,meta:rev[j],html:boldWrap(rev[j].text,rev[j].boldRuns)});continue;}
+    if(seg.tag==='equal'){for(const[i,j]of seg.items){
+      const diff=fmtDiff(orig[i].fmtSpans||[],rev[j].fmtSpans||[]);
+      if(diff.length){rows.push({type:'equal',oi:i,ni:j,meta:rev[j],fmtChanged:true,fmtDescs:diff.map(d=>d.desc),html:fmtWrap(rev[j].text,rev[j].fmtSpans||[],diff)});}
+      else{rows.push({type:'equal',oi:i,ni:j,meta:rev[j],html:boldWrap(rev[j].text,rev[j].boldRuns)});}
+    }continue;}
     let dels=[],ins=[];
     if(seg.tag==='delete'){dels=seg.items.map(([i])=>i);if(segs[s+1]&&segs[s+1].tag==='insert'){ins=segs[s+1].items.map(([,j])=>j);s++;}}
     else{ins=seg.items.map(([,j])=>j);if(segs[s+1]&&segs[s+1].tag==='delete'){dels=segs[s+1].items.map(([i])=>i);s++;}}
@@ -698,10 +725,10 @@ function compare(orig,rev,opts){
       dr.html='<span class="moved-src">'+boldWrap(orig[dr.oi].text,orig[dr.oi].boldRuns)+'</span>';
     }
   }
-  const summary={insertions:0,deletions:0,moves:0,amendments:0,content:0,numbering:0,punctuation:0,total:0};
+  const summary={insertions:0,deletions:0,moves:0,amendments:0,content:0,numbering:0,punctuation:0,total:0,formatting:0};
   let n=0;
   for(const r of rows){
-    if(r.type==='equal')continue;
+    if(r.type==='equal'){ if(r.fmtChanged)summary.formatting++; continue; }
     if(r.type==='moved-from'||r.type==='moved-to'){ if(r.partner&&r.partner.cid){r.cid=r.partner.cid;} else {r.cid=++n;summary.moves++;} continue; }
     r.cid=++n;
     if(r.type==='inserted'){summary.insertions++;summary.content++;}
