@@ -490,7 +490,9 @@ function _uniqueAnchors(a,a0,a1,b,b0,b1){
   return out.reverse();
 }
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-function tok(t){return String(t||'').match(/\w+|[^\w\s]|\s+/gu)||[];}
+// Numbers with internal separators (486,000 / 4:30 / 2026-0417 / 1.5) stay ONE
+// token so money, dates and quantities replace whole — never "486" vs ",000".
+function tok(t){return String(t||'').match(/\d[\d,.\-\/:]*\d|\w+|[^\w\s]|\s+/gu)||[];}
 function wordsOnly(t){return String(t||'').toLowerCase().match(/\w+/gu)||[];}
 function inlineDiff(o,n){const a=tok(o),b=tok(n),ops=lcsOps(a,b);let out='',mode=null,buf='';const flush=()=>{if(!buf)return;if(mode==='del')out+='<del>'+esc(buf)+'</del>';else if(mode==='ins')out+='<ins>'+esc(buf)+'</ins>';else out+=esc(buf);buf='';};for(const[tag,i,j]of ops){const piece=tag==='insert'?b[j]:a[i],mm=tag==='equal'?'eq':(tag==='delete'?'del':'ins');if(mm!==mode){flush();mode=mm;}buf+=piece;}flush();return out;}
 // True if character index i falls within any [start,end) bold range.
@@ -499,12 +501,64 @@ function _inRuns(runs,i){if(!runs)return false;for(const r of runs){if(i>=r[0]&&
 function boldWrap(text,runs){if(!runs||!runs.length)return esc(text);let out='',pos=0;for(const[s,e]of runs){if(s>pos)out+=esc(text.slice(pos,s));out+='<b>'+esc(text.slice(s,e))+'</b>';pos=e;}if(pos<text.length)out+=esc(text.slice(pos));return out;}
 // Per-token bold flags: a token is bold if a majority of its non-space chars are bold.
 function _tokBold(tokens,runs){const f=new Array(tokens.length).fill(false);if(!runs||!runs.length)return f;let off=0;for(let i=0;i<tokens.length;i++){const tk=tokens[i],len=tk.length;let cnt=0,bc=0;for(let c=0;c<len;c++){if(/\s/.test(tk[c]))continue;cnt++;if(_inRuns(runs,off+c))bc++;}f[i]=cnt>0&&(bc/cnt)>=0.5;off+=len;}return f;}
-// Inline word-diff that ALSO preserves inline bold on both sides.
-function inlineDiffB(o,n,ob,nb){const a=tok(o),b=tok(n),ops=lcsOps(a,b),af=_tokBold(a,ob),bf=_tokBold(b,nb);
-  let out='',mode=null,bold=null,buf='';
-  const flush=()=>{if(!buf)return;let inner=esc(buf);if(bold)inner='<b>'+inner+'</b>';if(mode==='del')out+='<del>'+inner+'</del>';else if(mode==='ins')out+='<ins>'+inner+'</ins>';else out+=inner;buf='';};
-  for(const[tag,i,j]of ops){const isIns=tag==='insert';const piece=isIns?b[j]:a[i];const mm=tag==='equal'?'eq':(tag==='delete'?'del':'ins');const bb=isIns?bf[j]:af[i];if(mm!==mode||bb!==bold){flush();mode=mm;bold=bb;}buf+=piece;}
-  flush();return out;}
+// Coalesce DENSE alternating replacements. A "span" is a maximal run of segments
+// that are del, ins, or whitespace-only equal. When a span holds >=2 del segments
+// AND >=2 ins segments, word-by-word alternation is unreadable — rebuild it as one
+// deleted phrase followed by one inserted phrase (shared whitespace goes to both
+// sides), the Workshare-style presentation lawyers expect for rewritten passages.
+function _coalesce(segs){
+  const out=[];let i=0;
+  const isWsEq=s=>s.m==='eq'&&/^\s+$/.test(s.t);
+  while(i<segs.length){
+    if(segs[i].m==='eq'&&!isWsEq(segs[i])){out.push(segs[i]);i++;continue;}
+    let j=i;while(j<segs.length&&(segs[j].m!=='eq'||isWsEq(segs[j])))j++;
+    const span=segs.slice(i,j);
+    while(span.length&&isWsEq(span[0]))out.push(span.shift());
+    const tail=[];
+    while(span.length&&isWsEq(span[span.length-1]))tail.unshift(span.pop());
+    const dels=span.filter(x=>x.m==='del').length,inss=span.filter(x=>x.m==='ins').length;
+    if(dels>=2&&inss>=2){
+      const olds=[],news=[];
+      for(const x of span){
+        if(x.m==='del')olds.push({m:'del',t:x.t,b:x.b});
+        else if(x.m==='ins')news.push({m:'ins',t:x.t,b:x.b});
+        else{olds.push({m:'del',t:x.t,b:x.b});news.push({m:'ins',t:x.t,b:x.b});}
+      }
+      out.push(...olds,...news);
+    } else out.push(...span);
+    out.push(...tail);
+    i=j;
+  }
+  return out;
+}
+// Inline word-diff that ALSO preserves inline bold on both sides. Segment-based:
+// build (mode,bold) segments, coalesce dense alternations, then emit with ONE
+// <del>/<ins> wrapper per same-mode run (bold nests inside the wrapper).
+function inlineDiffB(o,n,ob,nb){
+  const a=tok(o),b=tok(n),ops=lcsOps(a,b),af=_tokBold(a,ob),bf=_tokBold(b,nb);
+  const segs=[];
+  for(const[tag,i,j]of ops){
+    const isIns=tag==='insert';
+    const piece=isIns?b[j]:a[i];
+    const m=tag==='equal'?'eq':(tag==='delete'?'del':'ins');
+    const bb=isIns?!!bf[j]:!!af[i];
+    const last=segs[segs.length-1];
+    if(last&&last.m===m&&last.b===bb)last.t+=piece;
+    else segs.push({m,t:piece,b:bb});
+  }
+  const coal=_coalesce(segs);
+  let html='',k=0;
+  while(k<coal.length){
+    const m=coal[k].m;let inner='';
+    while(k<coal.length&&coal[k].m===m){
+      const s=coal[k];inner+=s.b?'<b>'+esc(s.t)+'</b>':esc(s.t);k++;
+    }
+    if(m==='del')html+='<del>'+inner+'</del>';
+    else if(m==='ins')html+='<ins>'+inner+'</ins>';
+    else html+=inner;
+  }
+  return html;
+}
 // Inline diff with a token cap: beyond it, LCS quality/latency isn't worth it —
 // render the change as a whole-paragraph replace instead.
 const INLINE_TOKEN_CAP=4000;
