@@ -25,3 +25,14 @@ test('A1 regression: gridded table keeps its tblGrid column count', ()=>{
   const out=extractStructured(doc(tbl),{},NUM,DEF);
   assert.deepEqual([...new Set(out.filter(r=>r.tbl).map(r=>r.tbl.cols))],[2]);
 });
+
+test('A2: a page break inside a table cell does not leak to the next paragraph', ()=>{
+  const {extractStructured}=ctx;
+  const brCell='<w:tc><w:p><w:r><w:br w:type="page"/></w:r></w:p></w:tc>';
+  const tbl='<w:tbl><w:tr>'+brCell+'<w:tc><w:p><w:r><w:t>x</w:t></w:r></w:p></w:tc></w:tr></w:tbl>';
+  const after='<w:p><w:r><w:t>After the table</w:t></w:r></w:p>';
+  const out=extractStructured(doc(tbl+after),{},NUM,DEF);
+  const afterPara=out.find(r=>!r.tbl&&r.text==='After the table');
+  assert.ok(afterPara,'expected the trailing paragraph');
+  assert.equal(afterPara.pageBreakBefore,false,'cell-internal break must not escape the table');
+});
