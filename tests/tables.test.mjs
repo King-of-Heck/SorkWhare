@@ -39,3 +39,16 @@ test('A2: a page break inside a table cell does not leak to the next paragraph',
   assert.ok(afterPara,'expected the trailing paragraph');
   assert.equal(afterPara.pageBreakBefore,false,'cell-internal break must not escape the table');
 });
+
+test('A2: a page break BEFORE a table lands on the table first row, not after it', ()=>{
+  const {extractStructured}=ctx;
+  const intro='<w:p><w:r><w:t>Intro</w:t></w:r><w:r><w:br w:type="page"/></w:r></w:p>';
+  const tbl='<w:tbl><w:tr><w:tc><w:p><w:r><w:t>Cell</w:t></w:r></w:p></w:tc></w:tr></w:tbl>';
+  const after='<w:p><w:r><w:t>After</w:t></w:r></w:p>';
+  const out=extractStructured(doc(intro+tbl+after),{},NUM,DEF);
+  const cell=out.find(r=>r.tbl&&r.text==='Cell');
+  const afterPara=out.find(r=>!r.tbl&&r.text==='After');
+  assert.ok(cell&&afterPara,'expected the table cell and trailing paragraph');
+  assert.equal(cell.pageBreakBefore,true,'break must start the table on a new page');
+  assert.equal(afterPara.pageBreakBefore,false,'break must not relocate past the table');
+});

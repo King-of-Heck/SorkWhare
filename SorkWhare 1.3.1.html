@@ -410,9 +410,6 @@ function extractStructured(docXml,styles,numbering,defaults){
       // Pin ONE column count for the whole table: the widest row.
       const maxCells=trs.reduce((m,tr)=>Math.max(m,(tr.match(/<w:tc[ >]/g)||[]).length),0);
       const cols=gw.length||maxCells;
-      // A table is an atomic row group: page breaks living inside cells must not
-      // escape into the surrounding document flow. Isolate pendingBreak.
-      const savedPending=pendingBreak; pendingBreak=false;
       trs.forEach((trXml,ri)=>{
         const tcs=trXml.match(/<w:tc[ >][\s\S]*?<\/w:tc>/g)||[];
         tcs.forEach((tc,ci)=>{
@@ -420,7 +417,10 @@ function extractStructured(docXml,styles,numbering,defaults){
           for(const p of cps)processPara(p,{ti,ri,ci,cols,gw});
         });
       });
-      pendingBreak=savedPending;
+      // Tables are atomic: a break carried IN from before the table was already
+      // consumed by the first real cell paragraph, so anything still pending here
+      // originated INSIDE a cell — clear it so it can't leak past the table.
+      pendingBreak=false;
       ti++;
     } else processPara(blk,null);
   }
