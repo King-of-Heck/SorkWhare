@@ -1290,24 +1290,33 @@ function paginate(){
     const pageContent=(g.hIn-g.mt-g.mb)*PX;      // printable height per page, in px
     if(!(pageContent>60))return;
     const mb=el=>{const s=getComputedStyle(el);return (parseFloat(s.marginTop)||0)+(parseFloat(s.marginBottom)||0);};
+    let used=0, pages=1;
     const items=[];
     const kids=Array.prototype.slice.call(paper.children);
     for(const el of kids){
       const cl=el.classList;
       // The redline banner isn't part of the Word doc — don't let it consume page 1.
       if(cl.contains('docttl')||cl.contains('docmeta'))continue;
-      if(cl.contains('pgbreak-sep')){items.push({brk:true});continue;}   // explicit break: hard reset
+      if(cl.contains('pgbreak-sep')){ used=0; pages++; items.push({brk:true}); continue; }   // explicit break: hard reset
       if(!el.offsetHeight)continue; // hidden by a Show filter — contributes no height in print either
+      const h=el.offsetHeight+mb(el);
+      if(used>0 && used+h>pageContent){
+        const mk=document.createElement('div');
+        mk.className='pgbreak-auto'; mk.setAttribute('aria-hidden','true');
+        mk.innerHTML='<span>Page break</span>';
+        paper.insertBefore(mk,el);
+        pages++; used=0;
+      }
+      used+=h;
+      // Accurate page COUNT accounts for a tall table splitting between its rows;
+      // the visual divider above stays atomic (a table can't be split in the DOM).
       if(cl.contains('ctable')){
         const trs=Array.prototype.slice.call(el.querySelectorAll('tr'));
-        const rows=trs.map(tr=>tr.offsetHeight||0).filter(h=>h>0);
-        items.push(rows.length?{rows}:{h:el.offsetHeight});
-        continue;
-      }
-      items.push({h:el.offsetHeight+mb(el)});
+        const rows=trs.map(tr=>tr.offsetHeight||0).filter(x=>x>0);
+        items.push(rows.length?{rows}:{h});
+      } else items.push({h});
     }
-    estPages=_estPages(items,pageContent);
-    updateNavStatus();
+    estPages=_estPages(items,pageContent); updateNavStatus();
   }catch(e){/* pagination is best-effort; never block the redline */}
 }
 let _pgTimer=null;
