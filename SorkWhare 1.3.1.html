@@ -1157,7 +1157,12 @@ function paraHtml(row,pageBreak,prevMeta,nextMeta){
   const sa=(meta.contextualSpacing&&nextSame)?null:meta.spaceAfterPt;
   if(sb!=null)sp+='margin-top:'+(sb*PX).toFixed(1)+'px;';
   if(sa!=null)sp+='margin-bottom:'+(sa*PX).toFixed(1)+'px;';
-  if(meta.lineExactPt!=null)sp+='line-height:'+(meta.lineExactPt*PX).toFixed(1)+'px;';
+  if(meta.lineExactPt!=null){
+    const lh=(meta.lineExactPt*PX).toFixed(1)+'px';
+    // atLeast = minimum height that still grows with content (Word/PDF semantics);
+    // exact = fixed height.
+    sp+='line-height:'+(meta.lineRule==='atLeast'?('max('+lh+', 1.15em)'):lh)+';';
+  }
   else if(meta.lineSpacing!=null)sp+='line-height:'+(1.15*meta.lineSpacing).toFixed(2)+';';
   if(blockLeftPx>0.5)sp+='margin-left:'+blockLeftPx.toFixed(1)+'px;';
   const paraStyle=sp?(' style="'+sp+'"'):'';
