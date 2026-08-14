@@ -65,3 +65,9 @@ test('planBreaks: firstAvail (banner page) smaller than later pages', ()=>{
   // block1's 60pt then fits exactly in the remaining space of page 2
   assert.deepEqual(r,[{b:0,l:0}]);
 });
+
+test('planBreaks: 2-line minimum physically impossible on any page -> splits anyway (terminates)', ()=>{
+  const {planBreaks}=ctx;
+  const r=J(planBreaks([B([60,60])],100));
+  assert.deepEqual(r,[{b:0,l:1}]);
+});

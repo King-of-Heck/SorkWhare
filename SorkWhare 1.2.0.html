@@ -715,8 +715,8 @@ function planBreaks(blocks,avail,firstAvail){
       if(lines.length-cut===1)cut--;               // widow: >=2 lines must follow the break
       if(start===0&&cut-start===1)cut=start;       // orphan: never strand 1 leading line
       if(cut<=start){
-        if(top&&fit===start){cut=Math.max(fit,start+1);newPage(b,cut);start=cut;} // nothing at all fits: force progress
-        else {newPage(b,start);} // widow/orphan pushed back despite something fitting (or already mid-page): whole remainder moves
+        if(top&&(fit===start||free===avail)){cut=Math.max(fit,start+1);newPage(b,cut);start=cut;} // nothing fits, or a full-size page can't help: force progress
+        else {newPage(b,start);} // widow/orphan pushed back but a fresh (bigger) page might help: retry there
       } else {newPage(b,cut);start=cut;}
     }
     if(start>=lines.length&&!top)free=Math.max(0,free-(Bk.spaceAfterPt||0));
