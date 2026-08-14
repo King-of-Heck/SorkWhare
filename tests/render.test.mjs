@@ -55,3 +55,12 @@ test('#paper is a flex column so real margins add instead of collapsing', ()=>{
   const {__html:h}=loadApp();
   assert.match(h,/#paper\{[^}]*display:flex;flex-direction:column/);
 });
+
+test('paraHtml: atLeast line rule renders as a growable minimum (not fixed)', ()=>{
+  const {paraHtml}=ctx;
+  const hAtLeast=paraHtml({type:'equal',meta:M({lineExactPt:24,lineRule:'atLeast'}),html:'x'},false);
+  assert.match(hAtLeast,/line-height:max\(32(\.0)?px,\s*1\.15em\)/);   // 24pt * 4/3, grows with content
+  const hExact=paraHtml({type:'equal',meta:M({lineExactPt:24,lineRule:'exact'}),html:'x'},false);
+  assert.match(hExact,/line-height:32(\.0)?px/);
+  assert.doesNotMatch(hExact,/max\(/);
+});

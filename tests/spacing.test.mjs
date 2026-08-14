@@ -2,6 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {loadApp} from './load.mjs';
 const ctx=loadApp();
+const M=(text,extra)=>Object.assign({text,heading:null,isNumbered:false,marker:'',ilvl:0,
+  isBold:false,pageBreakBefore:false,align:'left',indLeftPt:0,indHangingPt:0,indFirstLinePt:0,
+  boldRuns:[],styleId:null,spaceBeforePt:null,spaceAfterPt:null,lineSpacing:null,
+  lineExactPt:null,lineRule:null,keepNext:false,keepLines:false,contextualSpacing:false},extra||{});
+const GEOM={wIn:8.5,hIn:11,mt:1,mr:1,mb:1,ml:1,fontPt:11,font:'Times New Roman'};
 
 test('_spacingFrom parses before/after/line/lineRule; null when empty', ()=>{
   const {_spacingFrom}=ctx;
@@ -123,4 +128,20 @@ test('extractStructured: w:pPrChange (rejected formatting) does not leak into sp
   assert.equal(out[0].spaceBeforePt,null);
   assert.equal(out[0].keepNext,false);
   assert.equal(out[0].text,'current text');
+});
+
+test('C6: PDF contextualSpacing keys off raw document adjacency, not filtered rows', ()=>{
+  const {generateRedlinePdf}=ctx;
+  // Visible LP paras (contextualSpacing) with big after-gaps, separated by a HIDDEN para.
+  // caseDiff: separators are a DIFFERENT style (Q) -> raw adjacency keeps the gaps.
+  // caseSame: separators are the SAME style (LP)  -> raw adjacency zeroes the gaps.
+  // On raw adjacency, caseDiff must produce MORE pages than caseSame.
+  // (On the old filtered logic both cases zero the gaps -> equal pages -> fails.)
+  const vis=()=>({type:'equal',ni:0,meta:M('Visible item',{styleId:'LP',contextualSpacing:true,spaceAfterPt:30}),html:'Visible item'});
+  const hidden=style=>({type:'inserted',ni:0,meta:M('sep',{styleId:style,contextualSpacing:true}),html:'sep'});
+  const build=sepStyle=>{const rows=[];for(let i=0;i<40;i++){rows.push(vis());rows.push(hidden(sepStyle));}return rows;};
+  const show={ins:false,del:true,mov:true,eq:true};   // hides the 'inserted' separators
+  const diff=generateRedlinePdf({rows:build('Q'),geom:GEOM,show,summary:{total:0}});
+  const same=generateRedlinePdf({rows:build('LP'),geom:GEOM,show,summary:{total:0}});
+  assert.ok(diff.pages>same.pages,'raw adjacency: different-style separators must preserve gaps ('+diff.pages+' vs '+same.pages+')');
 });

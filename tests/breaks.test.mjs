@@ -172,3 +172,12 @@ test('generateRedlinePdf: absent-spacing page count stays close to v1.1.5 (parit
   const b=ctx.generateRedlinePdf({rows:mkRows(),geom:GEOM,show:SHOW,summary:{total:0}});
   assert.ok(Math.abs(b.pages-a.pages)<=1,'1.2.0 pages='+b.pages+' vs 1.1.5 pages='+a.pages);
 });
+
+test('planBreaks: keepNext chain counts members spaceAfter (chain pushed to next page)', ()=>{
+  const {planBreaks}=ctx;
+  // page 100; block0 fills 60 -> 40 free. Chain = block1(keepNext,10,after 30) + block2(10).
+  // Old estimate: 10 + 0 + 10 = 20 <= 40 -> fits (no break).
+  // Fixed estimate: 10 + 30(after) + 0 + 10 = 50 > 40 -> break before the chain head.
+  const r=J(planBreaks([B([60]),B([10],{keepNext:true,spaceAfterPt:30}),B([10])],100));
+  assert.deepEqual(r,[{b:1,l:0}]);
+});

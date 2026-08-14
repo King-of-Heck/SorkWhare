@@ -17,6 +17,24 @@ assigned during development (numbering is not sequential/uniform by design).
 
 
 -------------------------------------------------------------------------------
+ v1.3.1  -  Hardening Release                        (2026-08-14)
+-------------------------------------------------------------------------------
+ - Tables that don't declare a fixed column layout no longer split into
+   several separate tables when their rows have different numbers of cells.
+ - A page break inside a table cell no longer spills onto the paragraph after
+   the table; a page break just before a table still starts it on a new page.
+ - Rewritten passages that contain a bold word are no longer over-collapsed in
+   the inline redline - they stay one deleted phrase then one inserted phrase.
+ - "At least" line spacing now grows with content on screen, matching the
+   exported PDF and Word instead of being pinned to a fixed height.
+ - Page-fit estimates now count the spacing after a paragraph kept with the
+   next one, and split a page-tall table between its rows.
+ - Paragraph spacing shown on screen now matches the exported PDF when Show
+   filters hide some paragraphs.
+ - Error messages are escaped, so a document's file name can never inject
+   markup into the app.
+
+-------------------------------------------------------------------------------
  v1.3.0  -  Redline Quality Release                  (2026-08-14)
 -------------------------------------------------------------------------------
  - Tables are real tables now: cells, rows, and whole added/deleted table rows
