@@ -301,9 +301,10 @@ function extractStructured(docXml,styles,numbering,defaults){
       if(bm){const v=bm[1];bold=!(v==='false'||v==='0');}
       // Same per-run rPr also carries italic/underline/font/size, resolved against
       // the document default (`defaults`) when absent from the run.
-      const ital = /<w:i(?:\s+w:val="([^"]*)")?\s*\/>/.test(rpr) && !/<w:i\s+w:val="(?:false|0)"\s*\/>/.test(rpr);
-      const uMatch = rpr.match(/<w:u\s+w:val="([^"]*)"/);
-      const under = !!uMatch && uMatch[1]!=='none';
+      const im = rpr.match(/<w:i(?:\s+w:val="([^"]*)")?\s*\/>/);
+      const ital = !!im && !(im[1]==='false' || im[1]==='0');
+      const uEl = rpr.match(/<w:u\b[^>]*\/?>/);
+      const under = !!uEl && (uEl[0].match(/\bw:val="([^"]*)"/)||[])[1] !== 'none';
       const fMatch = rpr.match(/<w:rFonts[^>]*w:ascii="([^"]+)"/);
       const font = fMatch ? fMatch[1] : (defaults && defaults.font) || null;
       const szMatch = rpr.match(/<w:sz\s+w:val="(\d+)"/);

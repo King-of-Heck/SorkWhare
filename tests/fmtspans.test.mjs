@@ -32,3 +32,14 @@ test('fmtSpans: bold still captured (parity with boldRuns) and text/boldRuns unc
   const last=J(out[0].fmtSpans).at(-1);
   assert.equal(last.b,true);
 });
+
+test('fmtSpans: underline detection is order-tolerant and bare <w:u/> means underlined', ()=>{
+  const bare=extractStructured(doc(para(run('x ','')+run('u',' <w:u/>'))),{},NUM,DEF);
+  assert.equal(J(bare[0].fmtSpans).at(-1).u,true);
+
+  const none=extractStructured(doc(para(run('x ','')+run('u','<w:u w:val="none"/>'))),{},NUM,DEF);
+  assert.equal(J(none[0].fmtSpans).at(-1).u,false);
+
+  const reordered=extractStructured(doc(para(run('x ','')+run('u','<w:u w:color="FF0000" w:val="single"/>'))),{},NUM,DEF);
+  assert.equal(J(reordered[0].fmtSpans).at(-1).u,true);
+});
