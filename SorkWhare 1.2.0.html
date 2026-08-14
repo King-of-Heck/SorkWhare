@@ -266,8 +266,12 @@ function extractStructured(docXml,styles,numbering,defaults){
   // occurs AFTER text (Word puts following content on the next page in both cases).
   let pendingBreak=false;
   for(const p of paras){
+    // Tracked paragraph-property changes (<w:pPrChange>) carry the PRE-revision
+    // pPr; the nested </w:pPr> truncates our non-greedy capture and leaks rejected
+    // formatting. Strip them first (they contain no text runs).
+    const pX=p.replace(/<w:pPrChange[\s\S]*?<\/w:pPrChange>/g,'');
     // ---- Page-break detection (manual break, pageBreakBefore, section break) ----
-    const pPr=(p.match(/<w:pPr>[\s\S]*?<\/w:pPr>/)||[''])[0];
+    const pPr=(pX.match(/<w:pPr>[\s\S]*?<\/w:pPr>/)||[''])[0];
     const hasBreakBefore=/<w:pageBreakBefore\b(?:[^>]*w:val="(?:0|false|off)")?[^>]*\/>/.test(pPr)
                          && !/<w:pageBreakBefore\b[^>]*w:val="(?:0|false|off)"/.test(pPr);
     const firstTextIdx=p.search(/<w:t(?:\s[^>]*)?>/);
@@ -323,7 +327,7 @@ function extractStructured(docXml,styles,numbering,defaults){
     // paragraph, pushes the FOLLOWING paragraph to a new page.
     if((hasPageBr && !brBeforeText) || sectBreak) pendingBreak=true;
 
-    const styleId=(p.match(/<w:pStyle w:val="([^"]+)"/)||[])[1]||null; const st=styleId?styles[styleId]:null;
+    const styleId=(pX.match(/<w:pStyle w:val="([^"]+)"/)||[])[1]||null; const st=styleId?styles[styleId]:null;
     // Heading ONLY from an explicit Heading N / Title style. Bold is handled separately
     // via real run formatting (isBold), so numbered body clauses are never over-bolded.
     let heading=null;
@@ -331,7 +335,7 @@ function extractStructured(docXml,styles,numbering,defaults){
       else{const hn=(st&&st.name&&st.name.match(/heading\s*(\d)/i))||styleId.match(/Heading(\d)/i);
         if(hn)heading=Math.min(6,+hn[1]);}}
 
-    let numId=null,ilvl=0; const inlineNum=p.match(/<w:numPr>[\s\S]*?<\/w:numPr>/);
+    let numId=null,ilvl=0; const inlineNum=pX.match(/<w:numPr>[\s\S]*?<\/w:numPr>/);
     if(inlineNum){const ni=inlineNum[0].match(/<w:numId w:val="(\d+)"/),il=inlineNum[0].match(/<w:ilvl w:val="(\d+)"/);if(ni)numId=+ni[1];if(il)ilvl=+il[1];}
     if(numId==null&&st&&st.numId){numId=st.numId;ilvl=st.ilvl||0;}
     if(numId==null&&styleId&&styleToNum[styleId]){numId=styleToNum[styleId].numId;ilvl=styleToNum[styleId].ilvl;}
