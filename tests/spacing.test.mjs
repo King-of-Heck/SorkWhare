@@ -57,3 +57,49 @@ test('parseDocDefaults: pPrDefault spacing captured', ()=>{
   assert.equal(d.spacing.after,200);
   assert.equal(d.spacing.lineRule,'auto');
 });
+
+const NUM_EMPTY={numToAbs:{},abs:{},styleToNum:{}};
+
+test('extractStructured: paragraph spacing beats style beats docDefaults, per attribute', ()=>{
+  const {extractStructured,parseStyles,parseDocDefaults}=ctx;
+  const styles=parseStyles('<w:styles>'
+    +'<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/>'
+    +'<w:pPr><w:spacing w:after="160" w:line="276" w:lineRule="auto"/></w:pPr></w:style></w:styles>');
+  const dd=parseDocDefaults('<w:styles><w:docDefaults><w:pPrDefault><w:pPr>'
+    +'<w:spacing w:before="100"/></w:pPr></w:pPrDefault></w:docDefaults></w:styles>');
+  const doc='<w:p><w:pPr><w:spacing w:after="240"/></w:pPr><w:r><w:t>x</w:t></w:r></w:p>';
+  const out=extractStructured(doc,styles,NUM_EMPTY,dd);
+  assert.equal(out[0].spaceAfterPt,12);        // paragraph 240tw wins
+  assert.equal(out[0].lineSpacing,276/240);    // from default style (no pStyle -> Normal)
+  assert.equal(out[0].spaceBeforePt,5);        // docDefaults 100tw
+});
+
+test('extractStructured: lineRule exact/atLeast -> lineExactPt; auto -> lineSpacing', ()=>{
+  const {extractStructured}=ctx;
+  const mk=lr=>'<w:p><w:pPr><w:spacing w:line="480" w:lineRule="'+lr+'"/></w:pPr><w:r><w:t>x</w:t></w:r></w:p>';
+  let out=extractStructured(mk('exact'),{},NUM_EMPTY);
+  assert.equal(out[0].lineExactPt,24); assert.equal(out[0].lineRule,'exact'); assert.equal(out[0].lineSpacing,null);
+  out=extractStructured(mk('atLeast'),{},NUM_EMPTY);
+  assert.equal(out[0].lineExactPt,24); assert.equal(out[0].lineRule,'atLeast');
+  out=extractStructured(mk('auto'),{},NUM_EMPTY);
+  assert.equal(out[0].lineSpacing,2); assert.equal(out[0].lineExactPt,null);
+});
+
+test('extractStructured: keep flags + contextualSpacing + styleId from pPr and style', ()=>{
+  const {extractStructured,parseStyles}=ctx;
+  const styles=parseStyles('<w:styles><w:style w:type="paragraph" w:styleId="H"><w:name w:val="H"/>'
+    +'<w:pPr><w:keepNext/></w:pPr></w:style></w:styles>');
+  const doc='<w:p><w:pPr><w:pStyle w:val="H"/></w:pPr><w:r><w:t>head</w:t></w:r></w:p>'
+    +'<w:p><w:pPr><w:keepLines/><w:contextualSpacing/></w:pPr><w:r><w:t>body</w:t></w:r></w:p>';
+  const out=extractStructured(doc,styles,NUM_EMPTY);
+  assert.equal(out[0].keepNext,true); assert.equal(out[0].styleId,'H');
+  assert.equal(out[1].keepLines,true); assert.equal(out[1].contextualSpacing,true);
+  assert.equal(out[1].keepNext,false);
+});
+
+test('extractStructured: absent spacing stays null (v1.1.5 default preserved downstream)', ()=>{
+  const {extractStructured}=ctx;
+  const out=extractStructured('<w:p><w:r><w:t>x</w:t></w:r></w:p>',{},NUM_EMPTY);
+  assert.equal(out[0].spaceBeforePt,null); assert.equal(out[0].spaceAfterPt,null);
+  assert.equal(out[0].lineSpacing,null); assert.equal(out[0].lineExactPt,null);
+});

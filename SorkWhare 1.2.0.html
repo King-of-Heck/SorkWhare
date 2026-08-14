@@ -255,7 +255,7 @@ function letters(n,up){let s='';while(n>0){n--;s=String.fromCharCode((up?65:97)+
 function fmtNum(n,fmt){switch(fmt){case'lowerLetter':return letters(n,false);case'upperLetter':return letters(n,true);case'lowerRoman':return roman(n);case'upperRoman':return roman(n).toUpperCase();case'decimalZero':return n<10?'0'+n:String(n);default:return String(n);}}
 const BULLETS=['•','◦','▪','‣','·'];
 
-function extractStructured(docXml,styles,numbering){
+function extractStructured(docXml,styles,numbering,defaults){
   const {numToAbs,abs,styleToNum}=numbering; const counters={}; const out=[];
   const paras=docXml.match(/<w:p[ >][\s\S]*?<\/w:p>/g)||[];
   // Carries a page break forward when it lives in an empty paragraph, or when it
@@ -358,7 +358,27 @@ function extractStructured(docXml,styles,numbering){
     const indHangingPt=tw(indSrc&&indSrc.hanging)||0;
     const indFirstLinePt=tw(indSrc&&indSrc.firstLine)||0;
 
-    out.push({text,heading,isNumbered,marker,ilvl,isBold,pageBreakBefore,align,indLeftPt,indHangingPt,indFirstLinePt,boldRuns});
+    // ---- Spacing (w:spacing) & keep flags: paragraph -> numbering level -> style
+    // chain -> docDefaults, resolved PER ATTRIBUTE. Paragraphs without a pStyle use
+    // the default paragraph style. Absent values stay null so consumers keep the
+    // pre-1.2.0 rendering defaults.
+    const stEff=st||(styles&&styles.__defaultPara?styles[styles.__defaultPara]:null);
+    const pSpM=pPr.match(/<w:spacing\b([^>]*?)\/?>/); const pSp=pSpM?_spacingFrom(pSpM[1]):null;
+    const srcs=[pSp,(lvlObj&&lvlObj.spacing)||null,(stEff&&stEff.spacing)||null,(defaults&&defaults.spacing)||null];
+    const pick=k=>{for(const s of srcs)if(s&&s[k]!=null)return s;return null;};
+    const befS=pick('before'),aftS=pick('after'),linS=pick('line');
+    const spaceBeforePt=befS?befS.before/20:null;
+    const spaceAfterPt=aftS?aftS.after/20:null;
+    let lineSpacing=null,lineExactPt=null,lineRule=null;
+    if(linS){const lr=linS.lineRule||'auto';
+      if(lr==='exact'||lr==='atLeast'){lineExactPt=linS.line/20;lineRule=lr;}
+      else lineSpacing=linS.line/240;}
+    const keepNext=_flagOn(pPr,'keepNext')||!!(stEff&&stEff.keepNext);
+    const keepLines=_flagOn(pPr,'keepLines')||!!(stEff&&stEff.keepLines);
+    const contextualSpacing=_flagOn(pPr,'contextualSpacing')||!!(stEff&&stEff.contextualSpacing);
+
+    out.push({text,heading,isNumbered,marker,ilvl,isBold,pageBreakBefore,align,indLeftPt,indHangingPt,indFirstLinePt,boldRuns,
+      styleId,spaceBeforePt,spaceAfterPt,lineSpacing,lineExactPt,lineRule,keepNext,keepLines,contextualSpacing});
   }
   return out;
 }
@@ -397,9 +417,10 @@ async function docxToParagraphs(file){
   const stylesXml=await tryEntry(buf,'word/styles.xml');
   const styles=parseStyles(stylesXml);
   const numbering=parseNumbering(await tryEntry(buf,'word/numbering.xml'));
-  const out=extractStructured(docXml,styles,numbering);
+  const dd=parseDocDefaults(stylesXml);
+  const out=extractStructured(docXml,styles,numbering,dd);
   out.hasTrackedChanges=/<w:(?:ins|del)[ >]/.test(docXml);
-  out.geometry=Object.assign({},parseSectionGeom(docXml),parseDocDefaults(stylesXml));
+  out.geometry=Object.assign({},parseSectionGeom(docXml),dd);
   return out;
 }
 
