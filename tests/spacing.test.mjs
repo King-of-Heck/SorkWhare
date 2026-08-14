@@ -103,3 +103,24 @@ test('extractStructured: absent spacing stays null (v1.1.5 default preserved dow
   assert.equal(out[0].spaceBeforePt,null); assert.equal(out[0].spaceAfterPt,null);
   assert.equal(out[0].lineSpacing,null); assert.equal(out[0].lineExactPt,null);
 });
+
+test('extractStructured: paragraph w:val="0" off-toggle overrides style keep flags', ()=>{
+  const {extractStructured,parseStyles}=ctx;
+  const styles=parseStyles('<w:styles><w:style w:type="paragraph" w:styleId="H"><w:name w:val="H"/>'
+    +'<w:pPr><w:keepNext/><w:contextualSpacing/></w:pPr></w:style></w:styles>');
+  const doc='<w:p><w:pPr><w:pStyle w:val="H"/><w:keepNext w:val="0"/></w:pPr><w:r><w:t>x</w:t></w:r></w:p>';
+  const out=extractStructured(doc,styles,NUM_EMPTY);
+  assert.equal(out[0].keepNext,false);          // direct off-toggle wins
+  assert.equal(out[0].contextualSpacing,true);  // absent -> style still applies
+});
+
+test('extractStructured: w:pPrChange (rejected formatting) does not leak into spacing/keep', ()=>{
+  const {extractStructured}=ctx;
+  const doc='<w:p><w:pPr><w:pPrChange w:id="1" w:author="x"><w:pPr>'
+    +'<w:spacing w:before="9000"/><w:keepNext/></w:pPr></w:pPrChange></w:pPr>'
+    +'<w:r><w:t>current text</w:t></w:r></w:p>';
+  const out=extractStructured(doc,{},NUM_EMPTY);
+  assert.equal(out[0].spaceBeforePt,null);
+  assert.equal(out[0].keepNext,false);
+  assert.equal(out[0].text,'current text');
+});
