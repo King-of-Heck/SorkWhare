@@ -72,6 +72,14 @@ test('planBreaks: 2-line minimum physically impossible on any page -> splits any
   assert.deepEqual(r,[{b:0,l:1}]);
 });
 
+test('planBreaks: spaceAfter charged for unsplit blocks (deterministic positions)', ()=>{
+  const {planBreaks}=ctx;
+  // 6 one-line 30pt blocks with 20pt space-after on a 100pt page: each block
+  // costs 50pt once its after-gap is charged -> exactly 2 per page.
+  const r=J(planBreaks(Array.from({length:6},()=>B([30],{spaceAfterPt:20})),100));
+  assert.deepEqual(r,[{b:2,l:0},{b:4,l:0}]);
+});
+
 // meta factory for synthetic rows fed straight to generateRedlinePdf via opts
 const M=(text,extra)=>Object.assign({text,heading:null,isNumbered:false,marker:'',ilvl:0,
   isBold:false,pageBreakBefore:false,align:'left',indLeftPt:0,indHangingPt:0,indFirstLinePt:0,
@@ -155,4 +163,12 @@ test('generateRedlinePdf: doc-font branch emits TrueType + Widths + Descriptor',
   assert.match(r.pdf,/\/FontDescriptor/);
   assert.match(r.pdf,/\/Widths\[/);
   assert.match(r.pdf,/\/BaseFont\/Helvetica-Bold/); // banner untouched
+});
+
+test('generateRedlinePdf: absent-spacing page count stays close to v1.1.5 (parity pin)', ()=>{
+  const ctx115=loadApp('SorkWhare 1.1.5.html');
+  const mkRows=()=>Array.from({length:80},(_,i)=>row('Paragraph '+i+' with some words in it'));
+  const a=ctx115.generateRedlinePdf({rows:mkRows(),geom:GEOM,show:SHOW,summary:{total:0}});
+  const b=ctx.generateRedlinePdf({rows:mkRows(),geom:GEOM,show:SHOW,summary:{total:0}});
+  assert.ok(Math.abs(b.pages-a.pages)<=1,'1.2.0 pages='+b.pages+' vs 1.1.5 pages='+a.pages);
 });

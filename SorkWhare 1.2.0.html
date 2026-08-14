@@ -711,7 +711,7 @@ function planBreaks(blocks,avail,firstAvail){
     while(start<lines.length){
       let fit=start,h=0;
       while(fit<lines.length&&h+lines[fit]<=free){h+=lines[fit];fit++;}
-      if(fit>=lines.length){free-=h;top=false;break;}
+      if(fit>=lines.length){free-=h;top=false;start=fit;break;}
       let cut=fit;
       if(lines.length-cut===1)cut--;               // widow: >=2 lines must follow the break
       if(start===0&&cut-start===1)cut=start;       // orphan: never strand 1 leading line
