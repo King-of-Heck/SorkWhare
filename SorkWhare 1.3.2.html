@@ -568,7 +568,7 @@ function fmtWrap(text,spans,diff){
     if(sp.b)inner='<b>'+inner+'</b>';
     if(sp.i)inner='<i>'+inner+'</i>';
     if(sp.u)inner='<u>'+inner+'</u>';
-    if(d)inner='<span class="fmtchg" title="'+esc(d.desc)+'">'+inner+'</span>';
+    if(d)inner='<span class="fmtchg" title="'+esc(d.desc).replace(/"/g,'&quot;')+'">'+inner+'</span>'; // Escape " for attribute context
     out+=inner; i=j;
   }
   return out;

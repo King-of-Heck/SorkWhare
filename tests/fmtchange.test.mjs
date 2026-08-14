@@ -35,3 +35,9 @@ test('compare: equal text with identical formatting → plain equal row, no form
   assert.equal(summary.formatting,0);
   assert.ok(!rows.some(r=>r.fmtChanged));
 });
+
+test('fmtWrap: description with double-quote is escaped in title attribute', ()=>{
+  const html=fmtWrap('ab',[{s:0,e:2,b:false,i:false,u:false,f:'F',z:11}],[{s:0,e:2,desc:'font "A" → "B"'}]);
+  assert.match(html,/title="[^"]*&quot;/);
+  assert.doesNotMatch(html,/title="font "A"/);
+});
