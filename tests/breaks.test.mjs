@@ -71,3 +71,52 @@ test('planBreaks: 2-line minimum physically impossible on any page -> splits any
   const r=J(planBreaks([B([60,60])],100));
   assert.deepEqual(r,[{b:0,l:1}]);
 });
+
+// meta factory for synthetic rows fed straight to generateRedlinePdf via opts
+const M=(text,extra)=>Object.assign({text,heading:null,isNumbered:false,marker:'',ilvl:0,
+  isBold:false,pageBreakBefore:false,align:'left',indLeftPt:0,indHangingPt:0,indFirstLinePt:0,
+  boldRuns:[],styleId:null,spaceBeforePt:null,spaceAfterPt:null,lineSpacing:null,
+  lineExactPt:null,lineRule:null,keepNext:false,keepLines:false,contextualSpacing:false},extra||{});
+const row=(text,extra)=>({type:'equal',meta:M(text,extra),html:text});
+const GEOM={wIn:8.5,hIn:11,mt:1,mr:1,mb:1,ml:1,fontPt:11,font:'Times New Roman'};
+const SHOW={ins:true,del:true,mov:true,eq:true};
+
+test('generateRedlinePdf: double spacing halves lines-per-page (more pages)', ()=>{
+  const {generateRedlinePdf}=ctx;
+  const long='word '.repeat(2000).trim();
+  const single=generateRedlinePdf({rows:[row(long)],geom:GEOM,show:SHOW,summary:{total:0}});
+  const dbl=generateRedlinePdf({rows:[row(long,{lineSpacing:2})],geom:GEOM,show:SHOW,summary:{total:0}});
+  assert.ok(dbl.pages>single.pages,'double spacing must produce more pages ('+dbl.pages+' vs '+single.pages+')');
+});
+
+test('generateRedlinePdf: exact line rule drives page count deterministically', ()=>{
+  const {generateRedlinePdf}=ctx;
+  const long='word '.repeat(2000).trim();
+  const a=generateRedlinePdf({rows:[row(long,{lineExactPt:12,lineRule:'exact'})],geom:GEOM,show:SHOW,summary:{total:0}});
+  const b=generateRedlinePdf({rows:[row(long,{lineExactPt:24,lineRule:'exact'})],geom:GEOM,show:SHOW,summary:{total:0}});
+  assert.ok(b.pages>a.pages);
+});
+
+test('generateRedlinePdf: spaceAfter accumulates (many small paras -> more pages)', ()=>{
+  const {generateRedlinePdf}=ctx;
+  const paras=n=>Array.from({length:80},(_,i)=>row('Paragraph '+i,n?{spaceAfterPt:30}:{}));
+  const tight=generateRedlinePdf({rows:paras(false),geom:GEOM,show:SHOW,summary:{total:0}});
+  const loose=generateRedlinePdf({rows:paras(true),geom:GEOM,show:SHOW,summary:{total:0}});
+  assert.ok(loose.pages>tight.pages);
+});
+
+test('generateRedlinePdf: contextualSpacing suppresses same-style gaps', ()=>{
+  const {generateRedlinePdf}=ctx;
+  const list=ctxOn=>Array.from({length:80},(_,i)=>row('Item '+i,
+    {styleId:'ListParagraph',spaceAfterPt:30,contextualSpacing:ctxOn}));
+  const on=generateRedlinePdf({rows:list(true),geom:GEOM,show:SHOW,summary:{total:0}});
+  const off=generateRedlinePdf({rows:list(false),geom:GEOM,show:SHOW,summary:{total:0}});
+  assert.ok(on.pages<off.pages);
+});
+
+test('generateRedlinePdf: absent spacing reproduces v1.1.5 defaults (regression pin)', ()=>{
+  const {generateRedlinePdf}=ctx;
+  const rows=Array.from({length:50},(_,i)=>row('Paragraph '+i+' with some words in it'));
+  const r=generateRedlinePdf({rows,geom:GEOM,show:SHOW,summary:{total:0}});
+  assert.ok(r.pages>=1&&typeof r.pdf==='string'&&r.pdf.startsWith('%PDF-1.4'));
+});

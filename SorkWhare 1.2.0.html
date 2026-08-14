@@ -757,8 +757,8 @@ function generateRedlinePdf(opts){
   by-=14;
   ops.push('0.85 0.87 0.90 RG','0.8 w',fmt(mlPt)+' '+fmt(by)+' m '+fmt(contentRight)+' '+fmt(by)+' l S');
   by-=16; penY=by;
-  // ---- Body paragraphs ----
-  let firstContent=true;
+  // ---- Pass 1: filter + wrap every row into positioned lines (no page decisions) ----
+  const paras=[];
   for(const row of rows){
     const t=row.type;
     if(t==='equal'&&!show.eq)continue;
@@ -766,20 +766,16 @@ function generateRedlinePdf(opts){
     if(t==='deleted'&&!show.del)continue;
     if((t==='moved-to'||t==='moved-from')&&!show.mov)continue;
     const meta=row.meta||{};
-    // Real Word indentation (points), from w:ind on the paragraph / numbering level / style.
-    // Body text sits at (margin + left); the marker hangs left at (left - hanging).
     const indLeftPt=meta.indLeftPt||0, indHangPt=meta.indHangingPt||0, indFLPt=meta.indFirstLinePt||0;
     const bodyX=mlPt+indLeftPt;
     const markerText=meta.marker||'';
     const markerX=mlPt+indLeftPt-(indHangPt||0);
     const base=pdfStyle(meta,'eq',bodyPt);
     const align=meta.align||'left';
-    // atoms
     const atoms=[];
     for(const r of pdfParseRuns(row.html||'')){const st=pdfStyle(meta,r.kind,bodyPt,r.bold);
       const toks=r.text.match(/\S+|\s+/g)||[];
       for(const tk of toks)atoms.push({text:tk,st});}
-    // wrap: first line may carry a first-line indent; wrapped lines use the left indent.
     const availFor=li=>Math.max(40,contentRight-(bodyX+(li===0?indFLPt:0)));
     const lines=[]; let cur=[],curW=0;
     for(const a of atoms){const isSp=/^\s+$/.test(a.text);const w=measure(a.text,a.st.size,a.st.bold,a.st.italic);
@@ -788,31 +784,63 @@ function generateRedlinePdf(opts){
       cur.push(a);curW+=w;}
     if(cur.length)lines.push(cur);
     if(!lines.length)lines.push([{text:'',st:base}]);
-    // explicit page break before this paragraph
-    if(meta.pageBreakBefore&&!firstContent)newPage();
-    for(let li=0;li<lines.length;li++){
-      const line=lines[li];
+    // Per-line height from the document's real line spacing (Word "auto" multiplies
+    // single spacing; our single-spacing factor stays 1.15 as in v1.1.5).
+    const lineHeights=lines.map(line=>{
       let maxSize=base.size; for(const a of line)if(a.st.size>maxSize)maxSize=a.st.size;
-      const lineHeight=maxSize*1.15, ascent=maxSize*0.8;
-      if(penY-lineHeight<mbPt)newPage();
+      const natural=maxSize*1.15*(meta.lineSpacing||1);
+      if(meta.lineExactPt!=null)return meta.lineRule==='exact'?meta.lineExactPt:Math.max(natural,meta.lineExactPt);
+      return natural;});
+    paras.push({meta,lines,lineHeights,bodyX,markerText,markerX,base,align,indFLPt,
+      spaceBeforePt:meta.spaceBeforePt!=null?meta.spaceBeforePt:0,
+      spaceAfterPt:meta.spaceAfterPt!=null?meta.spaceAfterPt:6,   // v1.1.5 flat gap when undeclared
+      keepNext:!!meta.keepNext||!!meta.heading,
+      keepLines:!!meta.keepLines,
+      pageBreakBefore:!!meta.pageBreakBefore&&paras.length>0});
+  }
+  // contextualSpacing: zero the gap between consecutive same-style paragraphs.
+  for(let i=0;i<paras.length;i++){
+    const m=paras[i].meta;
+    if(!m.contextualSpacing||!m.styleId)continue;
+    if(i>0&&paras[i-1].meta.styleId===m.styleId)paras[i].spaceBeforePt=0;
+    if(i+1<paras.length&&paras[i+1].meta.styleId===m.styleId)paras[i].spaceAfterPt=0;
+  }
+  // ---- Pass 2: page planning (banner shortens page 1) ----
+  const availH=Hpt-mtPt-mbPt;
+  const BANNER_H=62; // 20+12+14+16 from the banner block above
+  const blocks=paras.map(p=>({lineHeights:p.lineHeights,spaceBeforePt:p.spaceBeforePt,
+    spaceAfterPt:p.spaceAfterPt,keepNext:p.keepNext,keepLines:p.keepLines,
+    pageBreakBefore:p.pageBreakBefore}));
+  const brks=planBreaks(blocks,availH,availH-BANNER_H);
+  const brkSet=new Set(brks.map(x=>x.b+':'+x.l));
+  // ---- Pass 3: render ----
+  let atTop=false;
+  for(let pi=0;pi<paras.length;pi++){
+    const p=paras[pi],meta=p.meta;
+    if(!atTop&&!brkSet.has(pi+':0'))penY-=p.spaceBeforePt;
+    for(let li=0;li<p.lines.length;li++){
+      if(brkSet.has(pi+':'+li)){newPage();atTop=true;}
+      const line=p.lines[li],lh=p.lineHeights[li];
+      let maxSize=p.base.size; for(const a of line)if(a.st.size>maxSize)maxSize=a.st.size;
+      const ascent=maxSize*0.8;
+      if(penY-lh<mbPt&&!atTop)newPage();   // safety net; planBreaks should have caught it
       const baseline=penY-ascent;
-      if(li===0&&markerText)seg(markerX,baseline,markerText,base);
-      const lineStartX=bodyX+(li===0?indFLPt:0), lineAvail=contentRight-lineStartX;
-      // Natural width and gap count (interior spaces) for alignment maths.
+      if(li===0&&p.markerText)seg(p.markerX,baseline,p.markerText,p.base);
+      const lineStartX=p.bodyX+(li===0?p.indFLPt:0), lineAvail=contentRight-lineStartX;
       let natural=0,gaps=0;
       for(let k=0;k<line.length;k++){const a=line[k];natural+=measure(a.text,a.st.size,a.st.bold,a.st.italic);
         if(/^\s+$/.test(a.text)&&k!==line.length-1)gaps++;}
-      const isLast=(li===lines.length-1);
-      let x=lineStartX, extraPerGap=0;
-      if(align==='center')x=lineStartX+Math.max(0,(lineAvail-natural)/2);
-      else if(align==='right')x=lineStartX+Math.max(0,(lineAvail-natural));
-      else if(align==='justify'&&!isLast&&gaps>0){const extra=lineAvail-natural;if(extra>0)extraPerGap=extra/gaps;}
+      const isLast=(li===p.lines.length-1);
+      let x=lineStartX,extraPerGap=0;
+      if(p.align==='center')x=lineStartX+Math.max(0,(lineAvail-natural)/2);
+      else if(p.align==='right')x=lineStartX+Math.max(0,(lineAvail-natural));
+      else if(p.align==='justify'&&!isLast&&gaps>0){const extra=lineAvail-natural;if(extra>0)extraPerGap=extra/gaps;}
       for(let k=0;k<line.length;k++){const a=line[k];seg(x,baseline,a.text,a.st);
         x+=measure(a.text,a.st.size,a.st.bold,a.st.italic);
         if(extraPerGap&&/^\s+$/.test(a.text)&&k!==line.length-1)x+=extraPerGap;}
-      penY-=lineHeight;
+      penY-=lh; atTop=false;
     }
-    penY-=6; firstContent=false;
+    penY-=p.spaceAfterPt;
   }
   // ---- Assemble PDF objects ----
   const fonts=[['F1','Times-Roman'],['F2','Times-Bold'],['F3','Times-Italic'],['F4','Times-BoldItalic'],['F5','Helvetica-Bold']];
