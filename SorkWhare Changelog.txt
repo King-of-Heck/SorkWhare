@@ -17,6 +17,23 @@ assigned during development (numbering is not sequential/uniform by design).
 
 
 -------------------------------------------------------------------------------
+ v1.3.0  -  Redline Quality Release                  (2026-08-14)
+-------------------------------------------------------------------------------
+ - Tables are real tables now: cells, rows, and whole added/deleted table rows
+   render as bordered grids on screen, in print, and in the downloaded PDF
+   (pages break between table rows, never through one).
+ - Rewritten passages read like Workshare: dense word-by-word alternations
+   collapse into one struck-out phrase followed by one inserted phrase.
+ - Money, dates, and quantities replace whole: $486,000 -> $528,000 is one
+   clean change, never a mid-number split.
+ - Unchanged table cells stay visible under the "unchanged" filter so tables
+   keep their context; adjacent tables no longer merge into one grid.
+ - Benchmarked against an external Workshare comparison test pair:
+   all 40 substantive changes detected and cleanly presented.
+ - Known limits: nested tables render as flattened cell text; page ranges
+   like 3-5 now replace as one token.
+
+-------------------------------------------------------------------------------
  v1.2.0  -  PDF Fidelity Release                     (2026-08-13)
 -------------------------------------------------------------------------------
  - Native PDF now renders in the document's real font (when installed), with
