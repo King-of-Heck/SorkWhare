@@ -858,12 +858,74 @@ function generateRedlinePdf(opts){
   by-=16; penY=by;
   // ---- Pass 1: filter + wrap every row into positioned lines (no page decisions) ----
   const paras=[];
-  for(const row of rows){
-    const t=row.type;
-    if(t==='equal'&&!show.eq)continue;
-    if(t==='inserted'&&!show.ins)continue;
-    if(t==='deleted'&&!show.del)continue;
-    if((t==='moved-to'||t==='moved-from')&&!show.mov)continue;
+  const _visible=row=>{const t=row.type;
+    if(t==='equal'&&!show.eq)return false;
+    if(t==='inserted'&&!show.ins)return false;
+    if(t==='deleted'&&!show.del)return false;
+    if((t==='moved-to'||t==='moved-from')&&!show.mov)return false;
+    return true;};
+  // Wrap one cell paragraph's runs to a given width (used by the table branch).
+  const _wrapCellPara=(row,availW)=>{
+    const meta=row.meta||{},base=pdfStyle(meta,'eq',bodyPt),atoms=[];
+    if(meta.marker)atoms.push({text:meta.marker,st:base},{text:' ',st:base});
+    for(const r of pdfParseRuns(row.html||'')){const st=pdfStyle(meta,r.kind,bodyPt,r.bold);
+      const toks=r.text.match(/\S+|\s+/g)||[];
+      for(const tk of toks)atoms.push({text:tk,st});}
+    const lines=[];let cur=[],curW=0;
+    for(const a of atoms){const isSp=/^\s+$/.test(a.text);const w=measure(a.text,a.st.size,a.st.bold,a.st.italic);
+      if(!cur.length&&isSp)continue;
+      if(curW+w>availW&&cur.length){lines.push(cur);cur=[];curW=0;if(isSp)continue;}
+      cur.push(a);curW+=w;}
+    if(cur.length)lines.push(cur);
+    if(!lines.length)lines.push([{text:'',st:base}]);
+    const lineHeights=lines.map(line=>{let ms=base.size;for(const a of line)if(a.st.size>ms)ms=a.st.size;return ms*1.15;});
+    return {lines,lineHeights,h:lineHeights.reduce((x,y)=>x+y,0)};
+  };
+  // Turn a contiguous run of visible table-cell rows into one pseudo-para per
+  // visual table ROW: planBreaks sees each row as a single unsplittable line, so
+  // pages break BETWEEN table rows, never through one.
+  const _pushTableRows=(run,cols)=>{
+    const PADX=4,PADY=3;
+    const contentW=contentRight-mlPt;
+    const gw=(run[0].meta.tbl.gw&&run[0].meta.tbl.gw.length===cols)?run[0].meta.tbl.gw:null;
+    const totGw=gw?gw.reduce((a,b)=>a+b,0):0;
+    const colW=[],cx=[];let acc=mlPt;
+    for(let c=0;c<cols;c++){const w=(gw&&totGw)?contentW*(gw[c]/totGw):contentW/cols;colW.push(w);cx.push(acc);acc+=w;}
+    const trs=[];let curT=null,curKey=null;
+    for(const r of run){
+      const k=(r.ni!=null?'r':'o')+':'+r.meta.tbl.ti+':'+r.meta.tbl.ri;
+      if(k!==curKey){curT={cells:Array.from({length:cols},()=>[])};trs.push(curT);curKey=k;}
+      curT.cells[Math.min(r.meta.tbl.ci,cols-1)].push(r);
+    }
+    trs.forEach((tr,t)=>{
+      const cells=[];let rowContentH=0;
+      for(let c=0;c<cols;c++){
+        const wrapped=tr.cells[c].map(r=>_wrapCellPara(r,Math.max(20,colW[c]-2*PADX)));
+        const h=wrapped.reduce((x,w)=>x+w.h,0);
+        if(h>rowContentH)rowContentH=h;
+        cells.push(wrapped);
+      }
+      const rowH=rowContentH+2*PADY;
+      paras.push({isTableRow:true,cells,colW,cx,rowH,padX:PADX,padY:PADY,
+        meta:{},lines:[[]],lineHeights:[rowH],bodyX:mlPt,markerText:'',markerX:mlPt,
+        base:pdfStyle({},'eq',bodyPt),align:'left',indFLPt:0,
+        spaceBeforePt:t===0?6:0,spaceAfterPt:t===trs.length-1?6:0,
+        keepNext:false,keepLines:false,pageBreakBefore:false});
+    });
+  };
+  let _ri=0;
+  while(_ri<rows.length){
+    const row0=rows[_ri];
+    const tbl0=row0.meta&&row0.meta.tbl;
+    if(tbl0){
+      const cols=tbl0.cols,run=[];
+      while(_ri<rows.length&&rows[_ri].meta&&rows[_ri].meta.tbl&&rows[_ri].meta.tbl.cols===cols){
+        if(_visible(rows[_ri]))run.push(rows[_ri]);_ri++;}
+      if(run.length)_pushTableRows(run,cols);
+      continue;
+    }
+    if(!_visible(row0)){_ri++;continue;}
+    const row=row0;_ri++;
     const meta=row.meta||{};
     const indLeftPt=meta.indLeftPt||0, indHangPt=meta.indHangingPt||0, indFLPt=meta.indFirstLinePt||0;
     const bodyX=mlPt+indLeftPt;
@@ -917,6 +979,33 @@ function generateRedlinePdf(opts){
   for(let pi=0;pi<paras.length;pi++){
     const p=paras[pi],meta=p.meta;
     if(!atTop&&!brkSet.has(pi+':0'))penY-=p.spaceBeforePt;
+    if(p.isTableRow){
+      // One visual table row: light grid + per-cell wrapped text.
+      if(brkSet.has(pi+':0')){newPage();atTop=true;}
+      if(penY-p.rowH<mbPt&&!atTop)newPage();
+      const yTop=penY,xL=p.cx[0],xR=p.cx[p.cx.length-1]+p.colW[p.colW.length-1];
+      ops.push('0.72 0.75 0.79 RG','0.7 w');
+      ops.push(fmt(xL)+' '+fmt(yTop)+' m '+fmt(xR)+' '+fmt(yTop)+' l S');
+      ops.push(fmt(xL)+' '+fmt(yTop-p.rowH)+' m '+fmt(xR)+' '+fmt(yTop-p.rowH)+' l S');
+      for(let c=0;c<=p.colW.length;c++){const x=(c<p.colW.length)?p.cx[c]:xR;
+        ops.push(fmt(x)+' '+fmt(yTop)+' m '+fmt(x)+' '+fmt(yTop-p.rowH)+' l S');}
+      for(let c=0;c<p.cells.length;c++){
+        let y=yTop-p.padY;
+        for(const cp of p.cells[c]){
+          for(let li=0;li<cp.lines.length;li++){
+            const line=cp.lines[li],lh=cp.lineHeights[li];
+            let ms=0;for(const a of line)if(a.st&&a.st.size>ms)ms=a.st.size;if(!ms)ms=bodyPt;
+            const baseline=y-ms*0.8;
+            let x=p.cx[c]+p.padX;
+            for(const a of line){seg(x,baseline,a.text,a.st);x+=measure(a.text,a.st.size,a.st.bold,a.st.italic);}
+            y-=lh;
+          }
+        }
+      }
+      penY-=p.rowH;atTop=false;
+      penY-=p.spaceAfterPt;
+      continue;
+    }
     for(let li=0;li<p.lines.length;li++){
       if(brkSet.has(pi+':'+li)){newPage();atTop=true;}
       const line=p.lines[li],lh=p.lineHeights[li];

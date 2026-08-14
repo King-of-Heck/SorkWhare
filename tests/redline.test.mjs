@@ -172,3 +172,28 @@ test('integration: compare of docs with a changed cell + added table row', ()=>{
   assert.match(html,/<ins>Latency<\/ins>/);
   assert.ok(summary.total>=2);
 });
+
+/* ---- native PDF table rendering ---- */
+const GEOM={wIn:8.5,hIn:11,mt:1,mr:1,mb:1,ml:1,fontPt:11,font:'Times New Roman'};
+const SHOW={ins:true,del:true,mov:true,eq:true};
+
+test('generateRedlinePdf: table rows render as grid blocks with strokes', ()=>{
+  const {extractStructured,compare,generateRedlinePdf}=ctx;
+  const A=extractStructured(TBL([['Metric','42 MW'],['Uptime','99.1%']]),{},NUM0);
+  const B=extractStructured(TBL([['Metric','45 MW'],['Uptime','99.1%'],['Latency','200ms']]),{},NUM0);
+  const {rows}=compare(A,B,{});
+  const r=generateRedlinePdf({rows,geom:GEOM,show:SHOW,summary:{total:2}});
+  assert.equal(r.pages,1);
+  assert.match(r.pdf,/0\.72 0\.75 0\.79 RG/);        // table grid strokes present
+  assert.match(r.pdf,/\(45 MW\)|\(45\b/);            // cell text drawn
+  assert.ok(r.pdf.startsWith('%PDF-1.4'));
+});
+
+test('generateRedlinePdf: long tables break BETWEEN rows across pages', ()=>{
+  const {extractStructured,compare,generateRedlinePdf}=ctx;
+  const rowsXml=Array.from({length:60},(_,i)=>['Row '+i,'Value '+i+' with some longer wrapped text to give the row height']);
+  const A=extractStructured(TBL(rowsXml),{},NUM0);
+  const {rows}=compare(A,A.map(x=>x),{});
+  const r=generateRedlinePdf({rows,geom:GEOM,show:SHOW,summary:{total:0}});
+  assert.ok(r.pages>=2,'expected multi-page table, got '+r.pages);
+});
