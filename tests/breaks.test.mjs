@@ -61,7 +61,7 @@ test('planBreaks: line taller than a page forces progress (no infinite loop)', (
 test('planBreaks: firstAvail (banner page) smaller than later pages', ()=>{
   const {planBreaks}=ctx;
   const r=J(planBreaks([B([30,30]),B([30,30])],120,50));
-  // page1 holds only block0 (60>50 -> orphan-adjust: only 1 line fits -> whole block? 30 fits, 30 more doesn't;
-  // widow rule: cut at 1 leaves 1-line widow -> cut-- -> 0 -> orphan -> whole block to page2)
-  assert.deepEqual(r,[{b:0,l:0},{b:1,l:0}]);
+  // page1 (50pt) fits only 1 of block0's 2 lines -> orphan rule moves block0 whole to page 2;
+  // block1's 60pt then fits exactly in the remaining space of page 2
+  assert.deepEqual(r,[{b:0,l:0}]);
 });
