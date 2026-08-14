@@ -17,6 +17,19 @@ assigned during development (numbering is not sequential/uniform by design).
 
 
 -------------------------------------------------------------------------------
+ v1.2.0  -  PDF Fidelity Release                     (2026-08-13)
+-------------------------------------------------------------------------------
+ - Native PDF now renders in the document's real font (when installed), with
+   correct measurements - not everything-is-Times anymore.
+ - Real paragraph and line spacing (w:spacing, contextual spacing) drive
+   layout on screen, in print, and in the downloaded PDF.
+ - Disciplined page breaks: headings keep with their body text; no more
+   widowed/orphaned single lines at page boundaries.
+ - Print path and on-screen page estimates inherit the same spacing data, so
+   all three views agree.
+
+
+-------------------------------------------------------------------------------
  v1.1.5  -  Robustness release                       (2026-08-13)
 -------------------------------------------------------------------------------
  - Project is now a git repository (baseline tagged v1.1.4); proper semver from
