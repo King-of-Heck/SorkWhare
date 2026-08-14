@@ -292,24 +292,33 @@ function extractStructured(docXml,styles,numbering,defaults){
     if(sectPr){const stype=(sectPr.match(/<w:type w:val="([^"]+)"/)||[])[1]||'nextPage';sectBreak=!(stype==='continuous'||stype==='nextColumn');}
     // Run-aware extraction capturing PER-CHARACTER bold, so bold "defined terms"
     // (e.g. OPG, Wesleyville Site) can be rendered inline — not just whole-para bold.
-    let chars=[]; // array of {c, b}
+    let chars=[]; // array of {c, b, i, u, f, z}
     const runRe=/<w:r[ >][\s\S]*?<\/w:r>/g; let rm;
     while((rm=runRe.exec(p))!==null){
       const run=rm[0];
       const rpr=(run.match(/<w:rPr>[\s\S]*?<\/w:rPr>/)||[''])[0];
       let bold=false; const bm=rpr.match(/<w:b(?:\s+w:val="([^"]*)")?\s*\/>/);
       if(bm){const v=bm[1];bold=!(v==='false'||v==='0');}
+      // Same per-run rPr also carries italic/underline/font/size, resolved against
+      // the document default (`defaults`) when absent from the run.
+      const ital = /<w:i(?:\s+w:val="([^"]*)")?\s*\/>/.test(rpr) && !/<w:i\s+w:val="(?:false|0)"\s*\/>/.test(rpr);
+      const uMatch = rpr.match(/<w:u\s+w:val="([^"]*)"/);
+      const under = !!uMatch && uMatch[1]!=='none';
+      const fMatch = rpr.match(/<w:rFonts[^>]*w:ascii="([^"]+)"/);
+      const font = fMatch ? fMatch[1] : (defaults && defaults.font) || null;
+      const szMatch = rpr.match(/<w:sz\s+w:val="(\d+)"/);
+      const size = szMatch ? (+szMatch[1])/2 : ((defaults && defaults.fontPt) || 11);
       const tRe=/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>|<w:tab\/>|<w:br\/>/g; let m;
       while((m=tRe.exec(run))!==null){
         let piece; if(m[1]!==undefined)piece=unxml(m[1]); else if(m[0].indexOf('tab')!==-1)piece='\t'; else piece=' ';
-        for(const ch of piece)chars.push({c:ch,b:bold});
+        for(const ch of piece)chars.push({c:ch,b:bold,i:ital,u:under,f:font,z:size});
       }
     }
     if(!chars.length){ const tRe=/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>|<w:tab\/>|<w:br\/>/g; let m;
-      while((m=tRe.exec(p))!==null){ let piece; if(m[1]!==undefined)piece=unxml(m[1]); else if(m[0].indexOf('tab')!==-1)piece='\t'; else piece=' '; for(const ch of piece)chars.push({c:ch,b:false}); } }
-    // Normalize (whitespace -> single space, trim) while keeping bold aligned to chars.
-    const norm=chars.map(o=>({c:(/\s/.test(o.c)?' ':o.c),b:o.b}));
-    const coll=[]; for(const o of norm){ if(o.c===' '&&coll.length&&coll[coll.length-1].c===' '){coll[coll.length-1].b=coll[coll.length-1].b||o.b;continue;} coll.push({c:o.c,b:o.b}); }
+      while((m=tRe.exec(p))!==null){ let piece; if(m[1]!==undefined)piece=unxml(m[1]); else if(m[0].indexOf('tab')!==-1)piece='\t'; else piece=' '; for(const ch of piece)chars.push({c:ch,b:false,i:false,u:false,f:(defaults&&defaults.font)||null,z:(defaults&&defaults.fontPt)||11}); } }
+    // Normalize (whitespace -> single space, trim) while keeping all formatting aligned to chars.
+    const norm=chars.map(o=>({c:(/\s/.test(o.c)?' ':o.c),b:o.b,i:o.i,u:o.u,f:o.f,z:o.z}));
+    const coll=[]; for(const o of norm){ if(o.c===' '&&coll.length&&coll[coll.length-1].c===' '){coll[coll.length-1].b=coll[coll.length-1].b||o.b;continue;} coll.push({c:o.c,b:o.b,i:o.i,u:o.u,f:o.f,z:o.z}); }
     while(coll.length&&coll[0].c===' ')coll.shift();
     while(coll.length&&coll[coll.length-1].c===' ')coll.pop();
     let text=coll.map(o=>o.c).join('');
@@ -317,6 +326,12 @@ function extractStructured(docXml,styles,numbering,defaults){
     const boldRuns=[]; let bs=-1;
     for(let k=0;k<coll.length;k++){ if(coll[k].b){ if(bs<0)bs=k; } else if(bs>=0){ boldRuns.push([bs,k]); bs=-1; } }
     if(bs>=0)boldRuns.push([bs,coll.length]);
+    // Maximal formatting-constant runs {s,e,b,i,u,f,z} over the same normalized text,
+    // index-aligned with boldRuns/text — feeds formatting-only change detection.
+    const fmtSpans=[];
+    for(let k=0;k<coll.length;k++){ const o=coll[k], last=fmtSpans[fmtSpans.length-1];
+      if(last && last.b===o.b && last.i===o.i && last.u===o.u && last.f===o.f && last.z===o.z){ last.e=k+1; }
+      else fmtSpans.push({s:k,e:k+1,b:o.b,i:o.i,u:o.u,f:o.f,z:o.z}); }
     // Whole-paragraph bold ratio (for headings/fully-bold clauses) from non-space chars.
     let boldChars=0,totalChars=0; for(const o of coll){ if(o.c===' ')continue; totalChars++; if(o.b)boldChars++; }
     if(!text){
@@ -393,7 +408,7 @@ function extractStructured(docXml,styles,numbering,defaults){
     const keepLines=kL!=null?kL:!!(stEff&&stEff.keepLines);
     const contextualSpacing=cS!=null?cS:!!(stEff&&stEff.contextualSpacing);
 
-    out.push({text,heading,isNumbered,marker,ilvl,isBold,pageBreakBefore,align,indLeftPt,indHangingPt,indFirstLinePt,boldRuns,
+    out.push({text,heading,isNumbered,marker,ilvl,isBold,pageBreakBefore,align,indLeftPt,indHangingPt,indFirstLinePt,boldRuns,fmtSpans,
       styleId,spaceBeforePt,spaceAfterPt,lineSpacing,lineExactPt,lineRule,keepNext,keepLines,contextualSpacing,
       tbl:tbl||null});
   }
