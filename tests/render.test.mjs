@@ -50,3 +50,8 @@ test('renderAll passes neighbour metas (source check)', ()=>{
   const {__html:h}=loadApp();
   assert.match(h,/paraHtml\(r,brk,pm,nm\)/);
 });
+
+test('#paper is a flex column so real margins add instead of collapsing', ()=>{
+  const {__html:h}=loadApp();
+  assert.match(h,/#paper\{[^}]*display:flex;flex-direction:column/);
+});
