@@ -681,7 +681,9 @@ let resultsShown=false;
 const $=id=>document.getElementById(id);
 function wireDrop(dropId,nameId,which){const d=$(dropId),input=document.createElement('input');input.type='file';input.accept='.docx';input.style.display='none';d.appendChild(input);d.addEventListener('click',()=>input.click());input.addEventListener('change',e=>{if(e.target.files[0])setFile(e.target.files[0],which,d,nameId);});d.addEventListener('dragover',e=>{e.preventDefault();d.classList.add('dragover');});d.addEventListener('dragleave',()=>d.classList.remove('dragover'));d.addEventListener('drop',e=>{e.preventDefault();d.classList.remove('dragover');const f=e.dataTransfer.files[0];if(f)setFile(f,which,d,nameId);});}
 function setFile(f,which,d,nameId){if(!f.name.toLowerCase().endsWith('.docx')){showErr('Please choose a .docx file.');return;}if(which==='A')fileA=f;else fileB=f;d.classList.add('filled');$(nameId).textContent=f.name;$('btnCompare').disabled=!(fileA&&fileB);showErr('');}
-function showErr(m){$('err').innerHTML=m?('<div class="err">'+m+'</div>'):'';}
+// Message text is treated as PLAIN TEXT and escaped — never let a filename or a
+// thrown error message inject markup into the error banner.
+function showErr(m){$('err').innerHTML=m?('<div class="err">'+esc(m)+'</div>'):'';}
 wireDrop('dropA','nameA','A');wireDrop('dropB','nameB','B');
 
 $('btnCompare').addEventListener('click',async()=>{
