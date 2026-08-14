@@ -846,17 +846,22 @@ function pdfStyle(meta,kind,bodyPt,runBold){
   else if(kind==='del'){color='0.702 0.149 0.118';strike=true;}
   else if(kind==='moved'){color='0.106 0.498 0.231';underline=true;}
   else if(kind==='moved-src'){color='0.106 0.498 0.231';strike=true;}
+  else if(kind==='fmt'){color='0.486 0.227 0.929';underline=true;}
   return {size,bold,italic,color,underline,strike};
 }
-// Parse our generated redline HTML into typed runs (eq/ins/del/moved/moved-src).
-function pdfParseRuns(html){
-  const out=[],stack=[]; let bold=0; const re=/<ins>|<\/ins>|<del>|<\/del>|<span class="moved">|<span class="moved-src">|<\/span>|<b>|<\/b>|[^<]+/g; let m;
+// Parse our generated redline HTML into typed runs (eq/ins/del/moved/moved-src/fmt).
+// fmtOn gates the 'fmt' kind: when false, fmtchg-wrapped text is treated as plain 'eq'
+// (clean export — no violet mark) without needing a second HTML-stripping pass.
+function pdfParseRuns(html,fmtOn){
+  const out=[],stack=[]; let bold=0; const re=/<ins>|<\/ins>|<del>|<\/del>|<span class="moved">|<span class="moved-src">|<span class="fmtchg"[^>]*>|<\/span>|<b>|<\/b>|[^<]+/g; let m;
   while((m=re.exec(html))){const t=m[0];
     if(t==='<ins>')stack.push('ins'); else if(t==='<del>')stack.push('del');
     else if(t==='<span class="moved">')stack.push('moved'); else if(t==='<span class="moved-src">')stack.push('moved-src');
+    else if(t.slice(0,17)==='<span class="fmtc')stack.push('fmt');
     else if(t==='</ins>'||t==='</del>'||t==='</span>')stack.pop();
     else if(t==='<b>')bold++; else if(t==='</b>')bold=Math.max(0,bold-1);
-    else out.push({text:t.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&'),kind:stack.length?stack[stack.length-1]:'eq',bold:bold>0});
+    else {let k=stack.length?stack[stack.length-1]:'eq'; if(k==='fmt'&&!fmtOn)k='eq';
+      out.push({text:t.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&'),kind:k,bold:bold>0});}
   } return out;
 }
 /* Pure page-fill planner for the native PDF generator.
@@ -912,7 +917,7 @@ function generateRedlinePdf(opts){
   const fbName=opts.fileBName!=null?opts.fileBName:((fileB&&fileB.name)||'');
   const Wpt=g.wIn*PT,Hpt=g.hIn*PT,mlPt=g.ml*PT,mrPt=g.mr*PT,mtPt=g.mt*PT,mbPt=g.mb*PT;
   const contentRight=Wpt-mrPt, bodyPt=g.fontPt||11;
-  const show=opts.show||{ins:$('fIns').checked,del:$('fDel').checked,mov:$('fMov').checked,eq:$('fEq').checked};
+  const show=opts.show||{ins:$('fIns').checked,del:$('fDel').checked,mov:$('fMov').checked,eq:$('fEq').checked,fmt:$('fFmt')?$('fFmt').checked:true};
   let ctx=null; try{ctx=document.createElement('canvas').getContext('2d');}catch(_){}
   // Use the document's real font when we can both MEASURE it (Canvas) and expect the
   // viewer to render it (installed locally). Otherwise: v1.1.5 base-14 Times path.
@@ -948,7 +953,7 @@ function generateRedlinePdf(opts){
   // ---- Pass 1: filter + wrap every row into positioned lines (no page decisions) ----
   const paras=[];
   const _visible=row=>{const t=row.type;
-    if(t==='equal'&&!show.eq)return false;
+    if(t==='equal'){ if(show.eq) return true; return !!(row.fmtChanged && show.fmt); }
     if(t==='inserted'&&!show.ins)return false;
     if(t==='deleted'&&!show.del)return false;
     if((t==='moved-to'||t==='moved-from')&&!show.mov)return false;
@@ -957,7 +962,7 @@ function generateRedlinePdf(opts){
   const _wrapCellPara=(row,availW)=>{
     const meta=row.meta||{},base=pdfStyle(meta,'eq',bodyPt),atoms=[];
     if(meta.marker)atoms.push({text:meta.marker,st:base},{text:' ',st:base});
-    for(const r of pdfParseRuns(row.html||'')){const st=pdfStyle(meta,r.kind,bodyPt,r.bold);
+    for(const r of pdfParseRuns(row.html||'',show.fmt)){const st=pdfStyle(meta,r.kind,bodyPt,r.bold);
       const toks=r.text.match(/\S+|\s+/g)||[];
       for(const tk of toks)atoms.push({text:tk,st});}
     const lines=[];let cur=[],curW=0;
@@ -1044,9 +1049,17 @@ function generateRedlinePdf(opts){
     const base=pdfStyle(meta,'eq',bodyPt);
     const align=meta.align||'left';
     const atoms=[];
-    for(const r of pdfParseRuns(row.html||'')){const st=pdfStyle(meta,r.kind,bodyPt,r.bold);
+    for(const r of pdfParseRuns(row.html||'',show.fmt)){const st=pdfStyle(meta,r.kind,bodyPt,r.bold);
       const toks=r.text.match(/\S+|\s+/g)||[];
       for(const tk of toks)atoms.push({text:tk,st});}
+    // Compact inline note for a formatting-only change — consumes row.fmtDescs
+    // (set alongside row.fmtChanged in Task 4's compare wiring); no title-attribute
+    // re-parsing here. Clean export when formatting is hidden: no mark, no note.
+    if(row.fmtChanged&&show.fmt){
+      const noteSt=pdfStyle(meta,'fmt',bodyPt);
+      const noteText='  [formatting: '+(row.fmtDescs||[]).join('; ')+']';
+      atoms.push({text:noteText,st:noteSt}); // kept atomic (one Tj run) rather than word-wrapped
+    }
     const availFor=li=>Math.max(40,contentRight-(bodyX+(li===0?indFLPt:0)));
     const lines=[]; let cur=[],curW=0;
     for(const a of atoms){const isSp=/^\s+$/.test(a.text);const w=measure(a.text,a.st.size,a.st.bold,a.st.italic);
