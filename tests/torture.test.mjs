@@ -65,7 +65,7 @@ test('C3 [PARITY M] percentage and unit values replace whole', ()=>{
 // replace pairs around it. _coalesce only merges RUNS separated by whitespace-only
 // gaps; "of" is a real (non-whitespace) equal token, so it is not a coalescing
 // candidate — this is correct behavior, not a defect. Actual output asserted verbatim.
-test('C4 [PARITY M] dense clause rewrite splits into two replace pairs around the shared word "of"', ()=>{
+test('C4 [PARITY D] dense clause rewrite splits into two replace pairs around the shared word "of"', ()=>{
   const o='Payment is due within thirty days of invoice receipt.';
   const n='Payment is due upon completion of the accepted milestone deliverables.';
   const out=inlineDiffB(o,n,[],[]);
