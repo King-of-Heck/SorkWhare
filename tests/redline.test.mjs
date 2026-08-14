@@ -197,3 +197,41 @@ test('generateRedlinePdf: long tables break BETWEEN rows across pages', ()=>{
   const r=generateRedlinePdf({rows,geom:GEOM,show:SHOW,summary:{total:0}});
   assert.ok(r.pages>=2,'expected multi-page table, got '+r.pages);
 });
+
+test('generateRedlinePdf: page-tall table row degrades to line-broken paragraphs (no off-page text)', ()=>{
+  const {extractStructured,compare,generateRedlinePdf}=ctx;
+  const huge='This sentence pads the cell far beyond one page of content. '.repeat(140);
+  const A=extractStructured(TBL([['Label',huge]]),{},NUM0);
+  const {rows}=compare(A,A.map(x=>x),{});
+  const r=generateRedlinePdf({rows,geom:GEOM,show:SHOW,summary:{total:0}});
+  assert.ok(r.pages>=2,'tall row must span pages, got '+r.pages);
+  let minY=Infinity;
+  for(const m of r.pdf.matchAll(/1 0 0 1 [\d.]+ (-?[\d.]+) Tm/g))minY=Math.min(minY,+m[1]);
+  assert.ok(minY>=71,'text drawn below bottom margin: y='+minY);
+});
+
+test('generateRedlinePdf: hide-unchanged keeps equal cells of tables (parity with screen CSS)', ()=>{
+  const {extractStructured,compare,generateRedlinePdf}=ctx;
+  const A=extractStructured(TBL([['Metric','42 MW']]),{},NUM0);
+  const B=extractStructured(TBL([['Metric','45 MW']]),{},NUM0);
+  const {rows}=compare(A,B,{});
+  const r=generateRedlinePdf({rows,geom:GEOM,show:{ins:true,del:true,mov:true,eq:false},summary:{total:1}});
+  assert.match(r.pdf,/\(Metric\)/,'equal label cell must survive hide-unchanged in tables');
+});
+
+test('bodyRowsHtml: adjacent same-width tables stay separate <table> elements', ()=>{
+  const {bodyRowsHtml}=ctx;
+  const C=(ti,ri,ci)=>({type:'equal',ni:0,oi:0,html:'t'+ti+'r'+ri+'c'+ci,meta:{tbl:{ti,ri,ci,cols:2},marker:''}});
+  const rows=[C(0,0,0),C(0,0,1),C(1,0,0),C(1,0,1)];
+  const html=bodyRowsHtml(rows);
+  assert.equal((html.match(/<table class="ctable">/g)||[]).length,2);
+});
+
+test('bodyRowsHtml: explicit page break before a table emits the separator', ()=>{
+  const {bodyRowsHtml}=ctx;
+  const P={type:'equal',ni:0,oi:0,html:'Intro',meta:{marker:''}};
+  const C={type:'equal',ni:0,oi:0,html:'cell',meta:{tbl:{ti:0,ri:0,ci:0,cols:1},marker:''},};
+  C.meta.pageBreakBefore=true;
+  const html=bodyRowsHtml([P,C]);
+  assert.match(html,/pgbreak-sep[\s\S]*<table/);
+});

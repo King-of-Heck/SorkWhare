@@ -894,9 +894,11 @@ function generateRedlinePdf(opts){
     const trs=[];let curT=null,curKey=null;
     for(const r of run){
       const k=(r.ni!=null?'r':'o')+':'+r.meta.tbl.ti+':'+r.meta.tbl.ri;
-      if(k!==curKey){curT={cells:Array.from({length:cols},()=>[])};trs.push(curT);curKey=k;}
+      if(k!==curKey){curT={cells:Array.from({length:cols},()=>[]),flat:[]};trs.push(curT);curKey=k;}
       curT.cells[Math.min(r.meta.tbl.ci,cols-1)].push(r);
+      curT.flat.push(r);
     }
+    const pageH=Hpt-mtPt-mbPt;
     trs.forEach((tr,t)=>{
       const cells=[];let rowContentH=0;
       for(let c=0;c<cols;c++){
@@ -906,11 +908,24 @@ function generateRedlinePdf(opts){
         cells.push(wrapped);
       }
       const rowH=rowContentH+2*PADY;
+      if(rowH>pageH-12){
+        // A row taller than one page cannot render as an unsplittable grid row —
+        // degrade its cells to ordinary stacked paragraphs so line-level page
+        // breaking applies (never draw off-page).
+        for(const r of tr.flat){
+          const w=_wrapCellPara(r,Math.max(40,contentRight-mlPt));
+          paras.push({meta:r.meta||{},lines:w.lines,lineHeights:w.lineHeights,bodyX:mlPt,
+            markerText:'',markerX:mlPt,base:pdfStyle(r.meta||{},'eq',bodyPt),align:'left',indFLPt:0,
+            spaceBeforePt:0,spaceAfterPt:2,keepNext:false,keepLines:false,pageBreakBefore:false});
+        }
+        return;
+      }
       paras.push({isTableRow:true,cells,colW,cx,rowH,padX:PADX,padY:PADY,
         meta:{},lines:[[]],lineHeights:[rowH],bodyX:mlPt,markerText:'',markerX:mlPt,
         base:pdfStyle({},'eq',bodyPt),align:'left',indFLPt:0,
         spaceBeforePt:t===0?6:0,spaceAfterPt:t===trs.length-1?6:0,
-        keepNext:false,keepLines:false,pageBreakBefore:false});
+        keepNext:false,keepLines:false,
+        pageBreakBefore:t===0&&!!(run[0].meta&&run[0].meta.pageBreakBefore)&&paras.length>0});
     });
   };
   let _ri=0;
@@ -918,9 +933,15 @@ function generateRedlinePdf(opts){
     const row0=rows[_ri];
     const tbl0=row0.meta&&row0.meta.tbl;
     if(tbl0){
-      const cols=tbl0.cols,run=[];
+      const cols=tbl0.cols,run=[],seenTi={r:null,o:null};
       while(_ri<rows.length&&rows[_ri].meta&&rows[_ri].meta.tbl&&rows[_ri].meta.tbl.cols===cols){
-        if(_visible(rows[_ri]))run.push(rows[_ri]);_ri++;}
+        const r2=rows[_ri],side=(r2.ni!=null)?'r':'o',t2=r2.meta.tbl.ti;
+        if(seenTi[side]!=null&&seenTi[side]!==t2)break; // adjacent distinct table
+        seenTi[side]=t2;
+        // Equal cells stay in the table even under the "unchanged" filter —
+        // parity with the screen CSS (a table without them is unreadable).
+        if(_visible(r2)||r2.type==='equal')run.push(r2);
+        _ri++;}
       if(run.length)_pushTableRows(run,cols);
       continue;
     }
@@ -1191,8 +1212,14 @@ function bodyRowsHtml(rows){
       html+=paraHtml(r,brk,pm,nm);
       firstPara=false;i++;continue;
     }
-    const cols=tbl.cols,run=[];
-    while(i<rows.length&&rows[i].meta&&rows[i].meta.tbl&&rows[i].meta.tbl.cols===cols){run.push(rows[i]);i++;}
+    const cols=tbl.cols,run=[],seenTi={r:null,o:null};
+    while(i<rows.length&&rows[i].meta&&rows[i].meta.tbl&&rows[i].meta.tbl.cols===cols){
+      const r2=rows[i],side=(r2.ni!=null)?'r':'o',t2=r2.meta.tbl.ti;
+      if(seenTi[side]!=null&&seenTi[side]!==t2)break; // adjacent distinct table
+      seenTi[side]=t2;
+      run.push(r2);i++;}
+    if(!!(run[0].meta&&run[0].meta.pageBreakBefore)&&!firstPara)
+      html+='<div class="pgbreak-sep" aria-hidden="true"><span>Page break</span></div>';
     html+=tableHtml(run,cols);
     firstPara=false;
   }
