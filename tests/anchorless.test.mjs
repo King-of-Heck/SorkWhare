@@ -18,9 +18,13 @@ test('E9: two long low-overlap paragraphs under the cap render as clean del-phra
 
 test('E9: empty-vs-huge does not emit an empty <del></del> or <ins></ins>', ()=>{
   const {safeInline}=ctx;
-  const huge=Array.from({length:120},(_,i)=>'word'+i).join(' ');
+  // Over INLINE_TOKEN_CAP (4000) so safeInline takes the whole-replace (cap) branch —
+  // the path with the explicit empty-side guard the E9 concern names.
+  const huge=Array.from({length:4200},(_,i)=>'word'+i).join(' ');
   const insOnly=safeInline('',huge,[],[]);
-  assert.doesNotMatch(insOnly,/<del><\/del>/);
+  assert.doesNotMatch(insOnly,/<del><\/del>/,'no empty deletion wrapper');
+  assert.match(insOnly,/<ins>/,'the huge inserted side is rendered');
   const delOnly=safeInline(huge,'',[],[]);
-  assert.doesNotMatch(delOnly,/<ins><\/ins>/);
+  assert.doesNotMatch(delOnly,/<ins><\/ins>/,'no empty insertion wrapper');
+  assert.match(delOnly,/<del>/,'the huge deleted side is rendered');
 });
