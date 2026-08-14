@@ -801,7 +801,7 @@ function planBreaks(blocks,avail,firstAvail){
     const Bk=blocks[b],total=sum(Bk.lineHeights);
     let need=(Bk.keepLines&&total<=avail)?total:sum(Bk.lineHeights,0,Math.min(2,Bk.lineHeights.length));
     if(Bk.keepNext&&depth<4&&b+1<blocks.length&&!blocks[b+1].pageBreakBefore)
-      need=total+(blocks[b+1].spaceBeforePt||0)+commit(b+1,depth+1);
+      need=total+(Bk.spaceAfterPt||0)+(blocks[b+1].spaceBeforePt||0)+commit(b+1,depth+1);
     return need;
   }
   const newPage=(b,l)=>{breaks.push({b,l});free=avail;top=true;};
