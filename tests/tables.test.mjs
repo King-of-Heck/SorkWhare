@@ -28,8 +28,11 @@ test('A1 regression: gridded table keeps its tblGrid column count', ()=>{
 
 test('A2: a page break inside a table cell does not leak to the next paragraph', ()=>{
   const {extractStructured}=ctx;
+  // Single-cell, single-row table whose only paragraph is an empty page break.
+  // Nothing after it inside the table consumes the pending break, so without
+  // isolation it would leak onto the following paragraph.
   const brCell='<w:tc><w:p><w:r><w:br w:type="page"/></w:r></w:p></w:tc>';
-  const tbl='<w:tbl><w:tr>'+brCell+'<w:tc><w:p><w:r><w:t>x</w:t></w:r></w:p></w:tc></w:tr></w:tbl>';
+  const tbl='<w:tbl><w:tr>'+brCell+'</w:tr></w:tbl>';
   const after='<w:p><w:r><w:t>After the table</w:t></w:r></w:p>';
   const out=extractStructured(doc(tbl+after),{},NUM,DEF);
   const afterPara=out.find(r=>!r.tbl&&r.text==='After the table');
