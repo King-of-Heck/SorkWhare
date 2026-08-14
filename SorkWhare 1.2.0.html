@@ -679,6 +679,50 @@ function pdfParseRuns(html){
     else out.push({text:t.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&'),kind:stack.length?stack[stack.length-1]:'eq',bold:bold>0});
   } return out;
 }
+/* Pure page-fill planner for the native PDF generator.
+   blocks: [{lineHeights:[pt], spaceBeforePt, spaceAfterPt, keepNext, keepLines,
+   pageBreakBefore}] with contextualSpacing already resolved into the gap fields.
+   avail = printable height of a normal page; firstAvail = page 1 (banner).
+   Returns [{b,l}] = start a new page before line l of block b (l===lineHeights.length
+   is an overflow sentinel renderers skip). Rules: space-before ignored at page top;
+   2-line widow/orphan minimums; keepLines keeps a block whole when it can ever fit;
+   keepNext keeps a block with its successor's first lines (chain capped at 4). */
+function planBreaks(blocks,avail,firstAvail){
+  const breaks=[];let free=(firstAvail!=null?firstAvail:avail),top=true;
+  const sum=(a,f,t)=>{let s=0;const e=(t==null?a.length:t);for(let i=(f||0);i<e;i++)s+=a[i];return s;};
+  function commit(b,depth){
+    if(b>=blocks.length)return 0;
+    const Bk=blocks[b],total=sum(Bk.lineHeights);
+    let need=(Bk.keepLines&&total<=avail)?total:sum(Bk.lineHeights,0,Math.min(2,Bk.lineHeights.length));
+    if(Bk.keepNext&&depth<4&&b+1<blocks.length&&!blocks[b+1].pageBreakBefore)
+      need=total+(blocks[b+1].spaceBeforePt||0)+commit(b+1,depth+1);
+    return need;
+  }
+  const newPage=(b,l)=>{breaks.push({b,l});free=avail;top=true;};
+  for(let b=0;b<blocks.length;b++){
+    const Bk=blocks[b],lines=Bk.lineHeights;
+    if(Bk.pageBreakBefore&&!top)newPage(b,0);
+    if(!top){
+      const before=Bk.spaceBeforePt||0;
+      if(before+commit(b,0)>free)newPage(b,0);else free-=before;
+    }
+    let start=0;
+    while(start<lines.length){
+      let fit=start,h=0;
+      while(fit<lines.length&&h+lines[fit]<=free){h+=lines[fit];fit++;}
+      if(fit>=lines.length){free-=h;top=false;break;}
+      let cut=fit;
+      if(lines.length-cut===1)cut--;               // widow: >=2 lines must follow the break
+      if(start===0&&cut-start===1)cut=start;       // orphan: never strand 1 leading line
+      if(cut<=start){
+        if(top&&fit===start){cut=Math.max(fit,start+1);newPage(b,cut);start=cut;} // nothing at all fits: force progress
+        else {newPage(b,start);} // widow/orphan pushed back despite something fitting (or already mid-page): whole remainder moves
+      } else {newPage(b,cut);start=cut;}
+    }
+    if(start>=lines.length&&!top)free=Math.max(0,free-(Bk.spaceAfterPt||0));
+  }
+  return breaks;
+}
 function generateRedlinePdf(opts){
   opts=opts||{};
   const rows=opts.rows||lastRows||[];
