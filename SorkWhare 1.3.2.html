@@ -1058,7 +1058,8 @@ function generateRedlinePdf(opts){
     if(row.fmtChanged&&show.fmt){
       const noteSt=pdfStyle(meta,'fmt',bodyPt);
       const noteText='  [formatting: '+(row.fmtDescs||[]).join('; ')+']';
-      atoms.push({text:noteText,st:noteSt}); // kept atomic (one Tj run) rather than word-wrapped
+      const noteToks=noteText.match(/\S+|\s+/g)||[];
+      for(const tk of noteToks)atoms.push({text:tk,st:noteSt}); // word-wrapped like ordinary runs so a long note breaks across lines instead of overflowing the page
     }
     const availFor=li=>Math.max(40,contentRight-(bodyX+(li===0?indFLPt:0)));
     const lines=[]; let cur=[],curW=0;
