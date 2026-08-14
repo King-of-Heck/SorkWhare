@@ -215,18 +215,41 @@ function unxml(s){return (s||'')
 /* ================= styles.xml & numbering.xml ================= */
 // Parse a <w:ind ...> attribute string into twips {left,hanging,firstLine}; null if none.
 function _indFrom(str){if(!str)return null;const g=re=>{const m=str.match(re);return m?+m[1]:null;};const left=g(/w:left="(-?\d+)"/),hanging=g(/w:hanging="(\d+)"/),firstLine=g(/w:firstLine="(\d+)"/);if(left==null&&hanging==null&&firstLine==null)return null;return{left,hanging,firstLine};}
+// Parse a <w:spacing ...> ATTRIBUTE string into paragraph spacing (twips) + lineRule.
+// Returns null when none of before/after/line present (e.g. rPr letter-spacing w:val).
+function _spacingFrom(str){if(!str)return null;const g=re=>{const m=str.match(re);return m?+m[1]:null;};
+  const before=g(/w:before="(\d+)"/),after=g(/w:after="(\d+)"/),line=g(/w:line="(-?\d+)"/);
+  if(before==null&&after==null&&line==null)return null;
+  const lineRule=(str.match(/w:lineRule="([^"]+)"/)||[])[1]||null;
+  return {before,after,line,lineRule};}
+// A toggle element like <w:keepNext/> is ON unless explicitly w:val="0|false|off".
+function _flagOn(scope,tag){const m=scope.match(new RegExp('<w:'+tag+'\\b([^>]*)/?>'));
+  if(!m)return false;return !/w:val="(?:0|false|off)"/.test(m[1]);}
 function parseStyles(xml){const map={};if(!xml)return map;const blocks=xml.match(/<w:style [\s\S]*?<\/w:style>/g)||[];for(const b of blocks){const id=(b.match(/w:styleId="([^"]+)"/)||[])[1];if(!id)continue;const name=(b.match(/<w:name w:val="([^"]+)"/)||[])[1]||'';const numId=(b.match(/<w:numId w:val="(\d+)"/)||[])[1];const ilvl=(b.match(/<w:ilvl w:val="(\d+)"/)||[])[1];const outl=(b.match(/<w:outlineLvl w:val="(\d+)"/)||[])[1];const based=(b.match(/<w:basedOn w:val="([^"]+)"/)||[])[1];
     // Paragraph alignment (w:jc) and indentation (w:ind) carried on the STYLE. Many
     // legal templates set "justified" body and indents at the style level, not inline.
     const jc=(b.match(/<w:jc w:val="([^"]+)"/)||[])[1]||null;
     const indM=b.match(/<w:ind\b([^>]*?)\/?>/); const ind=indM?_indFrom(indM[1]):null;
-    map[id]={name,numId:numId?+numId:null,ilvl:ilvl?+ilvl:0,outlineLvl:outl!==undefined?+outl:null,basedOn:based||null,jc,ind};}
+    const pPrB=(b.match(/<w:pPr>[\s\S]*?<\/w:pPr>/)||[''])[0];
+    const spM=pPrB.match(/<w:spacing\b([^>]*?)\/?>/); const spacing=spM?_spacingFrom(spM[1]):null;
+    const keepNext=_flagOn(pPrB,'keepNext'),keepLines=_flagOn(pPrB,'keepLines'),contextualSpacing=_flagOn(pPrB,'contextualSpacing');
+    map[id]={name,numId:numId?+numId:null,ilvl:ilvl?+ilvl:0,outlineLvl:outl!==undefined?+outl:null,basedOn:based||null,jc,ind,spacing,keepNext,keepLines,contextualSpacing};
+    const open=b.slice(0,b.indexOf('>'));
+    if(/w:default="1"/.test(open)&&/w:type="paragraph"/.test(open))map.__defaultPara=id;}
   // Resolve numId/ilvl AND jc/ind through the basedOn inheritance chain (legal MultiLevel
   // styles only declare these on a parent; children inherit them via basedOn).
-  function resolve(id,seen){seen=seen||new Set();if(!id||seen.has(id))return;seen.add(id);const st=map[id];if(!st)return;if(st.basedOn){resolve(st.basedOn,seen);const par=map[st.basedOn];if(par){if(st.numId==null&&par.numId!=null){st.numId=par.numId;if(st.ilvl==null)st.ilvl=par.ilvl;}if(st.jc==null&&par.jc!=null)st.jc=par.jc;if(st.ind==null&&par.ind!=null)st.ind=par.ind;}}}
+  function resolve(id,seen){seen=seen||new Set();if(!id||seen.has(id))return;seen.add(id);if(typeof map[id]==='string')return;const st=map[id];if(!st)return;if(st.basedOn){resolve(st.basedOn,seen);const par=map[st.basedOn];if(par){if(st.numId==null&&par.numId!=null){st.numId=par.numId;if(st.ilvl==null)st.ilvl=par.ilvl;}if(st.jc==null&&par.jc!=null)st.jc=par.jc;if(st.ind==null&&par.ind!=null)st.ind=par.ind;
+    if(par.spacing){const s=st.spacing||{};st.spacing={
+      before:s.before!=null?s.before:par.spacing.before,
+      after:s.after!=null?s.after:par.spacing.after,
+      line:s.line!=null?s.line:par.spacing.line,
+      lineRule:s.line!=null?s.lineRule:par.spacing.lineRule};}
+    if(par.keepNext&&!st.keepNext)st.keepNext=true;
+    if(par.keepLines&&!st.keepLines)st.keepLines=true;
+    if(par.contextualSpacing&&!st.contextualSpacing)st.contextualSpacing=true;}}}
   for(const id in map)resolve(id);
   return map;}
-function parseNumbering(xml){const numToAbs={},abs={},styleToNum={};if(!xml)return{numToAbs,abs,styleToNum};const nums=xml.match(/<w:num w:numId="\d+"[\s\S]*?<\/w:num>/g)||[];for(const n of nums){const id=(n.match(/w:numId="(\d+)"/)||[])[1],a=(n.match(/<w:abstractNumId w:val="(\d+)"/)||[])[1];if(id&&a)numToAbs[+id]=+a;}const absBlocks=xml.match(/<w:abstractNum w:abstractNumId="\d+"[\s\S]*?<\/w:abstractNum>/g)||[];for(const ab of absBlocks){const aid=+(ab.match(/w:abstractNumId="(\d+)"/)||[])[1];const levels={};const lvls=ab.match(/<w:lvl w:ilvl="\d+"[\s\S]*?<\/w:lvl>/g)||[];for(const lv of lvls){const il=+(lv.match(/w:ilvl="(\d+)"/)||[])[1];const fmt=(lv.match(/<w:numFmt w:val="([^"]+)"/)||[])[1]||'decimal';const txt=unxml((lv.match(/<w:lvlText w:val="([^"]*)"/)||[])[1]||'');const start=+((lv.match(/<w:start w:val="(\d+)"/)||[])[1]||1);const pStyle=(lv.match(/<w:pStyle w:val="([^"]+)"/)||[])[1]||null;const lIndM=lv.match(/<w:ind\b([^>]*?)\/?>/);const ind=lIndM?_indFrom(lIndM[1]):null;const ljc=(lv.match(/<w:jc w:val="([^"]+)"/)||[])[1]||null;levels[il]={fmt,txt,start,pStyle,ind,jc:ljc};}abs[aid]=levels;}for(const [numId,aid] of Object.entries(numToAbs)){const levels=abs[aid]||{};for(const [il,lvl] of Object.entries(levels)){if(lvl.pStyle&&!styleToNum[lvl.pStyle])styleToNum[lvl.pStyle]={numId:+numId,ilvl:+il};}}return{numToAbs,abs,styleToNum};}
+function parseNumbering(xml){const numToAbs={},abs={},styleToNum={};if(!xml)return{numToAbs,abs,styleToNum};const nums=xml.match(/<w:num w:numId="\d+"[\s\S]*?<\/w:num>/g)||[];for(const n of nums){const id=(n.match(/w:numId="(\d+)"/)||[])[1],a=(n.match(/<w:abstractNumId w:val="(\d+)"/)||[])[1];if(id&&a)numToAbs[+id]=+a;}const absBlocks=xml.match(/<w:abstractNum w:abstractNumId="\d+"[\s\S]*?<\/w:abstractNum>/g)||[];for(const ab of absBlocks){const aid=+(ab.match(/w:abstractNumId="(\d+)"/)||[])[1];const levels={};const lvls=ab.match(/<w:lvl w:ilvl="\d+"[\s\S]*?<\/w:lvl>/g)||[];for(const lv of lvls){const il=+(lv.match(/w:ilvl="(\d+)"/)||[])[1];const fmt=(lv.match(/<w:numFmt w:val="([^"]+)"/)||[])[1]||'decimal';const txt=unxml((lv.match(/<w:lvlText w:val="([^"]*)"/)||[])[1]||'');const start=+((lv.match(/<w:start w:val="(\d+)"/)||[])[1]||1);const pStyle=(lv.match(/<w:pStyle w:val="([^"]+)"/)||[])[1]||null;const lIndM=lv.match(/<w:ind\b([^>]*?)\/?>/);const ind=lIndM?_indFrom(lIndM[1]):null;const ljc=(lv.match(/<w:jc w:val="([^"]+)"/)||[])[1]||null;const lSpM=lv.match(/<w:spacing\b([^>]*?)\/?>/);const lsp=lSpM?_spacingFrom(lSpM[1]):null;levels[il]={fmt,txt,start,pStyle,ind,jc:ljc,spacing:lsp};}abs[aid]=levels;}for(const [numId,aid] of Object.entries(numToAbs)){const levels=abs[aid]||{};for(const [il,lvl] of Object.entries(levels)){if(lvl.pStyle&&!styleToNum[lvl.pStyle])styleToNum[lvl.pStyle]={numId:+numId,ilvl:+il};}}return{numToAbs,abs,styleToNum};}
 function roman(n){const t=[[1000,'m'],[900,'cm'],[500,'d'],[400,'cd'],[100,'c'],[90,'xc'],[50,'l'],[40,'xl'],[10,'x'],[9,'ix'],[5,'v'],[4,'iv'],[1,'i']];let r='';for(const[v,s]of t){while(n>=v){r+=s;n-=v;}}return r||String(n);}
 function letters(n,up){let s='';while(n>0){n--;s=String.fromCharCode((up?65:97)+(n%26))+s;n=Math.floor(n/26);}return s;}
 function fmtNum(n,fmt){switch(fmt){case'lowerLetter':return letters(n,false);case'upperLetter':return letters(n,true);case'lowerRoman':return roman(n);case'upperRoman':return roman(n).toUpperCase();case'decimalZero':return n<10?'0'+n:String(n);default:return String(n);}}
@@ -355,7 +378,7 @@ function parseSectionGeom(docXml){
    falling back to the Normal style. Font metrics drive where lines — and therefore
    pages — break, so matching these meaningfully improves fidelity. */
 function parseDocDefaults(xml){
-  const d={fontPt:11,font:null};
+  const d={fontPt:11,font:null,spacing:null};
   if(!xml)return d;
   const dd=(xml.match(/<w:docDefaults[\s\S]*?<\/w:docDefaults>/)||[''])[0];
   const normal=(xml.match(/<w:style [^>]*w:styleId="Normal"[\s\S]*?<\/w:style>/)||[''])[0];
@@ -364,6 +387,8 @@ function parseDocDefaults(xml){
   if(sz)d.fontPt=(+sz)/2;
   const f=(scope.match(/<w:rFonts[^>]*w:ascii="([^"]+)"/)||[])[1];
   if(f)d.font=f;
+  const pd=(dd.match(/<w:pPrDefault>[\s\S]*?<\/w:pPrDefault>/)||[''])[0];
+  const dsM=pd.match(/<w:spacing\b([^>]*?)\/?>/); d.spacing=dsM?_spacingFrom(dsM[1]):null;
   return d;
 }
 async function docxToParagraphs(file){
