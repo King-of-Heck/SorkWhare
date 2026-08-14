@@ -120,3 +120,12 @@ test('generateRedlinePdf: absent spacing reproduces v1.1.5 defaults (regression 
   const r=generateRedlinePdf({rows,geom:GEOM,show:SHOW,summary:{total:0}});
   assert.ok(r.pages>=1&&typeof r.pdf==='string'&&r.pdf.startsWith('%PDF-1.4'));
 });
+
+test('generateRedlinePdf: first paragraph spaceBefore suppressed at top of page 1', ()=>{
+  const {generateRedlinePdf}=ctx;
+  // A huge spaceBefore on the very first row must not consume page-1 space
+  // (planBreaks models page tops as suppressing space-before).
+  const a=generateRedlinePdf({rows:[row('hello world')],geom:GEOM,show:SHOW,summary:{total:0}});
+  const b=generateRedlinePdf({rows:[row('hello world',{spaceBeforePt:100000})],geom:GEOM,show:SHOW,summary:{total:0}});
+  assert.equal(b.pages,a.pages);
+});

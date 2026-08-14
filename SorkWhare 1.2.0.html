@@ -814,7 +814,7 @@ function generateRedlinePdf(opts){
   const brks=planBreaks(blocks,availH,availH-BANNER_H);
   const brkSet=new Set(brks.map(x=>x.b+':'+x.l));
   // ---- Pass 3: render ----
-  let atTop=false;
+  let atTop=true;
   for(let pi=0;pi<paras.length;pi++){
     const p=paras[pi],meta=p.meta;
     if(!atTop&&!brkSet.has(pi+':0'))penY-=p.spaceBeforePt;
