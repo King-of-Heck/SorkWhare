@@ -551,8 +551,16 @@ function _coalesce(segs){
     while(span.length&&isWsEq(span[0]))out.push(span.shift());
     const tail=[];
     while(span.length&&isWsEq(span[span.length-1]))tail.unshift(span.pop());
-    const dels=span.filter(x=>x.m==='del').length,inss=span.filter(x=>x.m==='ins').length;
-    if(dels>=2&&inss>=2){
+    // Count MODE RUNS (maximal same-mode groups), not raw segments: inlineDiffB
+    // splits a single phrase whenever bold flips, so counting segments would trip
+    // the collapse on a clean one-phrase replace that merely contains bold.
+    let delRuns=0,insRuns=0,prevMode=null;
+    for(const x of span){
+      if(isWsEq(x)){prevMode=null;continue;}   // whitespace separates runs
+      if(x.m!==prevMode){if(x.m==='del')delRuns++;else if(x.m==='ins')insRuns++;}
+      prevMode=x.m;
+    }
+    if(delRuns>=2&&insRuns>=2){
       const olds=[],news=[];
       for(const x of span){
         if(x.m==='del')olds.push({m:'del',t:x.t,b:x.b});
