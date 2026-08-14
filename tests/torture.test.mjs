@@ -127,6 +127,7 @@ const NUM0={numToAbs:{},abs:{},styleToNum:{}};
 const TC=t=>'<w:tc><w:p><w:r><w:t>'+t+'</w:t></w:r></w:p></w:tc>';
 const TBL_NOGRID=rowsArr=>'<w:tbl>'+rowsArr.map(cells=>'<w:tr>'+cells.map(TC).join('')+'</w:tr>').join('')+'</w:tbl>';
 
+// PARITY: MATCH (ledger: C7) — a tblGrid-less ragged table collapses to one table-wide cols (widest row); the changed cell diffs inline.
 test('C7 [CORRECTNESS] ragged tblGrid-less table keeps one column count; changed cell diffs inline', ()=>{
   const A=extractStructured(doc(TBL_NOGRID([['Metric','Target','Notes'],['Uptime','99.1%']])),{},NUM0);
   const B=extractStructured(doc(TBL_NOGRID([['Metric','Target','Notes'],['Uptime','99.5%']])),{},NUM0);
@@ -135,6 +136,7 @@ test('C7 [CORRECTNESS] ragged tblGrid-less table keeps one column count; changed
   assert.deepEqual(cols,[3],'ragged rows share one column count (max over rows)');
   assert.match(bodyRowsHtml(rows),/<del>99\.1<\/del><ins>99\.5<\/ins>/);
 });
+// PARITY: MATCH (ledger: C7) — an added row renders inside the same single table rather than splitting it.
 test('C7 [PARITY M] an added table row renders inside the same table', ()=>{
   const A=extractStructured(doc(TBL_NOGRID([['Metric','42 MW'],['Uptime','99.1%']])),{},NUM0);
   const B=extractStructured(doc(TBL_NOGRID([['Metric','45 MW'],['Uptime','99.1%'],['Latency','200ms']])),{},NUM0);
@@ -146,6 +148,7 @@ test('C7 [PARITY M] an added table row renders inside the same table', ()=>{
 });
 
 /* ---- C8: change counting = unique cid count (nav "of N") ---- */
+// PARITY: MATCH (ledger: C8) — summary.total equals the unique cid count (nav "of N"); per-side insertion/deletion tiles may legitimately sum to more.
 test('C8 [CORRECTNESS] summary.total equals unique cid count; per-side tiles may exceed it', async()=>{
   const A=[para('alpha beta gamma'),para('stays put here'),para('to be removed entirely here')].join('');
   const B=[para('alpha beta DELTA'),para('stays put here'),para('a freshly inserted line here')].join('');
