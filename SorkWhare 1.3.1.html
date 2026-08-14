@@ -1269,6 +1269,19 @@ function applyPageGeometry(){
    rendered blocks and marking where the next block would overflow the printable height.
    This is an approximation (browser font metrics ≠ Word's), but with real geometry it
    lands close. Explicit breaks (.pgbreak-sep) always force a new page. */
+/* Pure page-count estimator. items: {h} atomic block | {brk:true} explicit break |
+   {rows:[h,...]} table whose rows may straddle a page boundary. */
+function _estPages(items,pageContent){
+  if(!(pageContent>0))return 1;
+  let used=0,pages=1;
+  const place=h=>{ if(used>0&&used+h>pageContent){pages++;used=0;} used+=h; };
+  for(const it of items){
+    if(it.brk){pages++;used=0;continue;}
+    if(it.rows){for(const rh of it.rows)place(rh);continue;} // per-row: boundary may fall between rows
+    place(it.h||0);
+  }
+  return pages;
+}
 function paginate(){
   try{
     const paper=$('paper'); if(!paper||!pageGeom)return;
@@ -1277,25 +1290,24 @@ function paginate(){
     const pageContent=(g.hIn-g.mt-g.mb)*PX;      // printable height per page, in px
     if(!(pageContent>60))return;
     const mb=el=>{const s=getComputedStyle(el);return (parseFloat(s.marginTop)||0)+(parseFloat(s.marginBottom)||0);};
-    let used=0, pages=1;
+    const items=[];
     const kids=Array.prototype.slice.call(paper.children);
     for(const el of kids){
       const cl=el.classList;
       // The redline banner isn't part of the Word doc — don't let it consume page 1.
       if(cl.contains('docttl')||cl.contains('docmeta'))continue;
-      if(cl.contains('pgbreak-sep')){ used=0; pages++; continue; }   // explicit break: hard reset
+      if(cl.contains('pgbreak-sep')){items.push({brk:true});continue;}   // explicit break: hard reset
       if(!el.offsetHeight)continue; // hidden by a Show filter — contributes no height in print either
-      const h=el.offsetHeight+mb(el);
-      if(used>0 && used+h>pageContent){
-        const mk=document.createElement('div');
-        mk.className='pgbreak-auto'; mk.setAttribute('aria-hidden','true');
-        mk.innerHTML='<span>Page break</span>';
-        paper.insertBefore(mk,el);
-        pages++; used=0;
+      if(cl.contains('ctable')){
+        const trs=Array.prototype.slice.call(el.querySelectorAll('tr'));
+        const rows=trs.map(tr=>tr.offsetHeight||0).filter(h=>h>0);
+        items.push(rows.length?{rows}:{h:el.offsetHeight});
+        continue;
       }
-      used+=h;
+      items.push({h:el.offsetHeight+mb(el)});
     }
-    estPages=pages; updateNavStatus();
+    estPages=_estPages(items,pageContent);
+    updateNavStatus();
   }catch(e){/* pagination is best-effort; never block the redline */}
 }
 let _pgTimer=null;
