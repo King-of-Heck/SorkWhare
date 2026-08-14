@@ -988,19 +988,22 @@ function generateRedlinePdf(opts){
       const natural=maxSize*1.15*(meta.lineSpacing||1);
       if(meta.lineExactPt!=null)return meta.lineRule==='exact'?meta.lineExactPt:Math.max(natural,meta.lineExactPt);
       return natural;});
+    // contextualSpacing by RAW document adjacency (same rule as screen paraHtml):
+    // zero the gap against an immediately-neighbouring same-style paragraph,
+    // independent of which rows the Show filter hides.
+    let sb=meta.spaceBeforePt!=null?meta.spaceBeforePt:0;
+    let sa=meta.spaceAfterPt!=null?meta.spaceAfterPt:6;   // v1.1.5 flat gap when undeclared
+    if(meta.contextualSpacing&&meta.styleId){
+      const pRaw=rows[_ri-2], nRaw=rows[_ri];
+      if(pRaw&&pRaw.meta&&pRaw.meta.styleId===meta.styleId)sb=0;
+      if(nRaw&&nRaw.meta&&nRaw.meta.styleId===meta.styleId)sa=0;
+    }
     paras.push({meta,lines,lineHeights,bodyX,markerText,markerX,base,align,indFLPt,
-      spaceBeforePt:meta.spaceBeforePt!=null?meta.spaceBeforePt:0,
-      spaceAfterPt:meta.spaceAfterPt!=null?meta.spaceAfterPt:6,   // v1.1.5 flat gap when undeclared
+      spaceBeforePt:sb,
+      spaceAfterPt:sa,
       keepNext:!!meta.keepNext||!!meta.heading,
       keepLines:!!meta.keepLines,
       pageBreakBefore:!!meta.pageBreakBefore&&paras.length>0});
-  }
-  // contextualSpacing: zero the gap between consecutive same-style paragraphs.
-  for(let i=0;i<paras.length;i++){
-    const m=paras[i].meta;
-    if(!m.contextualSpacing||!m.styleId)continue;
-    if(i>0&&paras[i-1].meta.styleId===m.styleId)paras[i].spaceBeforePt=0;
-    if(i+1<paras.length&&paras[i+1].meta.styleId===m.styleId)paras[i].spaceAfterPt=0;
   }
   // ---- Pass 2: page planning (banner shortens page 1) ----
   const availH=Hpt-mtPt-mbPt;
