@@ -89,3 +89,86 @@ test('T4/T5 added and deleted sentences stay whole single-type rows', ()=>{
   const del=rows2.find(r=>r.type==='deleted');
   assert.equal(del.html,'<del>A removed sentence.</del>');
 });
+
+/* ================= tables (v1.3.0) ================= */
+const NUM0={numToAbs:{},abs:{},styleToNum:{}};
+const CP=t=>'<w:p><w:r><w:t>'+t+'</w:t></w:r></w:p>';
+const TC=t=>'<w:tc>'+CP(t)+'</w:tc>';
+const TBL=rows=>'<w:tbl><w:tblGrid><w:gridCol w:w="3000"/><w:gridCol w:w="6000"/></w:tblGrid>'
+  +rows.map(cells=>'<w:tr>'+cells.map(TC).join('')+'</w:tr>').join('')+'</w:tbl>';
+
+test('extractStructured: table cells carry tbl meta {ti,ri,ci,cols} in document order', ()=>{
+  const {extractStructured}=ctx;
+  const doc=CP('Before')+TBL([['A1','B1'],['A2','B2']])+CP('After');
+  const out=extractStructured(doc,{},NUM0);
+  assert.deepEqual(JSON.parse(JSON.stringify(out.map(r=>r.text))),['Before','A1','B1','A2','B2','After']);
+  assert.equal(out[0].tbl,null);
+  assert.deepEqual(JSON.parse(JSON.stringify(out[1].tbl)),{ti:0,ri:0,ci:0,cols:2,gw:[3000,6000]});
+  assert.deepEqual(JSON.parse(JSON.stringify(out[4].tbl)),{ti:0,ri:1,ci:1,cols:2,gw:[3000,6000]});
+  assert.equal(out[5].tbl,null);
+});
+
+test('extractStructured: second table gets ti=1; cell spacing/keep fields still resolve', ()=>{
+  const {extractStructured}=ctx;
+  const doc=TBL([['X','Y']])+TBL([['Z','W']]);
+  const out=extractStructured(doc,{},NUM0);
+  assert.equal(out[0].tbl.ti,0);
+  assert.equal(out[2].tbl.ti,1);
+  assert.equal(out[2].tbl.ri,0);
+});
+
+test('tableHtml: rows group into one table, added row becomes its own tr (T10)', ()=>{
+  const {tableHtml}=ctx;
+  const cell=(type,ti,ri,ci,html,cid)=>({type,cid,ni:type==='deleted'?undefined:1,oi:type==='inserted'?undefined:1,
+    html,meta:{tbl:{ti,ri,ci,cols:2},marker:''}});
+  const run=[
+    cell('equal',0,0,0,'Metric'),cell('equal',0,0,1,'Target'),
+    cell('changed',0,1,0,'<del>42</del><ins>45</ins> MW',1),cell('equal',0,1,1,'Sustained'),
+    cell('inserted',0,2,0,'<ins>New metric</ins>',2),cell('inserted',0,2,1,'<ins>New target</ins>',3),
+  ];
+  const html=tableHtml(run,2);
+  assert.equal((html.match(/<table class="ctable">/g)||[]).length,1);
+  assert.equal((html.match(/<tr>/g)||[]).length,3);
+  assert.equal((html.match(/<td>/g)||[]).length,6);
+  assert.match(html,/<del>42<\/del><ins>45<\/ins> MW/);
+  const lastTr=html.slice(html.lastIndexOf('<tr>'));
+  assert.match(lastTr,/<ins>New metric<\/ins>/);
+  assert.match(lastTr,/<ins>New target<\/ins>/);
+});
+
+test('tableHtml: deleted source row (orig-side meta) renders as its own tr', ()=>{
+  const {tableHtml}=ctx;
+  const run=[
+    {type:'equal',ni:0,oi:0,html:'Keep',meta:{tbl:{ti:0,ri:0,ci:0,cols:2}}},
+    {type:'equal',ni:0,oi:0,html:'Keep2',meta:{tbl:{ti:0,ri:0,ci:1,cols:2}}},
+    {type:'deleted',oi:1,cid:9,html:'<del>Gone</del>',meta:{tbl:{ti:0,ri:1,ci:0,cols:2}}},
+    {type:'deleted',oi:1,cid:9,html:'<del>Gone2</del>',meta:{tbl:{ti:0,ri:1,ci:1,cols:2}}},
+  ];
+  const html=tableHtml(run,2);
+  assert.equal((html.match(/<tr>/g)||[]).length,2);
+  assert.match(html,/<del>Gone<\/del>/);
+});
+
+test('bodyRowsHtml: tables embed between paragraphs; missing cells pad the grid', ()=>{
+  const {bodyRowsHtml}=ctx;
+  const P=(text,type)=>({type:type||'equal',ni:0,oi:0,html:text,meta:{marker:''}});
+  const C=(ti,ri,ci)=>({type:'equal',ni:0,oi:0,html:'c'+ri+ci,meta:{tbl:{ti,ri,ci,cols:3},marker:''}});
+  const rows=[P('Intro'),C(0,0,0),C(0,0,2),P('Outro')];
+  const html=bodyRowsHtml(rows);
+  assert.match(html,/Intro/);
+  assert.equal((html.match(/<td>/g)||[]).length,3); // padded to 3 columns
+  assert.ok(html.indexOf('Intro')<html.indexOf('<table'));
+  assert.ok(html.indexOf('</table>')<html.indexOf('Outro'));
+});
+
+test('integration: compare of docs with a changed cell + added table row', ()=>{
+  const {extractStructured,compare,bodyRowsHtml}=ctx;
+  const A=extractStructured(CP('Agreement')+TBL([['Metric','42 MW'],['Uptime','99.1%']]),{},NUM0);
+  const B=extractStructured(CP('Agreement')+TBL([['Metric','45 MW'],['Uptime','99.1%'],['Latency','200ms']]),{},NUM0);
+  const {rows,summary}=compare(A,B,{});
+  const html=bodyRowsHtml(rows);
+  assert.equal((html.match(/<table class="ctable">/g)||[]).length,1);
+  assert.match(html,/<del>42<\/del><ins>45<\/ins> MW/);
+  assert.match(html,/<ins>Latency<\/ins>/);
+  assert.ok(summary.total>=2);
+});

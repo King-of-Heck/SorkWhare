@@ -104,6 +104,13 @@
   #paper b,.body b{font-weight:700}
   ins b,del b,.moved b,.moved-src b{font-weight:700}
   .hide-eq .para.equal{display:none}
+  /* Table cells stay visible under the "unchanged" filter — a table without its
+     unchanged cells is unreadable. */
+  .hide-eq .ctable .tcell.equal{display:flex}
+  .ctable{border-collapse:collapse;width:100%;margin:6px 0}
+  .ctable td{border:1px solid #b9c0c9;padding:3px 8px;vertical-align:top}
+  .ctable .para{margin:0;padding-left:0}
+  .ctable .para::before{display:none}
   .hide-ins .para.inserted{display:none}
   .hide-del .para.deleted{display:none}
   .hide-mov .para[class*="moved"]{display:none}
@@ -261,11 +268,11 @@ const BULLETS=['•','◦','▪','‣','·'];
 
 function extractStructured(docXml,styles,numbering,defaults){
   const {numToAbs,abs,styleToNum}=numbering; const counters={}; const out=[];
-  const paras=docXml.match(/<w:p[ >][\s\S]*?<\/w:p>/g)||[];
   // Carries a page break forward when it lives in an empty paragraph, or when it
   // occurs AFTER text (Word puts following content on the next page in both cases).
   let pendingBreak=false;
-  for(const p of paras){
+  // tbl: {ti,ri,ci,cols,gw} when this paragraph lives in a table cell, else null.
+  function processPara(p,tbl){
     // Tracked paragraph-property changes (<w:pPrChange>) carry the PRE-revision
     // pPr; the nested </w:pPr> truncates our non-greedy capture and leaks rejected
     // formatting. Strip them first (they contain no text runs).
@@ -316,7 +323,7 @@ function extractStructured(docXml,styles,numbering,defaults){
       // Empty paragraph is dropped from the redline, but a manual/section break it
       // carries must survive — hand it to the next real paragraph.
       if(hasBreakBefore||hasPageBr||sectBreak) pendingBreak=true;
-      continue;
+      return;
     }
     const isBold = totalChars>0 && (boldChars/totalChars)>=0.6;
     // This paragraph starts a new page if a break was pending, if it declares
@@ -387,7 +394,28 @@ function extractStructured(docXml,styles,numbering,defaults){
     const contextualSpacing=cS!=null?cS:!!(stEff&&stEff.contextualSpacing);
 
     out.push({text,heading,isNumbered,marker,ilvl,isBold,pageBreakBefore,align,indLeftPt,indHangingPt,indFirstLinePt,boldRuns,
-      styleId,spaceBeforePt,spaceAfterPt,lineSpacing,lineExactPt,lineRule,keepNext,keepLines,contextualSpacing});
+      styleId,spaceBeforePt,spaceAfterPt,lineSpacing,lineExactPt,lineRule,keepNext,keepLines,contextualSpacing,
+      tbl:tbl||null});
+  }
+  // Top-level walk in document order: tables become per-cell paragraph rows tagged
+  // with tbl meta; everything else is a plain paragraph. Nested tables are not
+  // split out (their content stays part of the outer cell's paragraphs).
+  const blocks=docXml.match(/<w:tbl[ >][\s\S]*?<\/w:tbl>|<w:p[ >][\s\S]*?<\/w:p>/g)||[];
+  let ti=0;
+  for(const blk of blocks){
+    if(blk.lastIndexOf('<w:tbl',0)===0){
+      const gw=(blk.match(/<w:gridCol[^>]*w:w="(\d+)"/g)||[]).map(g=>+(g.match(/w:w="(\d+)"/)||[])[1]);
+      const trs=blk.match(/<w:tr[ >][\s\S]*?<\/w:tr>/g)||[];
+      trs.forEach((trXml,ri)=>{
+        const tcs=trXml.match(/<w:tc[ >][\s\S]*?<\/w:tc>/g)||[];
+        const cols=gw.length||tcs.length;
+        tcs.forEach((tc,ci)=>{
+          const cps=tc.match(/<w:p[ >][\s\S]*?<\/w:p>/g)||[];
+          for(const p of cps)processPara(p,{ti,ri,ci,cols,gw});
+        });
+      });
+      ti++;
+    } else processPara(blk,null);
   }
   return out;
 }
@@ -1028,6 +1056,60 @@ function snippetHtml(row){
 }
 function typeLabel(t){return t==='inserted'?'Insertion':t==='deleted'?'Deletion':t==='changed'?'Amendment':t==='moved-to'?'Move (to)':t==='moved-from'?'Move (from)':t;}
 
+/* ================= table-aware body rendering (v1.3.0) ================= */
+// One table CELL paragraph, kept as .para so navigation (data-cid / #chg-N),
+// filters and the change list keep working. Indent/margin styles are omitted —
+// the cell provides the box.
+function cellHtml(row){
+  const meta=row.meta||{},cls=['para','tcell',row.type];
+  if(meta.heading)cls.push('h'+meta.heading);
+  if(meta.isBold)cls.push('bold');
+  let anchor='';
+  if(row.type==='moved-to')anchor='<span class="anchor" title="Moved from earlier">▲ moved</span>';
+  if(row.type==='moved-from')anchor='<span class="anchor" title="Moved to later">▼ moved</span>';
+  const badge=row.cid?('<span class="cbadge">'+row.cid+'</span>'):'';
+  const id=row.cid?(' id="chg-'+row.cid+(row.type==='moved-from'?'-from':'')+'"'):'';
+  const marker=meta.marker?esc(meta.marker)+' ':'';
+  return '<div class="'+cls.join(' ')+'"'+id+' data-cid="'+(row.cid||'')+'"><span class="body">'+badge+marker+row.html+anchor+'</span></div>';
+}
+// Visual-row key: side-aware so a DELETED source row (orig-side indices) forms its
+// own <tr> instead of merging into the revised row that replaced it.
+function _trKey(r){const t=r.meta.tbl;return (r.ni!=null?'r':'o')+':'+t.ti+':'+t.ri;}
+// Group a contiguous run of table-cell rows (same column count) into one <table>.
+// Cells land in their source column; missing columns pad with empty <td>s.
+function tableHtml(run,cols){
+  const trs=[];let cur=null,curKey=null;
+  for(const r of run){
+    const k=_trKey(r);
+    if(k!==curKey){cur={cells:Array.from({length:cols},()=>'')};trs.push(cur);curKey=k;}
+    const ci=Math.min(r.meta.tbl.ci,cols-1);
+    cur.cells[ci]+=cellHtml(r);
+  }
+  return '<table class="ctable">'+trs.map(tr=>'<tr>'+tr.cells.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')+'</table>';
+}
+// The document body: paragraphs via paraHtml, consecutive table-cell rows grouped
+// into real tables. A new visual table starts when the column count changes.
+function bodyRowsHtml(rows){
+  let html='',firstPara=true,i=0;
+  while(i<rows.length){
+    const r=rows[i],tbl=r.meta&&r.meta.tbl;
+    if(!tbl){
+      // Honour Word page breaks in print/PDF. Suppress on the very first paragraph
+      // so the document never opens with a blank leading page.
+      const brk=!!(r.meta&&r.meta.pageBreakBefore)&&!firstPara;
+      if(brk)html+='<div class="pgbreak-sep" aria-hidden="true"><span>Page break</span></div>';
+      const pm=i>0?rows[i-1].meta:null,nm=i+1<rows.length?rows[i+1].meta:null;
+      html+=paraHtml(r,brk,pm,nm);
+      firstPara=false;i++;continue;
+    }
+    const cols=tbl.cols,run=[];
+    while(i<rows.length&&rows[i].meta&&rows[i].meta.tbl&&rows[i].meta.tbl.cols===cols){run.push(rows[i]);i++;}
+    html+=tableHtml(run,cols);
+    firstPara=false;
+  }
+  return html;
+}
+
 /* Style the on-screen "paper" to the ACTUAL Word page: real width, margins (as padding),
    default font & size. This makes the browser wrap lines — and therefore estimate page
    breaks — the same way it will when printing, so screen and PDF agree. 96 CSS px = 1in. */
@@ -1086,17 +1168,7 @@ function renderAll(rows,summary){
   $('catRow').innerHTML=cats.map(([l,n])=>'<span class="cat">'+l+': '+n+'</span>').join('');
   const now=new Date().toLocaleString();
   let html='<div class="docttl">Redline Comparison</div><div class="docmeta">Original: <b>'+esc(fileA.name)+'</b> &nbsp;→&nbsp; Revised: <b>'+esc(fileB.name)+'</b><br>Generated '+esc(now)+' &nbsp;•&nbsp; '+summary.total+' change'+(summary.total===1?'':'s')+'</div>';
-  let firstPara=true;
-  for(let ri=0;ri<rows.length;ri++){
-    const r=rows[ri];
-    // Honour Word page breaks in print/PDF. Suppress on the very first paragraph so
-    // the document never opens with a blank leading page.
-    const brk = !!(r.meta && r.meta.pageBreakBefore) && !firstPara;
-    if(brk) html+='<div class="pgbreak-sep" aria-hidden="true"><span>Page break</span></div>';
-    const pm=ri>0?rows[ri-1].meta:null, nm=ri+1<rows.length?rows[ri+1].meta:null;
-    html+=paraHtml(r,brk,pm,nm);
-    firstPara=false;
-  }
+  html+=bodyRowsHtml(rows);
   $('paper').innerHTML=html;
   const seen=new Set(); changeOrder=[]; let items='';
   for(const r of rows){
