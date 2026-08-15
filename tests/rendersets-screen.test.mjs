@@ -98,6 +98,11 @@ test('renderSetCss for the litera set carries --ins:#0000ff and --ins-style:doub
   assert.match(css,/--ins-style:double/);
 });
 
-test('exportPdf injects renderSetCss(activeSet) into the print document', ()=>{
+// Order is the whole point: both blocks use the :root selector, so equal
+// specificity means source order decides. If the injected set ever moved BEFORE
+// the copied stylesheet text, the defaults would win and the print export would
+// silently fall back to the default set again — with a green suite.
+test('exportPdf injects renderSetCss(activeSet) AFTER the copied stylesheet text', ()=>{
   assert.match(h,/renderSetCss\(activeSet\)/);
+  assert.match(h,/\+'<style>'\+styles\+'<\/style>'\s*\n\s*\+'<style>'\+renderSetCss\(activeSet\)\+'<\/style>'/);
 });

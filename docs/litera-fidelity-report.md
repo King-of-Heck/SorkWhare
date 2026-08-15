@@ -52,7 +52,8 @@ Change categorization (R6) gained configurable rendering sets in **v1.5.0**.
 The single biggest lever toward "as close as possible to Litera," given this
 tool's on-screen/PDF redline is already good, is **`.docx` tracked-changes
 output (R4)** — it is the most-cited Litera/Workshare capability and the one a
-Word-equipped reviewer most expects. Formatting-only detection (R1) is the next.
+Word-equipped reviewer most expects, now that formatting-only detection (R1,
+v1.3.2) and configurable rendering sets (R6, v1.5.0) have both closed.
 
 ## Confirmed gaps (confidence H)
 
