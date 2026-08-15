@@ -30,7 +30,7 @@ test('C1 [PARITY M] intra-paragraph substitutions surface as one changed row', a
 });
 
 /* ---- C2: whitespace collapse + entity decode invariants ---- */
-// PARITY: MATCH — documented invariant (NOTES.md "Engine gotchas"): extractStructured
+// PARITY: MATCH — documented invariant (project notes, "Engine gotchas"): extractStructured
 // collapses all whitespace runs to a single space at extraction time (ledger: C2).
 test('C2 [CORRECTNESS] runs of whitespace collapse to a single space at extraction', async()=>{
   const A=await ctx.docxToParagraphs(fileOf(makeDocx({'word/document.xml':doc(para('alpha    beta\tgamma'))})));
@@ -44,7 +44,7 @@ test('C2 [CORRECTNESS] &amp; decodes to one ampersand (decoded last)', async()=>
 });
 
 /* ---- C3: number / date / money tokens replace whole ---- */
-// PARITY: MATCH — documented tokenization (NOTES.md: tok() groups numbers with
+// PARITY: MATCH — documented tokenization (project notes: tok() groups numbers with
 // internal ,.-/: as one token) — money and date figures replace as whole tokens,
 // no mid-number split (ledger: C3).
 test('C3 [PARITY M] money + date edits replace whole tokens, no mid-number split', ()=>{
@@ -119,7 +119,7 @@ test('C5 [PARITY M] a paragraph relocated across four equal paras registers as a
   const {summary}=await dcompare(A,B,{moveMin:5});
   assert.equal(summary.moves,1);
 });
-// PARITY: MATCH — documented invariant (NOTES.md "Engine gotchas"): a lone adjacent
+// PARITY: MATCH — documented invariant (project notes, "Engine gotchas"): a lone adjacent
 // swap is absorbed by the paragraph-level LCS as equal (no displacement across >=3
 // unchanged paragraphs), so it must NOT register as a move (ledger: C5).
 test('C5 [CORRECTNESS] a lone adjacent swap is absorbed as equal (no false move)', async()=>{

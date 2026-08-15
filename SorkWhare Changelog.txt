@@ -264,8 +264,8 @@ assigned during development (numbering is not sequential/uniform by design).
        (Prev/Next), and filters (Insertions / Deletions / Moves / Unchanged).
      * Full-document view on by default.
      * HTML/PDF output.
- - Established the zip-to-OneDrive persistence workflow with NOTES.md and a
-   session log so future sessions resume quickly.
+ - Established the zip-to-OneDrive persistence workflow with a project notes
+   file and a session log so future sessions resume quickly.
  - Validation: test suite 24/24 against the real protocol documents.
 
 
