@@ -6,10 +6,10 @@
 <title>SorkWhare Compare® v1.5.0 — HeckSoft</title>
 <style>
   :root{
-    --ins:#0b5cad; --ins-bg:#e7f0fb;
-    --del:#b3261e; --del-bg:#fdeceb;
-    --mov:#1b7f3b; --mov-bg:#e6f5ec;
-    --fmt:#7c3aed;
+    --ins:#0b5cad; --ins-bg:#e7f0fb; --ins-line:underline; --ins-style:solid;
+    --del:#b3261e; --del-bg:#fdeceb; --del-line:line-through; --del-style:solid;
+    --mov:#1b7f3b; --mov-bg:#e6f5ec; --mov-line:underline; --mov-style:dotted; --mov-src-line:line-through;
+    --fmt:#7c3aed; --fmt-bg:transparent; --fmt-line:underline; --fmt-style:dotted;
     --ink:#1f2328; --muted:#5b6570; --line:#e3e6ea; --bg:#eef0f3; --panel:#fff;
     --nav:#0f2a43; --hi:#fff3bf;
   }
@@ -83,10 +83,10 @@
   .para.h3 .body{font-size:14px;font-weight:700}
   .para.h4 .body,.para.h5 .body,.para.h6 .body{font-size:14px;font-weight:600;font-style:italic}
 
-  ins{color:var(--ins);background:var(--ins-bg);text-decoration:underline;padding:0 1px;border-radius:2px}
-  del{color:var(--del);background:var(--del-bg);text-decoration:line-through;padding:0 1px;border-radius:2px}
-  .moved{color:var(--mov);background:var(--mov-bg);text-decoration:underline;text-decoration-style:dotted;padding:0 1px;border-radius:2px}
-  .moved-src{color:var(--mov);background:var(--mov-bg);text-decoration:line-through;padding:0 1px;border-radius:2px;opacity:.85}
+  ins{color:var(--ins);background:var(--ins-bg);text-decoration-line:var(--ins-line);text-decoration-style:var(--ins-style);padding:0 1px;border-radius:2px}
+  del{color:var(--del);background:var(--del-bg);text-decoration-line:var(--del-line);text-decoration-style:var(--del-style);padding:0 1px;border-radius:2px}
+  .moved{color:var(--mov);background:var(--mov-bg);text-decoration-line:var(--mov-line);text-decoration-style:var(--mov-style);padding:0 1px;border-radius:2px}
+  .moved-src{color:var(--mov);background:var(--mov-bg);text-decoration-line:var(--mov-src-line);text-decoration-style:solid;padding:0 1px;border-radius:2px;opacity:.85}
   .anchor{font-size:10px;font-weight:700;color:var(--mov);border:1px solid var(--mov);border-radius:10px;padding:0 5px;margin-left:6px;white-space:nowrap;vertical-align:middle}
   .cbadge{font-size:9px;font-weight:700;color:#fff;background:#98a3ad;border-radius:9px;padding:1px 5px;margin-right:6px;vertical-align:middle}
   .para.changed .cbadge{background:#e0a72e}.para.inserted .cbadge{background:var(--ins)}
@@ -115,7 +115,7 @@
   .hide-ins .para.inserted{display:none}
   .hide-del .para.deleted{display:none}
   .hide-mov .para[class*="moved"]{display:none}
-  .fmtchg{border-bottom:2px dotted var(--fmt);cursor:help}
+  .fmtchg{border-bottom:2px var(--fmt-style) var(--fmt);background:var(--fmt-bg);cursor:help}
   .hide-fmt .fmtchg{border-bottom:none;cursor:auto}
   /* a formatting-only change lives on an equal paragraph: keep it visible under hide-eq while formatting is shown */
   .hide-eq .para.equal.fmtchanged{display:flex}
@@ -164,6 +164,7 @@
     <div class="opts">
       <label><input type="checkbox" id="optCase"> Ignore case</label>
       <label>Move threshold (words): <input type="number" id="optMove" value="5" min="2" max="10"></label>
+      <label>Rendering set: <select id="rsSet"></select></label>
       <button class="primary" id="btnCompare" disabled style="margin-left:auto">Compare ▶</button>
     </div>
     <div id="err"></div>
@@ -1510,6 +1511,41 @@ function applyFilters(){const r=$('results');r.classList.toggle('hide-ins',!$('f
   // Hiding/showing paragraphs changes the layout, so re-estimate page breaks.
   schedulePaginate();}
 ['fIns','fDel','fMov','fEq','fFmt'].forEach(id=>$(id).addEventListener('change',applyFilters));
+
+/* ---- Rendering-set application (R6) --------------------------------------
+   applyRenderSet is the single choke point for all three failure modes:
+   unknown id, missing id, unavailable storage. Everything lands on the default
+   rather than applying a partial map. `target` exists so tests can record the
+   writes without a DOM. */
+let activeSet=RENDER_SETS[0];
+const RS_KEY='sw.renderSet';
+function loadRenderSetId(){
+  try{return localStorage.getItem(RS_KEY)||null;}catch(_){return null;}
+}
+function applyRenderSet(id,target){
+  const set=RENDER_SETS.find(s=>s.id===id)||RENDER_SETS[0];
+  const vars=renderSetVars(set);
+  const t=target||(document.documentElement&&document.documentElement.style);
+  if(t&&t.setProperty)for(const k in vars)t.setProperty(k,vars[k]);
+  activeSet=set;
+  try{localStorage.setItem(RS_KEY,set.id);}catch(_){}
+  return set;
+}
+(function initRenderSets(){
+  const sel=$('rsSet');
+  const start=RENDER_SETS.find(s=>s.id===loadRenderSetId())||RENDER_SETS[0];
+  if(sel&&sel.appendChild){
+    for(const s of RENDER_SETS){
+      const o=document.createElement('option');
+      o.value=s.id; o.textContent=s.label;
+      if(s.id===start.id)o.selected=true;
+      sel.appendChild(o);
+    }
+    sel.value=start.id;
+    sel.addEventListener('change',()=>applyRenderSet(sel.value));
+  }
+  applyRenderSet(start.id);
+})();
 function updateNavStatus(){
   let t=changeOrder.length?('Change '+(curIdx+1)+' of '+changeOrder.length):'No changes';
   if(estPages>0)t+=' · ~'+estPages+' page'+(estPages===1?'':'s');
