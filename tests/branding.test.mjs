@@ -8,12 +8,12 @@ test('app script loads in vm and exposes engine functions', ()=>{
     assert.equal(typeof ctx[fn],'function', fn+' missing');
 });
 
-test('branding: HeckSoft + v1.3.2, no HeckNet, no stale versions', ()=>{
+test('branding: HeckSoft + v1.4.0, no HeckNet, no stale versions', ()=>{
   const {__html:h}=loadApp();
-  assert.match(h,/<title>SorkWhare Compare® v1\.3\.2 — HeckSoft<\/title>/);
+  assert.match(h,/<title>SorkWhare Compare® v1\.4\.0 — HeckSoft<\/title>/);
   assert.match(h,/HeckSoft — a King of Heck Company™/);
   assert.doesNotMatch(h,/HeckNet/);
-  assert.match(h,/<span class="ver">v1\.3\.2<\/span>/);
+  assert.match(h,/<span class="ver">v1\.4\.0<\/span>/);
 });
 
 test('dead "Ignore whitespace" checkbox is gone (#2)', ()=>{
