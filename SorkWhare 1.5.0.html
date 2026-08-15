@@ -887,17 +887,23 @@ function hexToPdfRgb(hex){
   const r=parseInt(n.slice(0,2),16)/255,g=parseInt(n.slice(2,4),16)/255,b=parseInt(n.slice(4,6),16)/255;
   return r.toFixed(3)+' '+g.toFixed(3)+' '+b.toFixed(3);
 }
-function pdfStyle(meta,kind,bodyPt,runBold){
+/* Resolve a run's PDF style. `set` defaults to the SorkWhare set so every
+   existing 4-arg call site is byte-identical to v1.4.1. */
+function pdfStyle(meta,kind,bodyPt,runBold,set){
   const h=meta.heading; let size=bodyPt,bold=(!!meta.isBold||!!runBold),italic=false;
   if(h===1){size=bodyPt*1.6;bold=true;} else if(h===2){size=bodyPt*1.35;bold=true;}
   else if(h===3){size=bodyPt*1.18;bold=true;} else if(h>=4){size=bodyPt;bold=true;italic=true;}
-  let color='0 0 0',underline=false,strike=false;
-  if(kind==='ins'){color='0.043 0.361 0.678';underline=true;}
-  else if(kind==='del'){color='0.702 0.149 0.118';strike=true;}
-  else if(kind==='moved'){color='0.106 0.498 0.231';underline=true;}
-  else if(kind==='moved-src'){color='0.106 0.498 0.231';strike=true;}
-  else if(kind==='fmt'){color='0.486 0.227 0.929';underline=true;}
-  return {size,bold,italic,color,underline,strike};
+  let color='0 0 0',underline=false,strike=false,doubleU=false;
+  const c=(set||RENDER_SETS[0]).cats;
+  const use=(cat,line)=>{color=hexToPdfRgb(cat.color);
+    underline=(line==='underline'); strike=(line==='line-through');
+    doubleU=(line==='underline'&&cat.style==='double');};
+  if(kind==='ins')use(c.ins,c.ins.line);
+  else if(kind==='del')use(c.del,c.del.line);
+  else if(kind==='moved')use(c.mov,c.mov.line);
+  else if(kind==='moved-src')use(c.mov,c.mov.srcLine);
+  else if(kind==='fmt')use(c.fmt,c.fmt.line);
+  return {size,bold,italic,color,underline,strike,doubleU};
 }
 // Parse our generated redline HTML into typed runs (eq/ins/del/moved/moved-src/fmt).
 // fmtOn gates the 'fmt' kind: when false, fmtchg-wrapped text is treated as plain 'eq'
@@ -968,6 +974,7 @@ function generateRedlinePdf(opts){
   const Wpt=g.wIn*PT,Hpt=g.hIn*PT,mlPt=g.ml*PT,mrPt=g.mr*PT,mtPt=g.mt*PT,mbPt=g.mb*PT;
   const contentRight=Wpt-mrPt, bodyPt=g.fontPt||11;
   const show=opts.show||{ins:$('fIns').checked,del:$('fDel').checked,mov:$('fMov').checked,eq:$('fEq').checked,fmt:$('fFmt')?$('fFmt').checked:true};
+  const set=opts.set||activeSet||RENDER_SETS[0];
   let ctx=null; try{ctx=document.createElement('canvas').getContext('2d');}catch(_){}
   // Use the document's real font when we can both MEASURE it (Canvas) and expect the
   // viewer to render it (installed locally). Otherwise: v1.1.5 base-14 Times path.
@@ -987,8 +994,11 @@ function generateRedlinePdf(opts){
     const fk=st.font||pdfFontKey(st.bold,st.italic);
     ops.push('BT','/'+fk+' '+fmt(st.size)+' Tf',st.color+' rg','1 0 0 1 '+fmt(x)+' '+fmt(baseline)+' Tm','('+pdfEsc(encWin(text))+') Tj','ET');
     if(st.underline||st.strike){const w=measure(text,st.size,st.bold,st.italic);
-      const yl=st.strike?(baseline+st.size*0.26):(baseline-1.3);
-      ops.push(st.color+' RG','0.6 w',fmt(x)+' '+fmt(yl)+' m '+fmt(x+w)+' '+fmt(yl)+' l S');}
+      // Draw every rule asked for. No v1.4.1 kind set both, so single-rule
+      // output is byte-unchanged; doubleU adds a second rule 1.6pt lower.
+      const rule=y=>ops.push(st.color+' RG','0.6 w',fmt(x)+' '+fmt(y)+' m '+fmt(x+w)+' '+fmt(y)+' l S');
+      if(st.strike)rule(baseline+st.size*0.26);
+      if(st.underline){rule(baseline-1.3); if(st.doubleU)rule(baseline-2.9);}}
   };
   newPage();
   // ---- Compact banner (identifies the comparison; only on page 1) ----
@@ -1011,9 +1021,9 @@ function generateRedlinePdf(opts){
     return true;};
   // Wrap one cell paragraph's runs to a given width (used by the table branch).
   const _wrapCellPara=(row,availW)=>{
-    const meta=row.meta||{},base=pdfStyle(meta,'eq',bodyPt),atoms=[];
+    const meta=row.meta||{},base=pdfStyle(meta,'eq',bodyPt,false,set),atoms=[];
     if(meta.marker)atoms.push({text:meta.marker,st:base},{text:' ',st:base});
-    for(const r of pdfParseRuns(row.html||'',show.fmt)){const st=pdfStyle(meta,r.kind,bodyPt,r.bold);
+    for(const r of pdfParseRuns(row.html||'',show.fmt)){const st=pdfStyle(meta,r.kind,bodyPt,r.bold,set);
       const toks=r.text.match(/\S+|\s+/g)||[];
       for(const tk of toks)atoms.push({text:tk,st});}
     const lines=[];let cur=[],curW=0;
@@ -1060,7 +1070,7 @@ function generateRedlinePdf(opts){
         for(const r of tr.flat){
           const w=_wrapCellPara(r,Math.max(40,contentRight-mlPt));
           paras.push({meta:r.meta||{},lines:w.lines,lineHeights:w.lineHeights,bodyX:mlPt,
-            markerText:'',markerX:mlPt,base:pdfStyle(r.meta||{},'eq',bodyPt),align:'left',indFLPt:0,
+            markerText:'',markerX:mlPt,base:pdfStyle(r.meta||{},'eq',bodyPt,false,set),align:'left',indFLPt:0,
             isChange:r.type!=='equal'||!!(r.fmtChanged&&show.fmt),
             spaceBeforePt:0,spaceAfterPt:2,keepNext:false,keepLines:false,pageBreakBefore:false});
         }
@@ -1068,7 +1078,7 @@ function generateRedlinePdf(opts){
       }
       paras.push({isTableRow:true,cells,colW,cx,rowH,padX:PADX,padY:PADY,
         meta:{},lines:[[]],lineHeights:[rowH],bodyX:mlPt,markerText:'',markerX:mlPt,
-        base:pdfStyle({},'eq',bodyPt),align:'left',indFLPt:0,
+        base:pdfStyle({},'eq',bodyPt,false,set),align:'left',indFLPt:0,
         isChange:tr.flat.some(r=>r.type!=='equal'||(r.fmtChanged&&show.fmt)),
         spaceBeforePt:t===0?6:0,spaceAfterPt:t===trs.length-1?6:0,
         keepNext:false,keepLines:false,
@@ -1099,17 +1109,17 @@ function generateRedlinePdf(opts){
     const bodyX=mlPt+indLeftPt;
     const markerText=meta.marker||'';
     const markerX=mlPt+indLeftPt-(indHangPt||0);
-    const base=pdfStyle(meta,'eq',bodyPt);
+    const base=pdfStyle(meta,'eq',bodyPt,false,set);
     const align=meta.align||'left';
     const atoms=[];
-    for(const r of pdfParseRuns(row.html||'',show.fmt)){const st=pdfStyle(meta,r.kind,bodyPt,r.bold);
+    for(const r of pdfParseRuns(row.html||'',show.fmt)){const st=pdfStyle(meta,r.kind,bodyPt,r.bold,set);
       const toks=r.text.match(/\S+|\s+/g)||[];
       for(const tk of toks)atoms.push({text:tk,st});}
     // Compact inline note for a formatting-only change — consumes row.fmtDescs
     // (set alongside row.fmtChanged in Task 4's compare wiring); no title-attribute
     // re-parsing here. Clean export when formatting is hidden: no mark, no note.
     if(row.fmtChanged&&show.fmt){
-      const noteSt=pdfStyle(meta,'fmt',bodyPt);
+      const noteSt=pdfStyle(meta,'fmt',bodyPt,false,set);
       const noteText='  [formatting: '+(row.fmtDescs||[]).join('; ')+']';
       const noteToks=noteText.match(/\S+|\s+/g)||[];
       for(const tk of noteToks)atoms.push({text:tk,st:noteSt}); // word-wrapped like ordinary runs so a long note breaks across lines instead of overflowing the page
