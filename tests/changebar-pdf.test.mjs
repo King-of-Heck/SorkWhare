@@ -43,3 +43,18 @@ test('PDF: a changed block spanning a page break draws bars on multiple pages', 
   assert.ok(r.pages>=2,'content spans multiple pages, got '+r.pages);
   assert.ok(barCount(r.pdf)>=2,'bars bucketed onto more than one page, got '+barCount(r.pdf));
 });
+
+// One visual table row = two cells; the pseudo-row's isChange is tr.flat.some(changed).
+const tcell=(html,ci,type)=>({type,html,meta:{tbl:{ti:0,ri:0,ci,cols:2},marker:''}});
+
+test('PDF: a table row with a changed cell draws a bar', ()=>{
+  const rows=[tcell('Name',0,'equal'),tcell('<del>old</del><ins>new</ins>',1,'changed')];
+  const r=generateRedlinePdf({rows,geom:GEOM,show:SHOW,summary:{total:1}});
+  assert.ok(barCount(r.pdf)>=1,'changed cell gives the table row a bar');
+});
+
+test('PDF: an all-equal table row draws no bar', ()=>{
+  const rows=[tcell('Name',0,'equal'),tcell('Value',1,'equal')];
+  const r=generateRedlinePdf({rows,geom:GEOM,show:SHOW,summary:{total:0}});
+  assert.equal(barCount(r.pdf),0,'unchanged table row has no bar');
+});
