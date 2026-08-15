@@ -30,12 +30,19 @@ the release that closed each.
     interval merge + stroke in `generateRedlinePdf`). Formatting-only bars follow
     the Formatting toggle. Uncounted; category still shown by badges + colored text.
 
-- [ ] **3. Dense-rewrite phrase grouping** (gap C4) — *Effort S–M · Value medium*
+- [x] **3. Dense-rewrite phrase grouping** (gap C4) — *Effort S–M · Value medium* — **SHIPPED in v1.4.1**
   A full-sentence rewrite fragments when it shares an interior word ("of").
   Workshare groups it into one struck phrase + one inserted phrase.
   - Build: extend `_coalesce` to merge del/ins runs separated by a short shared
     token, not only whitespace gaps. Guard the B3 over-collapse trap — the
     battery already has a test for it.
+  - Shipped: `_coalesce` treats a LONE short connective word (of/and/the/… — a
+    16-word `CONN` set) as a "transparent" equal segment (folds into both phrases,
+    separates mode-runs), so a symmetric dense rewrite bridged by one connective
+    reaches the existing `>=2/>=2` collapse trigger. Multi-word shared runs stay hard
+    anchors (never swallowed); one-sided edits don't group; B3/C3 unaffected. NB: the
+    grouping only applies to paragraph pairs that pair (`simUpper>0.5`); a near-total
+    rewrite below that gate renders as separate delete+insert paragraphs.
 
 - [ ] **4. Configurable rendering sets** (gap R6) — *Effort S–M · Value medium*
   Categorization exists; Workshare lets users set colors/styles per change type.
