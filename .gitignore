@@ -1,6 +1,2 @@
 node_modules/
 tests/fixtures/*.docx
-.internal/
-NOTES.md
-.notes/
-docs/internal/
