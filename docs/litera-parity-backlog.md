@@ -12,7 +12,7 @@ the release that closed each.
 
 ## Tier 1 — High parity-per-effort (do first)
 
-- [ ] **1. Formatting-only change detection** (gap R1) — *Effort M · Value high*
+- [x] **1. Formatting-only change detection** (gap R1) — *Effort M · Value high* — **SHIPPED in v1.3.2**
   Workshare's headline "catch any formatting changes." Today, identical text
   with different bold/font/size shows as no change.
   - Build: on `equal` paragraphs, compare run formatting (extend the `boldRuns`

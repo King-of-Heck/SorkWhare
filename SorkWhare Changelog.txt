@@ -17,6 +17,19 @@ assigned during development (numbering is not sequential/uniform by design).
 
 
 -------------------------------------------------------------------------------
+ v1.3.2  -  Formatting Change Detection              (2026-08-14)
+-------------------------------------------------------------------------------
+ - Formatting-only changes are now caught: when the text is unchanged but its
+   bold, italic, underline, font, or size changed, the affected words are
+   marked with a dotted underline and a hover note saying what changed.
+ - Formatting changes are shown but NOT counted as numbered changes, so the
+   change total keeps meaning substantive text edits.
+ - A new "Formatting" show/hide filter toggles them on screen and in the
+   downloaded PDF - hide it for a clean PDF with only the text changes.
+ - In the PDF, each formatting change is underlined and annotated inline
+   (e.g. "[formatting: bold added]"), since there is no hover there.
+
+-------------------------------------------------------------------------------
  v1.3.1  -  Hardening Release                        (2026-08-14)
 -------------------------------------------------------------------------------
  - Tables that don't declare a fixed column layout no longer split into
