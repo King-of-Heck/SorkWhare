@@ -44,10 +44,17 @@ the release that closed each.
     grouping only applies to paragraph pairs that pair (`simUpper>0.5`); a near-total
     rewrite below that gate renders as separate delete+insert paragraphs.
 
-- [ ] **4. Configurable rendering sets** (gap R6) — *Effort S–M · Value medium*
+- [x] **4. Configurable rendering sets** (gap R6) — *Effort S–M · Value medium* — **SHIPPED in v1.5.0**
   Categorization exists; Workshare lets users set colors/styles per change type.
   - Build: a small settings panel writing the existing CSS variables
     (insertion/deletion/move/formatting colors).
+  - Shipped: a "Rendering set" picker with three curated sets — SorkWhare
+    (default), Litera Classic (pure blue double-underlined insertions, pure red
+    strikethrough deletions, no background wash), and High contrast
+    (colour-vision-safe colours, a distinct decoration per category). One
+    `RENDER_SETS` table drives BOTH surfaces: `renderSetVars` writes the screen's
+    CSS custom properties, `hexToPdfRgb` feeds `pdfStyle`. The choice persists in
+    localStorage. The margin change bar stays single near-black in every set.
 
 ## Tier 2 — Bigger coverage gains
 

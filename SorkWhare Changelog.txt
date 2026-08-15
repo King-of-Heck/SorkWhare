@@ -17,6 +17,21 @@ assigned during development (numbering is not sequential/uniform by design).
 
 
 -------------------------------------------------------------------------------
+ v1.5.0  -  Configurable Rendering Sets              (2026-08-15)
+-------------------------------------------------------------------------------
+ - Added a "Rendering set" picker to choose how changes are styled.
+ - Three sets ship - SorkWhare (the original look), Litera Classic, and High
+   contrast - and the choice is remembered between sessions.
+ - Litera Classic matches the familiar legal-redline convention: pure blue
+   double-underlined insertions and pure red struck-through deletions, with no
+   background shading.
+ - High contrast uses colour-vision-safe colours and gives every change type
+   its own underline style, so the types stay tellable apart without relying
+   on colour alone.
+ - The chosen set applies to the on-screen redline and to the exported PDF.
+ - The change bars in the margin stay a single near-black in every set.
+
+-------------------------------------------------------------------------------
  v1.4.1  -  Dense-Rewrite Grouping                   (2026-08-15)
 -------------------------------------------------------------------------------
  - When a whole phrase is reworded but keeps a short joining word (like "of" or
