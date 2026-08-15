@@ -844,6 +844,48 @@ function encWin(s){let o='';for(const ch of s){let c=ch.codePointAt(0),b;
   o+=String.fromCharCode(b);} return o;}
 function pdfFontKey(bold,italic){return bold&&italic?'F4':bold?'F2':italic?'F3':'F1';}
 // Redline colours as PDF "r g b" (0-1), matching the on-screen palette.
+/* ---- Rendering sets (R6) -------------------------------------------------
+   Single source of truth for change styling on BOTH surfaces: renderSetVars()
+   feeds the screen's CSS custom properties, hexToPdfRgb() feeds pdfStyle().
+   Moves declare color/bg once with two decorations (line = destination,
+   srcLine = struck source) so the two halves of a move can never drift apart.
+   NB: `var`, not `const` — top-level const/let bindings are invisible to the
+   tests/load.mjs vm harness (only var and function declarations reach the
+   context object), and the tests read this table directly. */
+var RENDER_SETS=[
+  {id:'sorkwhare',label:'SorkWhare (default)',cats:{
+    ins:{color:'#0b5cad',bg:'#e7f0fb',line:'underline',style:'solid'},
+    del:{color:'#b3261e',bg:'#fdeceb',line:'line-through',style:'solid'},
+    mov:{color:'#1b7f3b',bg:'#e6f5ec',line:'underline',style:'dotted',srcLine:'line-through'},
+    fmt:{color:'#7c3aed',bg:'transparent',line:'underline',style:'dotted'}}},
+  {id:'litera',label:'Litera Classic',cats:{
+    ins:{color:'#0000ff',bg:'transparent',line:'underline',style:'double'},
+    del:{color:'#ff0000',bg:'transparent',line:'line-through',style:'solid'},
+    mov:{color:'#008000',bg:'transparent',line:'underline',style:'double',srcLine:'line-through'},
+    fmt:{color:'#7c3aed',bg:'transparent',line:'underline',style:'dotted'}}},
+  {id:'contrast',label:'High contrast',cats:{
+    ins:{color:'#0072b2',bg:'transparent',line:'underline',style:'solid'},
+    del:{color:'#d55e00',bg:'transparent',line:'line-through',style:'solid'},
+    mov:{color:'#cc79a7',bg:'transparent',line:'underline',style:'double',srcLine:'line-through'},
+    fmt:{color:'#009e73',bg:'transparent',line:'underline',style:'dotted'}}},
+];
+// Flat CSS-custom-property map for a set. Pure: no DOM, unit-tested directly.
+function renderSetVars(set){
+  const c=set.cats,v={};
+  v['--ins']=c.ins.color; v['--ins-bg']=c.ins.bg; v['--ins-line']=c.ins.line; v['--ins-style']=c.ins.style;
+  v['--del']=c.del.color; v['--del-bg']=c.del.bg; v['--del-line']=c.del.line; v['--del-style']=c.del.style;
+  v['--mov']=c.mov.color; v['--mov-bg']=c.mov.bg; v['--mov-line']=c.mov.line; v['--mov-style']=c.mov.style;
+  v['--mov-src-line']=c.mov.srcLine;
+  v['--fmt']=c.fmt.color; v['--fmt-bg']=c.fmt.bg; v['--fmt-line']=c.fmt.line; v['--fmt-style']=c.fmt.style;
+  return v;
+}
+// '#0b5cad' -> '0.043 0.361 0.678'. toFixed(3) reproduces every v1.4.1 literal exactly.
+function hexToPdfRgb(hex){
+  const h=String(hex).replace('#',''),
+        n=(h.length===3)?h[0]+h[0]+h[1]+h[1]+h[2]+h[2]:h;
+  const r=parseInt(n.slice(0,2),16)/255,g=parseInt(n.slice(2,4),16)/255,b=parseInt(n.slice(4,6),16)/255;
+  return r.toFixed(3)+' '+g.toFixed(3)+' '+b.toFixed(3);
+}
 function pdfStyle(meta,kind,bodyPt,runBold){
   const h=meta.heading; let size=bodyPt,bold=(!!meta.isBold||!!runBold),italic=false;
   if(h===1){size=bodyPt*1.6;bold=true;} else if(h===2){size=bodyPt*1.35;bold=true;}
