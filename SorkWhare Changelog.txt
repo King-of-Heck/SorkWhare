@@ -17,6 +17,16 @@ assigned during development (numbering is not sequential/uniform by design).
 
 
 -------------------------------------------------------------------------------
+ v1.4.1  -  Dense-Rewrite Grouping                   (2026-08-15)
+-------------------------------------------------------------------------------
+ - When a whole phrase is reworded but keeps a short joining word (like "of" or
+   "and") in the middle, the change is now shown as one struck-through phrase
+   followed by one inserted phrase, instead of being chopped into two smaller
+   edits around the shared word - the cleaner presentation redline tools use.
+ - Longer unchanged runs (two or more words) are still kept in place, so nothing
+   that actually stayed the same gets pulled into the change.
+
+-------------------------------------------------------------------------------
  v1.4.0  -  Vertical Change Bars                     (2026-08-15)
 -------------------------------------------------------------------------------
  - A vertical change bar now appears in the left margin beside every changed

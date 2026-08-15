@@ -59,20 +59,40 @@ test('C3 [PARITY M] percentage and unit values replace whole', ()=>{
 });
 
 /* ---- C4: dense-rewrite coalescing vs over-collapse ---- */
-// PARITY: DIVERGE (ledger: C4) — brief predicted full coalescing to one del + one ins
-// phrase, but the shared word "of" survives unchanged at the same position in both
-// strings, so the LCS anchors on it and the diff naturally splits into two separate
-// replace pairs around it. _coalesce only merges RUNS separated by whitespace-only
-// gaps; "of" is a real (non-whitespace) equal token, so it is not a coalescing
-// candidate — this is correct behavior, not a defect. Actual output asserted verbatim.
-test('C4 [PARITY D] dense clause rewrite splits into two replace pairs around the shared word "of"', ()=>{
+// PARITY: MATCH (ledger: C4) — a full-clause rewrite that shares a lone short
+// connective ("of") is grouped into ONE struck phrase + ONE inserted phrase, the
+// Workshare/Litera presentation for a rewritten passage. _coalesce now treats a
+// lone connective word as a "transparent" equal segment (like whitespace): it folds
+// into both sides and separates mode-runs, so the two-sided rewrite reaches the
+// >=2-del-run AND >=2-ins-run collapse trigger. The shared "of" appears in both phrases.
+test('C4 [PARITY M] dense clause rewrite sharing "of" groups into one del + one ins phrase', ()=>{
   const o='Payment is due within thirty days of invoice receipt.';
   const n='Payment is due upon completion of the accepted milestone deliverables.';
   const out=inlineDiffB(o,n,[],[]);
-  assert.equal(out,'Payment is due <del>within thirty days</del><ins>upon completion</ins> of <del>invoice receipt</del><ins>the accepted milestone deliverables</ins>.');
-  assert.equal((out.match(/<del>/g)||[]).length,2,'two del phrases (split around "of"): '+out);
-  assert.equal((out.match(/<ins>/g)||[]).length,2,'two ins phrases (split around "of"): '+out);
-  assert.match(out,/^Payment is due /);
+  assert.equal(out,'Payment is due <del>within thirty days of invoice receipt</del><ins>upon completion of the accepted milestone deliverables</ins>.');
+  assert.equal((out.match(/<del>/g)||[]).length,1,'one grouped del phrase: '+out);
+  assert.equal((out.match(/<ins>/g)||[]).length,1,'one grouped ins phrase: '+out);
+});
+// A symmetric small rewrite bridged by "and" also groups.
+test('C4 [PARITY M] symmetric rewrite bridged by "and" groups into one del + one ins', ()=>{
+  const out=inlineDiffB('rights and obligations','duties and liabilities',[],[]);
+  assert.equal(out,'<del>rights and obligations</del><ins>duties and liabilities</ins>');
+});
+// GUARD (one-sided): a connective present but only ONE side of it changed must NOT
+// group — only 1 del-run + 1 ins-run, below the collapse trigger.
+test('C4 [GUARD] one-sided edit around "and" is not grouped', ()=>{
+  const out=inlineDiffB('cats and dogs','cats and mice',[],[]);
+  assert.equal(out,'cats and <del>dogs</del><ins>mice</ins>');
+});
+// GUARD (multi-word bridge): a shared run of more than one word merges into a single
+// non-connective equal segment and stays a hard anchor — preserved clauses are never
+// swallowed. Two separate replace pairs remain.
+test('C4 [GUARD] multi-word shared bridge stays split (not swallowed)', ()=>{
+  const o='The fee shall be paid to the Company';
+  const n='The charge shall be paid to the Vendor';
+  const out=inlineDiffB(o,n,[],[]);
+  assert.equal(out,'The <del>fee</del><ins>charge</ins> shall be paid to the <del>Company</del><ins>Vendor</ins>');
+  assert.equal((out.match(/<del>/g)||[]).length,2,'two del phrases (bridge preserved): '+out);
 });
 // PARITY: MATCH — v1.3.1 B3 fix: _coalesce counts maximal same-mode RUNS, not raw
 // segments; a bold flip inside a one-phrase replace splits inlineDiffB's internal
