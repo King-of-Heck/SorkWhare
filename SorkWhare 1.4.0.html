@@ -930,8 +930,9 @@ function generateRedlinePdf(opts){
   const measure=(t,size,bold,italic)=>{ if(!t)return 0;
     if(ctx){ctx.font=(italic?'italic ':'')+(bold?'bold ':'')+(size*96/72)+'px '+famCss;return ctx.measureText(t).width*0.75;}
     return timesWidth(t,size,bold); };
-  const pages=[]; let ops=null,penY=0;
-  const newPage=()=>{ops=[];pages.push(ops);penY=Hpt-mtPt;};
+  const pages=[],barSpans=[]; let ops=null,penY=0;
+  const newPage=()=>{ops=[];pages.push(ops);barSpans.push([]);penY=Hpt-mtPt;};
+  const curBar=()=>barSpans[barSpans.length-1];
   const seg=(x,baseline,text,st)=>{ if(text==null||text==='')return;
     const fk=st.font||pdfFontKey(st.bold,st.italic);
     ops.push('BT','/'+fk+' '+fmt(st.size)+' Tf',st.color+' rg','1 0 0 1 '+fmt(x)+' '+fmt(baseline)+' Tm','('+pdfEsc(encWin(text))+') Tj','ET');
@@ -1010,6 +1011,7 @@ function generateRedlinePdf(opts){
           const w=_wrapCellPara(r,Math.max(40,contentRight-mlPt));
           paras.push({meta:r.meta||{},lines:w.lines,lineHeights:w.lineHeights,bodyX:mlPt,
             markerText:'',markerX:mlPt,base:pdfStyle(r.meta||{},'eq',bodyPt),align:'left',indFLPt:0,
+            isChange:r.type!=='equal'||!!(r.fmtChanged&&show.fmt),
             spaceBeforePt:0,spaceAfterPt:2,keepNext:false,keepLines:false,pageBreakBefore:false});
         }
         return;
@@ -1017,6 +1019,7 @@ function generateRedlinePdf(opts){
       paras.push({isTableRow:true,cells,colW,cx,rowH,padX:PADX,padY:PADY,
         meta:{},lines:[[]],lineHeights:[rowH],bodyX:mlPt,markerText:'',markerX:mlPt,
         base:pdfStyle({},'eq',bodyPt),align:'left',indFLPt:0,
+        isChange:tr.flat.some(r=>r.type!=='equal'||(r.fmtChanged&&show.fmt)),
         spaceBeforePt:t===0?6:0,spaceAfterPt:t===trs.length-1?6:0,
         keepNext:false,keepLines:false,
         pageBreakBefore:t===0&&!!(run[0].meta&&run[0].meta.pageBreakBefore)&&paras.length>0});
@@ -1091,6 +1094,7 @@ function generateRedlinePdf(opts){
       spaceAfterPt:sa,
       keepNext:!!meta.keepNext||!!meta.heading,
       keepLines:!!meta.keepLines,
+      isChange:row.type!=='equal'||!!(row.fmtChanged&&show.fmt),
       pageBreakBefore:!!meta.pageBreakBefore&&paras.length>0});
   }
   // ---- Pass 2: page planning (banner shortens page 1) ----
@@ -1129,6 +1133,7 @@ function generateRedlinePdf(opts){
           }
         }
       }
+      if(p.isChange)curBar().push({top:yTop,bot:yTop-p.rowH});
       penY-=p.rowH;atTop=false;
       penY-=p.spaceAfterPt;
       continue;
@@ -1153,9 +1158,24 @@ function generateRedlinePdf(opts){
       for(let k=0;k<line.length;k++){const a=line[k];seg(x,baseline,a.text,a.st);
         x+=measure(a.text,a.st.size,a.st.bold,a.st.italic);
         if(extraPerGap&&/^\s+$/.test(a.text)&&k!==line.length-1)x+=extraPerGap;}
+      if(p.isChange)curBar().push({top:penY,bot:penY-lh});
       penY-=lh; atTop=false;
     }
     penY-=p.spaceAfterPt;
+  }
+  // ---- Margin change bars: merge each page's changed-line intervals, stroke one bar per run ----
+  const barX=mlPt-8;
+  for(let bp=0;bp<barSpans.length;bp++){
+    const spans=barSpans[bp]; if(!spans.length)continue;
+    spans.sort((a,b)=>b.top-a.top); // top-of-page (larger y) first
+    const merged=[]; let cur=null;
+    for(const s of spans){
+      if(cur&&s.top>=cur.bot-0.5){ if(s.bot<cur.bot)cur.bot=s.bot; } // abuts/overlaps -> extend
+      else { cur={top:s.top,bot:s.bot}; merged.push(cur); }
+    }
+    const pg=pages[bp];
+    for(const mg of merged)
+      pg.push('0.15 0.15 0.15 RG','1.3 w',fmt(barX)+' '+fmt(mg.top)+' m '+fmt(barX)+' '+fmt(mg.bot)+' l S');
   }
   // ---- Assemble PDF objects: base-14 Times, or non-embedded TrueType named after the doc font. ----
   const parts=[];let nextObj=3;const fontRefs={};
