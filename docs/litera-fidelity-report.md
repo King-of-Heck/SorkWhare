@@ -34,7 +34,7 @@ Auto verdict: Pass / Partial / Fail. Rubric verdict: Match / Partial / Absent.
 | R3 list/numbering changes | rubric | Partial | M | An inserted list item is caught as an `inserted` row, but the auto-renumbering of the following items is not surfaced — they remain `equal` because list numbers are Word-generated, not part of the compared text. A `numbering` summary bucket exists but reads 0 here. |
 | R4 redline .docx output | rubric | Absent | H | Output is PDF-only (`btnPdf` → `generateRedlinePdf`, Blob `application/pdf`) plus browser print. There is no export to a Word document with real tracked changes — a headline Litera/Workshare capability. |
 | R5 accept/reject | rubric | Absent | M | No per-change accept/reject. The tool *reads* incoming tracked changes and warns it "compared as if all changes were accepted" (SorkWhare 1.3.1.html:701), but the redline itself is a read-only view. |
-| R6 change categorization | rubric | Partial | H | Insertions/deletions/moves are categorized distinctly with summary tiles and styled `moved-src`/`moved` spans (confirmed on screen: 3 total / 1 ins / 1 del / 1 move). Litera adds user-configurable **rendering sets** (per-category colours/styles) that SorkWhare does not expose. |
+| R6 change categorization | rubric | Full (curated sets) | H | Insertions/deletions/moves are categorized distinctly with summary tiles and styled `moved-src`/`moved` spans (confirmed on screen: 3 total / 1 ins / 1 del / 1 move). **Closed in v1.5.0:** a "Rendering set" picker ships three curated sets — SorkWhare (default), Litera Classic, High contrast — each setting colour + decoration per category, applied to the on-screen redline **and** the exported PDF and persisted between sessions. Remaining delta vs Litera: the sets are curated, not user-authorable or shareable. |
 | R7 page/layout fidelity | rubric | Partial | M | SorkWhare renders its own multi-page PDF with real document-font fidelity (v1.2.0, base-14 Times fallback), but it is an external renderer approximating Word, not a native Word add-in like Litera Compare for Word. |
 
 ## Parity posture
@@ -47,19 +47,23 @@ cleaner or more explicitly categorized result. Formatting-only change detection
 (R1) was **added in v1.3.2**. It remains **absent on the feature surface** that
 makes Litera a full compare product: footnote/header/comment comparison (R2), a
 real `.docx` tracked-changes export (R4), and per-change accept/reject (R5).
-Change categorization exists (R6) but without Litera's configurable rendering sets.
+Change categorization (R6) gained configurable rendering sets in **v1.5.0**.
 
 The single biggest lever toward "as close as possible to Litera," given this
 tool's on-screen/PDF redline is already good, is **`.docx` tracked-changes
 output (R4)** — it is the most-cited Litera/Workshare capability and the one a
-Word-equipped reviewer most expects. Formatting-only detection (R1) is the next.
+Word-equipped reviewer most expects, now that formatting-only detection (R1,
+v1.3.2) and configurable rendering sets (R6, v1.5.0) have both closed.
 
 ## Confirmed gaps (confidence H)
 
 - **R4 — no `.docx` tracked-changes export.** Litera/Workshare export the
   redline as a Word Track-Changes document; SorkWhare outputs PDF only.
-- **R6 — no configurable rendering sets.** Categorization is present, but the
-  per-category colour/style configuration Litera offers is not exposed.
+- **R6 — CLOSED in v1.5.0** (three curated rendering sets — SorkWhare, Litera
+  Classic, High contrast — set colour + decoration per category on screen and in
+  the PDF, persisted between sessions). Residual delta: the sets are curated
+  rather than user-authorable, so a house convention outside the three shipped
+  cannot be expressed without editing the file.
 
 ## Suspected gaps (confidence M/L — need Litera confirmation)
 
@@ -80,8 +84,9 @@ Treating the two axes separately, weighted toward detection per the project's go
 
 - **Detection (C1–C8):** all 8 categories functional; 6 clean matches, 2
   divergences of polish (C4, C6) and 1 boundary limitation (C5). ≈ **85–90%**.
-- **Feature surface (R1–R7):** 0 full matches, 3 partial (R3/R6/R7), 4 absent
-  (R1/R2/R4/R5). ≈ **30%**.
+- **Feature surface (R1–R7):** 2 full matches (R1, R6), 2 partial
+  (R3/R7), 3 absent
+  (R2/R4/R5). ≈ **40–45%**.
 - **Combined, weighted to detection:** roughly **65–70%**.
 
 This number is a rough orientation, not a measurement: it rests on researched
