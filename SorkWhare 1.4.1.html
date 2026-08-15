@@ -612,19 +612,26 @@ function _tokBold(tokens,runs){const f=new Array(tokens.length).fill(false);if(!
 function _coalesce(segs){
   const out=[];let i=0;
   const isWsEq=s=>s.m==='eq'&&/^\s+$/.test(s.t);
+  // A lone short connective word folds into both sides of a dense rewrite, exactly
+  // like whitespace: it separates mode-runs and is duplicated into both the struck
+  // and inserted phrase. A multi-word shared run (interior spaces) is NOT a lone
+  // connective, so it stays a hard anchor and preserved clauses are never swallowed.
+  const CONN=new Set(['a','an','the','and','or','nor','of','to','in','on','at','by','for','as','if','is']);
+  const isConnEq=s=>s.m==='eq'&&/^\s*\w+\s*$/u.test(s.t)&&CONN.has(s.t.trim().toLowerCase());
+  const isTransparent=s=>isWsEq(s)||isConnEq(s);
   while(i<segs.length){
     if(segs[i].m==='eq'&&!isWsEq(segs[i])){out.push(segs[i]);i++;continue;}
-    let j=i;while(j<segs.length&&(segs[j].m!=='eq'||isWsEq(segs[j])))j++;
+    let j=i;while(j<segs.length&&(segs[j].m!=='eq'||isTransparent(segs[j])))j++;
     const span=segs.slice(i,j);
-    while(span.length&&isWsEq(span[0]))out.push(span.shift());
+    while(span.length&&isTransparent(span[0]))out.push(span.shift());
     const tail=[];
-    while(span.length&&isWsEq(span[span.length-1]))tail.unshift(span.pop());
+    while(span.length&&isTransparent(span[span.length-1]))tail.unshift(span.pop());
     // Count MODE RUNS (maximal same-mode groups), not raw segments: inlineDiffB
     // splits a single phrase whenever bold flips, so counting segments would trip
     // the collapse on a clean one-phrase replace that merely contains bold.
     let delRuns=0,insRuns=0,prevMode=null;
     for(const x of span){
-      if(isWsEq(x)){prevMode=null;continue;}   // whitespace separates runs
+      if(isTransparent(x)){prevMode=null;continue;}   // whitespace or connective separates runs
       if(x.m!==prevMode){if(x.m==='del')delRuns++;else if(x.m==='ins')insRuns++;}
       prevMode=x.m;
     }
