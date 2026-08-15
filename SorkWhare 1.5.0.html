@@ -39,7 +39,7 @@
   .opts{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-top:16px;font-size:14px}
   .opts label{display:flex;gap:6px;align-items:center;cursor:pointer}
   .opts input[type=number]{width:52px;padding:4px 6px;border:1px solid var(--line);border-radius:6px}
-  .err{background:var(--del-bg);border:1px solid #f2b8b5;color:#8a1f19;border-radius:8px;padding:12px 14px;margin-top:12px;font-size:14px}
+  .err{background:#fdeceb;border:1px solid #f2b8b5;color:#8a1f19;border-radius:8px;padding:12px 14px;margin-top:12px;font-size:14px}
   #notice{background:#fff8e1;border-bottom:1px solid #e6d9a8;color:#6b5d1f;padding:8px 22px;font-size:13px}
   #notice button{background:none;border:none;font-size:14px;color:#6b5d1f;float:right;padding:0 4px;cursor:pointer}
 
@@ -804,6 +804,7 @@ function exportPdf(){
       : '@page{margin:20mm 16mm}';
     const html='<!doctype html><html><head><meta charset="utf-8"><title>Redline Comparison</title>'
       +'<style>'+styles+'</style>'
+      +'<style>'+renderSetCss(activeSet)+'</style>'
       +'<style>'+pageCss+' html,body{background:#fff;margin:0;height:auto}'
       +'.docpane{overflow:visible;padding:0;background:#fff} '
       +'#paper{border:none;box-shadow:none;max-width:none;margin:0;padding:0;width:auto}'
@@ -844,7 +845,6 @@ function encWin(s){let o='';for(const ch of s){let c=ch.codePointAt(0),b;
   else b=0x3F; /* ? */
   o+=String.fromCharCode(b);} return o;}
 function pdfFontKey(bold,italic){return bold&&italic?'F4':bold?'F2':italic?'F3':'F1';}
-// Redline colours as PDF "r g b" (0-1), matching the on-screen palette.
 /* ---- Rendering sets (R6) -------------------------------------------------
    Single source of truth for change styling on BOTH surfaces: renderSetVars()
    feeds the screen's CSS custom properties, hexToPdfRgb() feeds pdfStyle().
@@ -880,6 +880,12 @@ function renderSetVars(set){
   v['--fmt']=c.fmt.color; v['--fmt-bg']=c.fmt.bg; v['--fmt-line']=c.fmt.line; v['--fmt-style']=c.fmt.style;
   return v;
 }
+// Serialize a set as a :root{} block, for surfaces that can only carry
+// stylesheet TEXT (the print-export iframe) rather than inline properties.
+function renderSetCss(set){
+  const v=renderSetVars(set);
+  return ':root{'+Object.keys(v).map(k=>k+':'+v[k]).join(';')+'}';
+}
 // '#0b5cad' -> '0.043 0.361 0.678'. toFixed(3) reproduces every v1.4.1 literal exactly.
 function hexToPdfRgb(hex){
   const h=String(hex).replace('#',''),
@@ -889,6 +895,7 @@ function hexToPdfRgb(hex){
 }
 /* Resolve a run's PDF style. `set` defaults to the SorkWhare set so every
    existing 4-arg call site is byte-identical to v1.4.1. */
+// Redline colours as PDF "r g b" (0-1), matching the on-screen palette.
 function pdfStyle(meta,kind,bodyPt,runBold,set){
   const h=meta.heading; let size=bodyPt,bold=(!!meta.isBold||!!runBold),italic=false;
   if(h===1){size=bodyPt*1.6;bold=true;} else if(h===2){size=bodyPt*1.35;bold=true;}

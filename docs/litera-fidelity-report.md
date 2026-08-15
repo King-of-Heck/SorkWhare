@@ -83,9 +83,9 @@ Treating the two axes separately, weighted toward detection per the project's go
 
 - **Detection (C1–C8):** all 8 categories functional; 6 clean matches, 2
   divergences of polish (C4, C6) and 1 boundary limitation (C5). ≈ **85–90%**.
-- **Feature surface (R1–R7):** 1 full match (R6, curated sets), 2 partial
-  (R3/R7), 4 absent
-  (R1/R2/R4/R5). ≈ **30%**.
+- **Feature surface (R1–R7):** 2 full matches (R1, R6), 2 partial
+  (R3/R7), 3 absent
+  (R2/R4/R5). ≈ **40–45%**.
 - **Combined, weighted to detection:** roughly **65–70%**.
 
 This number is a rough orientation, not a measurement: it rests on researched

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {loadApp} from './load.mjs';
 const ctx=loadApp();
-const {RENDER_SETS,applyRenderSet,renderSetVars,__html:h}=ctx;
+const {RENDER_SETS,applyRenderSet,renderSetVars,renderSetCss,__html:h}=ctx;
 
 // A recording stand-in for document.documentElement.style.
 const spy=()=>{const seen={};return {seen,setProperty(k,v){seen[k]=v;}};};
@@ -72,4 +72,32 @@ test('applyRenderSet survives unavailable storage', ()=>{
 
 test('loadRenderSetId returns null when storage is unavailable', ()=>{
   assert.equal(ctx.loadRenderSetId(),null);
+});
+
+// exportPdf (the print-export iframe) can only carry stylesheet TEXT, not the
+// inline custom properties on documentElement — renderSetCss(activeSet) is
+// the serialized-to-text escape hatch for that surface.
+test('renderSetCss returns a :root{} block containing every variable of the set', ()=>{
+  for(const set of RENDER_SETS){
+    const css=renderSetCss(set);
+    assert.match(css,/^:root\{.*\}$/);
+    // Build the expected data from renderSetVars itself so the two stay in
+    // step; JSON round-trip the vm-realm object before iterating (cross-realm
+    // objects are otherwise fine to read from, just not deepEqual-safe).
+    const vars=JSON.parse(JSON.stringify(renderSetVars(set)));
+    for(const k of Object.keys(vars)){
+      assert.match(css,new RegExp('(?:^|;|\\{)'+k.replace(/[-[\]{}()*+?.,\\^$|#\s]/g,'\\$&')+':'+vars[k].replace(/[-[\]{}()*+?.,\\^$|#\s]/g,'\\$&')+'(?:;|\\})'));
+    }
+  }
+});
+
+test('renderSetCss for the litera set carries --ins:#0000ff and --ins-style:double', ()=>{
+  const set=RENDER_SETS.find(s=>s.id==='litera');
+  const css=renderSetCss(set);
+  assert.match(css,/--ins:#0000ff/);
+  assert.match(css,/--ins-style:double/);
+});
+
+test('exportPdf injects renderSetCss(activeSet) into the print document', ()=>{
+  assert.match(h,/renderSetCss\(activeSet\)/);
 });
