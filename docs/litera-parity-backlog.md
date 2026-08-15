@@ -20,11 +20,15 @@ the release that closed each.
     **"formatting"** category. `summary` already has category buckets to slot
     it into.
 
-- [ ] **2. Vertical change bars in the margin** — *Effort S (screen) / M (PDF) · Value high*
+- [x] **2. Vertical change bars in the margin** — *Effort S (screen) / M (PDF) · Value high* — **SHIPPED in v1.4.0**
   Not a rubric row, but the visual signature of Workshare/Litera — a change
   line in the left margin beside every changed line. Very recognizable.
   - Build: left-border marker on changed rows (screen CSS); a margin stroke in
     `generateRedlinePdf`.
+  - Shipped: single near-black revision bar in the left margin on both surfaces
+    (screen `.para::before` repositioned into the `#paper` gutter; PDF per-page
+    interval merge + stroke in `generateRedlinePdf`). Formatting-only bars follow
+    the Formatting toggle. Uncounted; category still shown by badges + colored text.
 
 - [ ] **3. Dense-rewrite phrase grouping** (gap C4) — *Effort S–M · Value medium*
   A full-sentence rewrite fragments when it shares an interior word ("of").

@@ -17,6 +17,17 @@ assigned during development (numbering is not sequential/uniform by design).
 
 
 -------------------------------------------------------------------------------
+ v1.4.0  -  Vertical Change Bars                     (2026-08-15)
+-------------------------------------------------------------------------------
+ - A vertical change bar now appears in the left margin beside every changed
+   line, both on screen and in the downloaded PDF - the same margin revision
+   bar that professional redline tools use, so changes are easy to scan.
+ - One neutral colour marks every change type; the kind of change is still
+   shown by the existing labels and the coloured inserted / struck-through text.
+ - Formatting-only changes get a bar too; it follows the "Formatting" filter,
+   disappearing when formatting changes are hidden.
+
+-------------------------------------------------------------------------------
  v1.3.2  -  Formatting Change Detection              (2026-08-14)
 -------------------------------------------------------------------------------
  - Formatting-only changes are now caught: when the text is unchanged but its
