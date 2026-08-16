@@ -1066,7 +1066,13 @@ function planBreaks(blocks,avail,firstAvail){
 }
 function generateRedlinePdf(opts){
   opts=opts||{};
-  const rows=opts.rows||lastRows||[];
+  // v1.6.0: split note rows out of the body. Endnote rows render as a titled
+  // section after the body (below); footnote rows are Task 6 (ignored here).
+  // Note-free input: bodyRows has the SAME elements as allRows, enRows is empty,
+  // so nothing new runs and the output stays byte-identical to v1.5.0.
+  const allRows=opts.rows||lastRows||[];
+  const bodyRows=allRows.filter(r=>!(r.meta&&r.meta.note));
+  const enRows=allRows.filter(r=>r.meta&&r.meta.note&&r.meta.note.kind==='endnote');
   const g=opts.geom||pageGeom||{wIn:8.5,hIn:11,mt:1,mr:1,mb:1,ml:1,fontPt:11,font:'Times New Roman'};
   const summary=opts.summary||lastSummary;
   const faName=opts.fileAName!=null?opts.fileAName:((fileA&&fileA.name)||'');
@@ -1113,6 +1119,10 @@ function generateRedlinePdf(opts){
   by-=16; penY=by;
   // ---- Pass 1: filter + wrap every row into positioned lines (no page decisions) ----
   const paras=[];
+  // Strip the PUA-delimited reference sentinel (Task 2) so no raw footnote:N text
+  // garbage is drawn in the body. Rendering the ref NUMBER as a superscript is deferred;
+  // stripping is the shipped behaviour. No-op (returns the same string) when absent.
+  const stripSent=h=>String(h==null?'':h).replace(/\uE000(footnote|endnote):(-?\d+)\uE001/g,'');
   const _visible=row=>{const t=row.type;
     if(t==='equal'){ if(show.eq) return true; return !!(row.fmtChanged && show.fmt); }
     if(t==='inserted'&&!show.ins)return false;
@@ -1123,7 +1133,7 @@ function generateRedlinePdf(opts){
   const _wrapCellPara=(row,availW)=>{
     const meta=row.meta||{},base=pdfStyle(meta,'eq',bodyPt,false,set),atoms=[];
     if(meta.marker)atoms.push({text:meta.marker,st:base},{text:' ',st:base});
-    for(const r of pdfParseRuns(row.html||'',show.fmt)){const st=pdfStyle(meta,r.kind,bodyPt,r.bold,set);
+    for(const r of pdfParseRuns(stripSent(row.html),show.fmt)){const st=pdfStyle(meta,r.kind,bodyPt,r.bold,set);
       const toks=r.text.match(/\S+|\s+/g)||[];
       for(const tk of toks)atoms.push({text:tk,st});}
     const lines=[];let cur=[],curW=0;
@@ -1185,25 +1195,12 @@ function generateRedlinePdf(opts){
         pageBreakBefore:t===0&&!!(run[0].meta&&run[0].meta.pageBreakBefore)&&paras.length>0});
     });
   };
-  let _ri=0;
-  while(_ri<rows.length){
-    const row0=rows[_ri];
-    const tbl0=row0.meta&&row0.meta.tbl;
-    if(tbl0){
-      const cols=tbl0.cols,run=[],seenTi={r:null,o:null};
-      while(_ri<rows.length&&rows[_ri].meta&&rows[_ri].meta.tbl&&rows[_ri].meta.tbl.cols===cols){
-        const r2=rows[_ri],side=(r2.ni!=null)?'r':'o',t2=r2.meta.tbl.ti;
-        if(seenTi[side]!=null&&seenTi[side]!==t2)break; // adjacent distinct table
-        seenTi[side]=t2;
-        // Equal cells stay in the table even under the "unchanged" filter —
-        // parity with the screen CSS (a table without them is unreadable).
-        if(_visible(r2)||r2.type==='equal')run.push(r2);
-        _ri++;}
-      if(run.length)_pushTableRows(run,cols);
-      continue;
-    }
-    if(!_visible(row0)){_ri++;continue;}
-    const row=row0;_ri++;
+  // Build one wrapped paragraph and push it to `paras`. Shared by the body pass and
+  // the endnotes section (v1.6.0). prevRaw/nextRaw are the RAW document neighbours
+  // used only for contextualSpacing gap-zeroing; prefix (e.g. "1. ") is prepended as
+  // leading atoms in the base style. Body callers pass no prefix, so their output is
+  // byte-identical to v1.5.0 (stripSent is a no-op on note-free text).
+  const emitParaRow=(row,prevRaw,nextRaw,prefix)=>{
     const meta=row.meta||{};
     const indLeftPt=meta.indLeftPt||0, indHangPt=meta.indHangingPt||0, indFLPt=meta.indFirstLinePt||0;
     const bodyX=mlPt+indLeftPt;
@@ -1212,7 +1209,8 @@ function generateRedlinePdf(opts){
     const base=pdfStyle(meta,'eq',bodyPt,false,set);
     const align=meta.align||'left';
     const atoms=[];
-    for(const r of pdfParseRuns(row.html||'',show.fmt)){const st=pdfStyle(meta,r.kind,bodyPt,r.bold,set);
+    if(prefix){for(const tk of (prefix.match(/\S+|\s+/g)||[]))atoms.push({text:tk,st:base});}
+    for(const r of pdfParseRuns(stripSent(row.html),show.fmt)){const st=pdfStyle(meta,r.kind,bodyPt,r.bold,set);
       const toks=r.text.match(/\S+|\s+/g)||[];
       for(const tk of toks)atoms.push({text:tk,st});}
     // Compact inline note for a formatting-only change — consumes row.fmtDescs
@@ -1245,9 +1243,8 @@ function generateRedlinePdf(opts){
     let sb=meta.spaceBeforePt!=null?meta.spaceBeforePt:0;
     let sa=meta.spaceAfterPt!=null?meta.spaceAfterPt:6;   // v1.1.5 flat gap when undeclared
     if(meta.contextualSpacing&&meta.styleId){
-      const pRaw=rows[_ri-2], nRaw=rows[_ri];
-      if(pRaw&&pRaw.meta&&pRaw.meta.styleId===meta.styleId)sb=0;
-      if(nRaw&&nRaw.meta&&nRaw.meta.styleId===meta.styleId)sa=0;
+      if(prevRaw&&prevRaw.meta&&prevRaw.meta.styleId===meta.styleId)sb=0;
+      if(nextRaw&&nextRaw.meta&&nextRaw.meta.styleId===meta.styleId)sa=0;
     }
     paras.push({meta,lines,lineHeights,bodyX,markerText,markerX,base,align,indFLPt,
       spaceBeforePt:sb,
@@ -1256,6 +1253,40 @@ function generateRedlinePdf(opts){
       keepLines:!!meta.keepLines,
       isChange:row.type!=='equal'||!!(row.fmtChanged&&show.fmt),
       pageBreakBefore:!!meta.pageBreakBefore&&paras.length>0});
+  };
+  let _ri=0;
+  while(_ri<bodyRows.length){
+    const row0=bodyRows[_ri];
+    const tbl0=row0.meta&&row0.meta.tbl;
+    if(tbl0){
+      const cols=tbl0.cols,run=[],seenTi={r:null,o:null};
+      while(_ri<bodyRows.length&&bodyRows[_ri].meta&&bodyRows[_ri].meta.tbl&&bodyRows[_ri].meta.tbl.cols===cols){
+        const r2=bodyRows[_ri],side=(r2.ni!=null)?'r':'o',t2=r2.meta.tbl.ti;
+        if(seenTi[side]!=null&&seenTi[side]!==t2)break; // adjacent distinct table
+        seenTi[side]=t2;
+        // Equal cells stay in the table even under the "unchanged" filter —
+        // parity with the screen CSS (a table without them is unreadable).
+        if(_visible(r2)||r2.type==='equal')run.push(r2);
+        _ri++;}
+      if(run.length)_pushTableRows(run,cols);
+      continue;
+    }
+    if(!_visible(row0)){_ri++;continue;}
+    const row=row0;_ri++;
+    emitParaRow(row,bodyRows[_ri-2],bodyRows[_ri]);
+  }
+  // ---- Endnotes section (v1.6.0): a titled block after the body. Empty for a
+  // note-free doc (enRows.length===0), so the whole block is skipped and output is
+  // unchanged. Endnote change rows flow through the same emitParaRow → they get
+  // v1.4.0 margin change bars for free via their isChange flag in Pass 3. ----
+  const enVis=enRows.filter(_visible);
+  if(enVis.length){
+    // Bold heading; keepNext ties it to the first endnote so it never dangles.
+    emitParaRow({type:'equal',meta:{isBold:true,keepNext:true,spaceBeforePt:14,spaceAfterPt:6},html:'Endnotes'},null,null);
+    enVis.forEach((er,i)=>{
+      const dn=er.meta&&er.meta.note&&er.meta.note.dispNum;
+      emitParaRow(er,enVis[i-1],enVis[i+1],(dn!=null?dn+'. ':''));
+    });
   }
   // ---- Pass 2: page planning (banner shortens page 1) ----
   const availH=Hpt-mtPt-mbPt;
