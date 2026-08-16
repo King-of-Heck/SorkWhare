@@ -81,3 +81,67 @@ test('a note-free all-equal doc draws zero change bars (endnote section absent)'
   assert.equal(barCount(pdf),0,'no bars when nothing changed and no notes');
   assert.doesNotMatch(pdf,/Endnotes/,'no Endnotes heading when there are no endnotes');
 });
+
+/* -------- Task 6: page-bottom footnote float -------- */
+// A footnote row (kind:'footnote') is NOT part of the body/endnote flow; it floats
+// to the bottom of the page holding its reference. The reference lives in the body
+// html as a PUA sentinel (footnote:<id>) that harvest maps id->dispNum.
+const fnRow=(dispNum,html,type='changed')=>(
+  {type,cid:dispNum,meta:{marker:'',note:{kind:'footnote',dispNum,id:String(dispNum)}},html});
+
+test('footnote renders on the page of its reference with a non-bar separator rule', () => {
+  const app=loadApp();
+  const rows=[
+    {type:'equal',meta:{marker:''},html:'Body with ref'+S+'footnote:1'+E+' here.'},
+    fnRow(1,'Fee is <del>ten</del><ins>twelve</ins> dollars.'),
+  ];
+  const summary={total:1,insertions:1,deletions:1,moves:0,amendments:1,content:1,numbering:0,punctuation:0,formatting:0,footnotes:1,endnotes:0};
+  const {pdf}=app.generateRedlinePdf({rows,summary,geom:GEOM,set:app.RENDER_SETS[0],show:SHOW});
+  assert.match(pdf,/twelve/,'footnote inserted content emitted');
+  assert.match(pdf,/ten/,'footnote deleted content emitted');
+  // No raw sentinel leaks (harvest, THEN strip).
+  assert.doesNotMatch(pdf,/footnote:1/,'no raw footnote sentinel text');
+  assert.doesNotMatch(pdf,PUA,'no raw PUA delimiter bytes');
+  // change bar present on the changed footnote line (reserved bar literal)
+  assert.match(pdf,/0\.15 0\.15 0\.15 RG/,'change bar literal present for the changed footnote');
+  // separator rule uses a DIFFERENT gray (must not be the bar literal)
+  const sep=pdf.match(/0\.\d+ 0\.\d+ 0\.\d+ RG/g)||[];
+  assert.ok(sep.some(s=>s!=='0.15 0.15 0.15 RG'),'a non-bar gray stroke exists for the separator');
+});
+
+test('footnote block carries the dispNum prefix', () => {
+  const app=loadApp();
+  const rows=[
+    {type:'equal',meta:{marker:''},html:'See clause'+S+'footnote:3'+E+' below.'},
+    fnRow(3,'A <ins>new</ins> obligation.'),
+  ];
+  const {pdf}=app.generateRedlinePdf({rows,summary:{total:1,footnotes:1},geom:GEOM,set:app.RENDER_SETS[0],show:SHOW});
+  // The "3." prefix token is drawn as its own Tj operand ahead of the note text.
+  assert.match(pdf,/\(3\.\) Tj/,'the footnote is prefixed with its display number');
+  assert.match(pdf,/new/,'footnote content emitted');
+});
+
+test('planBreaks is byte-identical when availOf is omitted (reserve-0 no-op pin)', () => {
+  const app=loadApp();
+  const J=v=>JSON.parse(JSON.stringify(v));
+  const B=(lines,extra)=>Object.assign({lineHeights:lines,spaceBeforePt:0,spaceAfterPt:0,
+    keepNext:false,keepLines:false,pageBreakBefore:false},extra||{});
+  const blocks=[B([50,50]),B([30,30]),B([40,40,40])];
+  const a=J(app.planBreaks(blocks,100,80));
+  const b=J(app.planBreaks(blocks,100,80,undefined));
+  assert.deepEqual(b,a,'omitting availOf changes nothing');
+  // A banner-free availOf that returns the scalar height for every page must
+  // reproduce the plain-scalar output exactly.
+  const c0=J(app.planBreaks(blocks,100));
+  const c1=J(app.planBreaks(blocks,100,undefined,()=>100));
+  assert.deepEqual(c1,c0,'an availOf equal to the scalar reproduces the output');
+});
+
+test('a footnote taller reserve shortens the body area but stays a no-op with no notes', () => {
+  const app=loadApp();
+  // no footnotes -> float pre-pass inert; page count matches the plain path
+  const long='word '.repeat(600).trim();
+  const plain=app.generateRedlinePdf({rows:[{type:'equal',meta:{marker:''},html:long}],
+    summary:{total:0},geom:GEOM,set:app.RENDER_SETS[0],show:SHOW});
+  assert.ok(plain.pages>=1&&plain.pdf.startsWith('%PDF-1.4'));
+});

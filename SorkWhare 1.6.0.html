@@ -1028,8 +1028,14 @@ function pdfParseRuns(html,fmtOn){
    is an overflow sentinel renderers skip). Rules: space-before ignored at page top;
    2-line widow/orphan minimums; keepLines keeps a block whole when it can ever fit;
    keepNext keeps a block with its successor's first lines (chain capped at 4). */
-function planBreaks(blocks,avail,firstAvail){
-  const breaks=[];let free=(firstAvail!=null?firstAvail:avail),top=true;
+function planBreaks(blocks,avail,firstAvail,availOf){
+  // availOf(pageIndex) — OPTIONAL per-page free height (v1.6.0 footnote float).
+  // It returns the FINAL usable height for that page (banner + footnote reserve
+  // already folded in), so page 0's value should equal the old firstAvail minus
+  // any page-0 reserve. When omitted, `pa` reproduces the exact scalar behaviour
+  // (page 0 = firstAvail‖avail, later pages = avail) so output is byte-identical.
+  const pa=pi=>availOf?availOf(pi):(pi===0?(firstAvail!=null?firstAvail:avail):avail);
+  const breaks=[];let pageIndex=0,free=pa(0),top=true;
   const sum=(a,f,t)=>{let s=0;const e=(t==null?a.length:t);for(let i=(f||0);i<e;i++)s+=a[i];return s;};
   function commit(b,depth){
     if(b>=blocks.length)return 0;
@@ -1039,7 +1045,7 @@ function planBreaks(blocks,avail,firstAvail){
       need=total+(Bk.spaceAfterPt||0)+(blocks[b+1].spaceBeforePt||0)+commit(b+1,depth+1);
     return need;
   }
-  const newPage=(b,l)=>{breaks.push({b,l});free=avail;top=true;};
+  const newPage=(b,l)=>{breaks.push({b,l});pageIndex++;free=pa(pageIndex);top=true;};
   for(let b=0;b<blocks.length;b++){
     const Bk=blocks[b],lines=Bk.lineHeights;
     if(Bk.pageBreakBefore&&!top)newPage(b,0);
@@ -1056,7 +1062,7 @@ function planBreaks(blocks,avail,firstAvail){
       if(lines.length-cut===1)cut--;               // widow: >=2 lines must follow the break
       if(start===0&&cut-start===1)cut=start;       // orphan: never strand 1 leading line
       if(cut<=start){
-        if(top&&(fit===start||free===avail)){cut=Math.max(fit,start+1);newPage(b,cut);start=cut;} // nothing fits, or a full-size page can't help: force progress
+        if(top&&(fit===start||free===(availOf?pa(pageIndex):avail))){cut=Math.max(fit,start+1);newPage(b,cut);start=cut;} // nothing fits, or a full-size page can't help: force progress
         else {newPage(b,start);} // widow/orphan pushed back but a fresh (bigger) page might help: retry there
       } else {newPage(b,cut);start=cut;}
     }
@@ -1123,6 +1129,52 @@ function generateRedlinePdf(opts){
   // garbage is drawn in the body. Rendering the ref NUMBER as a superscript is deferred;
   // stripping is the shipped behaviour. No-op (returns the same string) when absent.
   const stripSent=h=>String(h==null?'':h).replace(/\uE000(footnote|endnote):(-?\d+)\uE001/g,'');
+  /* ---- Footnote float (v1.6.0, Task 6) --------------------------------------
+     Footnote rows float to the BOTTOM of the page that holds their reference.
+     Every helper below is INERT when the document has no footnotes (fnRows empty
+     -> hasFootnotes false), so the note-free PDF stays byte-identical to v1.5.0.
+     Delimiters written as \uE000/\uE001 escapes, never literal glyphs. */
+  const fnPt=Math.max(1,bodyPt-1);               // footnotes render one point smaller
+  const FN_TOPGAP=6, FN_RULEGAP=4, FN_NOTEGAP=3; // above-rule / below-rule / between-notes gaps
+  const SEPW=Math.min(contentRight-mlPt,144);    // ~2in footnote separator, Word-style
+  const dnMap=buildDispNumMap(allRows);          // 'footnote:'+id -> dispNum
+  // Harvest the ordered footnote ids referenced by a body row's html BEFORE the
+  // display strip (Task 5 strips sentinels, so this must run on the raw html).
+  const harvestFnRefs=html=>{const ids=[];const re=/\uE000footnote:(-?\d+)\uE001/g;let m;
+    while((m=re.exec(String(html==null?'':html))))ids.push(m[1]);return ids;};
+  // Group footnote rows by dispNum (a footnote may span several paragraphs).
+  const fnRows=allRows.filter(r=>r.meta&&r.meta.note&&r.meta.note.kind==='footnote');
+  const fnGroups=new Map();
+  for(const r of fnRows){const dn=r.meta.note&&r.meta.note.dispNum;if(dn==null)continue;
+    if(!fnGroups.has(dn))fnGroups.set(dn,[]);fnGroups.get(dn).push(r);}
+  // Build one footnote's rendered block: flat drawable lines at the smaller size,
+  // the first paragraph prefixed "dispNum. ". Atomic (whole block floats as a unit).
+  const buildFnBlock=(rowsForNote,dispNum)=>{
+    const drawn=[];
+    rowsForNote.forEach((row,idx)=>{
+      const meta=row.meta||{},base=pdfStyle(meta,'eq',fnPt,false,set),atoms=[];
+      if(idx===0){for(const tk of ((dispNum+'. ').match(/\S+|\s+/g)||[]))atoms.push({text:tk,st:base});}
+      for(const r of pdfParseRuns(stripSent(row.html),show.fmt)){const st=pdfStyle(meta,r.kind,fnPt,r.bold,set);
+        for(const tk of (r.text.match(/\S+|\s+/g)||[]))atoms.push({text:tk,st});}
+      const availW=contentRight-mlPt,lines=[];let cur=[],curW=0;
+      for(const a of atoms){const isSp=/^\s+$/.test(a.text),w=measure(a.text,a.st.size,a.st.bold,a.st.italic);
+        if(!cur.length&&isSp)continue;
+        if(curW+w>availW&&cur.length){lines.push(cur);cur=[];curW=0;if(isSp)continue;}
+        cur.push(a);curW+=w;}
+      if(cur.length)lines.push(cur);
+      if(!lines.length)lines.push([{text:'',st:base}]);
+      const isChange=row.type!=='equal'||!!(row.fmtChanged&&show.fmt);
+      for(const line of lines){let ms=base.size;for(const a of line)if(a.st.size>ms)ms=a.st.size;
+        drawn.push({line,lh:ms*1.15,isChange});}
+    });
+    return {dispNum,drawn,h:drawn.reduce((s,d)=>s+d.lh,0)};
+  };
+  const fnBlockByNum={};
+  for(const [dn,rws] of fnGroups)fnBlockByNum[dn]=buildFnBlock(rws,dn);
+  const hasFootnotes=Object.keys(fnBlockByNum).length>0;
+  // Reserve height for the set of footnotes floated on one page (0 when empty).
+  const fnReserveFor=dns=>{if(!dns||!dns.length)return 0;
+    let h=FN_TOPGAP+FN_RULEGAP;dns.forEach((dn,i)=>{h+=fnBlockByNum[dn].h;if(i>0)h+=FN_NOTEGAP;});return h;};
   const _visible=row=>{const t=row.type;
     if(t==='equal'){ if(show.eq) return true; return !!(row.fmtChanged && show.fmt); }
     if(t==='inserted'&&!show.ins)return false;
@@ -1182,6 +1234,7 @@ function generateRedlinePdf(opts){
           paras.push({meta:r.meta||{},lines:w.lines,lineHeights:w.lineHeights,bodyX:mlPt,
             markerText:'',markerX:mlPt,base:pdfStyle(r.meta||{},'eq',bodyPt,false,set),align:'left',indFLPt:0,
             isChange:r.type!=='equal'||!!(r.fmtChanged&&show.fmt),
+            fnRefs:harvestFnRefs(r.html),
             spaceBeforePt:0,spaceAfterPt:2,keepNext:false,keepLines:false,pageBreakBefore:false});
         }
         return;
@@ -1190,6 +1243,7 @@ function generateRedlinePdf(opts){
         meta:{},lines:[[]],lineHeights:[rowH],bodyX:mlPt,markerText:'',markerX:mlPt,
         base:pdfStyle({},'eq',bodyPt,false,set),align:'left',indFLPt:0,
         isChange:tr.flat.some(r=>r.type!=='equal'||(r.fmtChanged&&show.fmt)),
+        fnRefs:[].concat.apply([],tr.flat.map(r=>harvestFnRefs(r.html))),
         spaceBeforePt:t===0?6:0,spaceAfterPt:t===trs.length-1?6:0,
         keepNext:false,keepLines:false,
         pageBreakBefore:t===0&&!!(run[0].meta&&run[0].meta.pageBreakBefore)&&paras.length>0});
@@ -1252,6 +1306,10 @@ function generateRedlinePdf(opts){
       keepNext:!!meta.keepNext||!!meta.heading,
       keepLines:!!meta.keepLines,
       isChange:row.type!=='equal'||!!(row.fmtChanged&&show.fmt),
+      // Ordered footnote ids this row references (harvested from RAW html before
+      // stripSent). Empty for note-free / endnote rows, so it is an inert extra
+      // property there — never read unless hasFootnotes.
+      fnRefs:harvestFnRefs(row.html),
       pageBreakBefore:!!meta.pageBreakBefore&&paras.length>0});
   };
   let _ri=0;
@@ -1294,17 +1352,75 @@ function generateRedlinePdf(opts){
   const blocks=paras.map(p=>({lineHeights:p.lineHeights,spaceBeforePt:p.spaceBeforePt,
     spaceAfterPt:p.spaceAfterPt,keepNext:p.keepNext,keepLines:p.keepLines,
     pageBreakBefore:p.pageBreakBefore}));
-  const brks=planBreaks(blocks,availH,availH-BANNER_H);
+  // Page index of each para (its FIRST line), replayed from a break list exactly
+  // as Pass 3 does: page++ on every planned break, para page recorded at line 0.
+  const pageOfPara=brkList=>{const set=new Set(brkList.map(x=>x.b+':'+x.l));
+    const out=new Array(paras.length);let pg=0;
+    for(let pI=0;pI<paras.length;pI++){const n=paras[pI].lineHeights.length||1;
+      for(let li=0;li<n;li++){if(set.has(pI+':'+li))pg++;if(li===0)out[pI]=pg;}}
+    return out;};
+  // Notes floated on each page: map page -> ordered unique dispNums referenced by
+  // that page's body paras (only footnotes we actually built a block for).
+  const notesForPages=poParas=>{const m=new Map();
+    for(let pI=0;pI<paras.length;pI++){const refs=paras[pI].fnRefs;if(!refs||!refs.length)continue;
+      const pg=poParas[pI];let arr=m.get(pg);if(!arr){arr=[];m.set(pg,arr);}
+      for(const id of refs){const dn=dnMap['footnote:'+id];
+        if(dn!=null&&fnBlockByNum[dn]&&arr.indexOf(dn)<0)arr.push(dn);}}
+    // drop pages whose refs mapped to nothing
+    for(const [pg,arr] of [...m])if(!arr.length)m.delete(pg);
+    return m;};
+  let brks,pageNotes=new Map();
+  if(hasFootnotes){
+    // Float pre-pass: paginate, reserve per page, re-paginate up to 3x (footnote
+    // height shortens its page's body area — a feedback loop). Accept the last
+    // assignment if not converged (KNOWN LIMITATION).
+    let availOf; // iter 0: no reserve -> default (byte path)
+    let prevKey=null;
+    for(let iter=0;iter<3;iter++){
+      const bi=planBreaks(blocks,availH,availH-BANNER_H,availOf);
+      const po=pageOfPara(bi);
+      const nf=notesForPages(po);
+      brks=bi;pageNotes=nf;
+      const key=JSON.stringify([...nf].map(([p,a])=>[p,a]).sort((x,y)=>x[0]-y[0]));
+      if(key===prevKey)break;              // converged
+      prevKey=key;
+      availOf=pg=>{const base=(pg===0?(availH-BANNER_H):availH)-fnReserveFor(nf.get(pg));
+        return Math.max(40,base);};        // floor guards against a pathological oversized reserve
+    }
+  }else{
+    brks=planBreaks(blocks,availH,availH-BANNER_H); // byte-identical original call
+  }
   const brkSet=new Set(brks.map(x=>x.b+':'+x.l));
+  // Draw one page's floated footnotes: a distinct-gray separator rule (NOT the
+  // 0.15 change-bar literal) then the footnote blocks stacked above the bottom
+  // margin. Changed footnote lines push to curBar() so v1.4.0 bars cover them.
+  const drawFootnotesForPage=P=>{
+    const dns=pageNotes.get(P);if(!dns||!dns.length)return;
+    const resH=fnReserveFor(dns);
+    const ySep=mbPt+resH-FN_TOPGAP;
+    ops.push('0.5 0.5 0.5 RG','0.5 w',fmt(mlPt)+' '+fmt(ySep)+' m '+fmt(mlPt+SEPW)+' '+fmt(ySep)+' l S');
+    let top=mbPt+resH-FN_TOPGAP-FN_RULEGAP;
+    dns.forEach((dn,i)=>{if(i>0)top-=FN_NOTEGAP;
+      for(const d of fnBlockByNum[dn].drawn){const line=d.line,lh=d.lh;
+        let ms=0;for(const a of line)if(a.st&&a.st.size>ms)ms=a.st.size;if(!ms)ms=fnPt;
+        const baseline=top-ms*0.8;let x=mlPt;
+        for(const a of line){seg(x,baseline,a.text,a.st);x+=measure(a.text,a.st.size,a.st.bold,a.st.italic);}
+        if(d.isChange)curBar().push({top:top,bot:top-lh});
+        top-=lh;}});
+  };
   // ---- Pass 3: render ----
-  let atTop=true;
+  let atTop=true, curPageIndex=0;
+  // Flush the finished page's footnotes, then start the next physical page.
+  // Inert when there are no footnotes (drawFootnotesForPage returns immediately),
+  // so replacing newPage() with nextPage() below is a no-op for note-free docs.
+  const nextPage=()=>{if(hasFootnotes)drawFootnotesForPage(curPageIndex);newPage();curPageIndex++;};
   for(let pi=0;pi<paras.length;pi++){
     const p=paras[pi],meta=p.meta;
     if(!atTop&&!brkSet.has(pi+':0'))penY-=p.spaceBeforePt;
     if(p.isTableRow){
       // One visual table row: light grid + per-cell wrapped text.
-      if(brkSet.has(pi+':0')){newPage();atTop=true;}
-      if(penY-p.rowH<mbPt&&!atTop)newPage();
+      if(brkSet.has(pi+':0')){nextPage();atTop=true;}
+      if(penY-p.rowH<mbPt&&!atTop)nextPage();
       const yTop=penY,xL=p.cx[0],xR=p.cx[p.cx.length-1]+p.colW[p.colW.length-1];
       ops.push('0.72 0.75 0.79 RG','0.7 w');
       ops.push(fmt(xL)+' '+fmt(yTop)+' m '+fmt(xR)+' '+fmt(yTop)+' l S');
@@ -1330,11 +1446,11 @@ function generateRedlinePdf(opts){
       continue;
     }
     for(let li=0;li<p.lines.length;li++){
-      if(brkSet.has(pi+':'+li)){newPage();atTop=true;}
+      if(brkSet.has(pi+':'+li)){nextPage();atTop=true;}
       const line=p.lines[li],lh=p.lineHeights[li];
       let maxSize=p.base.size; for(const a of line)if(a.st.size>maxSize)maxSize=a.st.size;
       const ascent=maxSize*0.8;
-      if(penY-lh<mbPt&&!atTop)newPage();   // safety net; planBreaks should have caught it
+      if(penY-lh<mbPt&&!atTop)nextPage();   // safety net; planBreaks should have caught it
       const baseline=penY-ascent;
       if(li===0&&p.markerText)seg(p.markerX,baseline,p.markerText,p.base);
       const lineStartX=p.bodyX+(li===0?p.indFLPt:0), lineAvail=contentRight-lineStartX;
@@ -1354,6 +1470,7 @@ function generateRedlinePdf(opts){
     }
     penY-=p.spaceAfterPt;
   }
+  if(hasFootnotes)drawFootnotesForPage(curPageIndex); // flush the final page's footnotes
   // ---- Margin change bars: merge each page's changed-line intervals, stroke one bar per run ----
   const barX=mlPt-8;
   for(let bp=0;bp<barSpans.length;bp++){
