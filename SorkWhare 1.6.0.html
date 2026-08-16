@@ -1,0 +1,1868 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SorkWhare Compare® v1.6.0 — HeckSoft</title>
+<style>
+  :root{
+    --ins:#0b5cad; --ins-bg:#e7f0fb; --ins-line:underline; --ins-style:solid;
+    --del:#b3261e; --del-bg:#fdeceb; --del-line:line-through; --del-style:solid;
+    --mov:#1b7f3b; --mov-bg:#e6f5ec; --mov-line:underline; --mov-style:dotted; --mov-src-line:line-through;
+    --fmt:#7c3aed; --fmt-bg:transparent; --fmt-line:underline; --fmt-style:dotted;
+    --ink:#1f2328; --muted:#5b6570; --line:#e3e6ea; --bg:#eef0f3; --panel:#fff;
+    --nav:#0f2a43; --hi:#fff3bf;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{font-family:"Segoe UI",Arial,Helvetica,sans-serif;margin:0;color:var(--ink);background:var(--bg)}
+  header{background:var(--nav);color:#fff;padding:14px 22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  header h1{margin:0;font-size:18px;font-weight:700;letter-spacing:.2px}
+  header .sub{font-size:11px;color:#b9c7d6;letter-spacing:.03em}
+  .brand{display:flex;align-items:center;gap:11px}
+  .brandmark{image-rendering:pixelated;flex:0 0 auto;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
+  .brandtext{display:flex;flex-direction:column;line-height:1.15}
+  .ver{font-size:10px;font-weight:700;color:#0f2a43;background:#e9b949;border-radius:4px;padding:1px 5px;margin-left:4px;vertical-align:middle;letter-spacing:.04em}
+  header h1 .tm{font-size:9px;font-weight:600;vertical-align:super;margin-left:1px;color:#b9c7d6}
+  .toolbar{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  button{font-family:inherit;font-size:13px;font-weight:600;border:none;border-radius:7px;padding:9px 14px;cursor:pointer}
+  .primary{background:#2f7bd6;color:#fff}.primary:hover{background:#3f8ae4}.primary:disabled{background:#7c8894;cursor:not-allowed}
+  .ghost{background:#22405c;color:#dbe6f1}.ghost:hover{background:#2c4e6e}.ghost:disabled{opacity:.5;cursor:not-allowed}
+  .navbtn{background:#22405c;color:#fff;padding:9px 11px}
+  .setup{max-width:1100px;margin:22px auto;padding:0 18px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .drops{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .drop{border:2px dashed #c4ccd4;border-radius:12px;padding:22px;text-align:center;cursor:pointer;transition:.15s;background:#fbfcfd}
+  .drop.filled{border-color:#2f7d32;background:#f2faf3}.drop.dragover{border-color:var(--nav);background:#eef4fb}
+  .drop h3{margin:0 0 6px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .drop .name{font-weight:600;margin-top:8px;word-break:break-all}.drop small{color:var(--muted)}
+  .opts{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-top:16px;font-size:14px}
+  .opts label{display:flex;gap:6px;align-items:center;cursor:pointer}
+  .opts input[type=number]{width:52px;padding:4px 6px;border:1px solid var(--line);border-radius:6px}
+  .err{background:#fdeceb;border:1px solid #f2b8b5;color:#8a1f19;border-radius:8px;padding:12px 14px;margin-top:12px;font-size:14px}
+  #notice{background:#fff8e1;border-bottom:1px solid #e6d9a8;color:#6b5d1f;padding:8px 22px;font-size:13px}
+  #notice button{background:none;border:none;font-size:14px;color:#6b5d1f;float:right;padding:0 4px;cursor:pointer}
+
+  #results{display:none;height:calc(100vh - 52px)}
+  .split{display:grid;grid-template-columns:340px 1fr;height:100%}
+  .summary{background:var(--panel);border-right:1px solid var(--line);overflow:auto;padding:14px}
+  .summary h2{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 10px}
+  .counts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+  .count{border:1px solid var(--line);border-radius:9px;padding:8px 10px;text-align:center}
+  .count .n{font-size:20px;font-weight:700}.count .l{font-size:10px;text-transform:uppercase;color:var(--muted);letter-spacing:.04em}
+  .count.ins .n{color:var(--ins)}.count.del .n{color:var(--del)}.count.mov .n{color:var(--mov)}
+  .cats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+  .cat{font-size:11px;padding:3px 8px;border-radius:20px;background:#eef1f4;color:#333;border:1px solid var(--line)}
+  .filters{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;font-size:12px;border-top:1px solid var(--line);padding-top:10px}
+  .filters label{display:flex;gap:6px;align-items:center;cursor:pointer}
+  .clist{display:flex;flex-direction:column;gap:6px}
+  .citem{border:1px solid var(--line);border-left:4px solid #bbb;border-radius:8px;padding:8px 10px;cursor:pointer;font-size:13px;line-height:1.4;transition:.1s}
+  .citem:hover{background:#f6f8fa}
+  .citem.active{background:var(--hi);border-color:#e0c14a}
+  .citem.inserted{border-left-color:var(--ins)}.citem.deleted{border-left-color:var(--del)}
+  .citem.changed{border-left-color:#e0a72e}.citem.moved{border-left-color:var(--mov)}
+  .citem .cid{font-weight:700;margin-right:6px}
+  .citem .tag{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  .citem .snip{display:block;margin-top:3px;color:#333}
+  .citem .snip del{color:var(--del)}.citem .snip ins{color:var(--ins)}
+
+  .docpane{overflow:auto;padding:34px 40px;background:var(--bg)}
+  #paper{background:#fff;border:1px solid var(--line);border-radius:8px;padding:44px 52px;max-width:900px;margin:0 auto;line-height:1.45;font-size:15px;box-shadow:0 1px 4px rgba(0,0,0,.06);display:flex;flex-direction:column}
+  #paper .docttl{text-align:center;font-size:16px;font-weight:700;margin-bottom:4px}
+  #paper .docmeta{text-align:center;color:var(--muted);font-size:12px;margin-bottom:24px;border-bottom:1px solid var(--line);padding-bottom:12px}
+
+  .para{margin:0 0 11px;position:relative;padding-left:16px;display:flex;align-items:flex-start;gap:10px;orphans:2;widows:2}
+  .para::before{content:"";position:absolute;left:-26px;top:3px;bottom:3px;width:3px;border-radius:2px;background:transparent}
+  .para.changed::before,.para.inserted::before,.para.deleted::before,.para[class*="moved"]::before,.para.fmtchanged::before{background:#333}
+  .hide-fmt .para.fmtchanged::before{background:transparent}
+  .marker{flex:0 0 auto;min-width:26px;color:#111;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .body{flex:1 1 auto;min-width:0}
+  .para.bold .body{font-weight:700}
+  .para.h1 .body{font-size:19px;font-weight:700;margin:6px 0 2px}.para.h1 .marker{font-size:19px}
+  .para.h2 .body{font-size:16px;font-weight:700}.para.h2 .marker{font-size:16px}
+  .para.h3 .body{font-size:14px;font-weight:700}
+  .para.h4 .body,.para.h5 .body,.para.h6 .body{font-size:14px;font-weight:600;font-style:italic}
+
+  ins{color:var(--ins);background:var(--ins-bg);text-decoration-line:var(--ins-line);text-decoration-style:var(--ins-style);padding:0 1px;border-radius:2px}
+  del{color:var(--del);background:var(--del-bg);text-decoration-line:var(--del-line);text-decoration-style:var(--del-style);padding:0 1px;border-radius:2px}
+  .moved{color:var(--mov);background:var(--mov-bg);text-decoration-line:var(--mov-line);text-decoration-style:var(--mov-style);padding:0 1px;border-radius:2px}
+  .moved-src{color:var(--mov);background:var(--mov-bg);text-decoration-line:var(--mov-src-line);text-decoration-style:solid;padding:0 1px;border-radius:2px;opacity:.85}
+  .anchor{font-size:10px;font-weight:700;color:var(--mov);border:1px solid var(--mov);border-radius:10px;padding:0 5px;margin-left:6px;white-space:nowrap;vertical-align:middle}
+  .cbadge{font-size:9px;font-weight:700;color:#fff;background:#98a3ad;border-radius:9px;padding:1px 5px;margin-right:6px;vertical-align:middle}
+  .para.changed .cbadge{background:#e0a72e}.para.inserted .cbadge{background:var(--ins)}
+  .para.deleted .cbadge{background:var(--del)}.para[class*="moved"] .cbadge{background:var(--mov)}
+
+  .para.target-flash{animation:flash 1.4s ease}
+  @keyframes flash{0%{background:var(--hi)}100%{background:transparent}}
+  /* Word page breaks: on-screen divider (informational) + real break for print/PDF */
+  .pgbreak-sep,.pgbreak-auto{display:flex;align-items:center;gap:10px;margin:16px 0 14px;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.09em}
+  .pgbreak-sep::before,.pgbreak-sep::after{content:"";flex:1;border-top:1px dashed #b7c0ca}
+  .pgbreak-auto::before,.pgbreak-auto::after{content:"";flex:1;border-top:1px dotted #cbd3db}
+  .pgbreak-auto{color:#9aa4ae}
+  .pgbreak-sep span,.pgbreak-auto span{white-space:nowrap}
+  .para.pgbreak{break-before:page;page-break-before:always}
+
+  #paper b,.body b{font-weight:700}
+  ins b,del b,.moved b,.moved-src b{font-weight:700}
+  .hide-eq .para.equal{display:none}
+  /* Table cells stay visible under the "unchanged" filter — a table without its
+     unchanged cells is unreadable. */
+  .hide-eq .ctable .tcell.equal{display:flex}
+  .ctable{border-collapse:collapse;width:100%;margin:6px 0}
+  .ctable td{border:1px solid #b9c0c9;padding:3px 8px;vertical-align:top}
+  .ctable .para{margin:0;padding-left:0}
+  .ctable .para::before{display:none}
+  .hide-ins .para.inserted{display:none}
+  .hide-del .para.deleted{display:none}
+  .hide-mov .para[class*="moved"]{display:none}
+  .fmtchg{border-bottom:2px var(--fmt-style) var(--fmt);background:var(--fmt-bg);cursor:help}
+  .hide-fmt .fmtchg{border-bottom:none;cursor:auto}
+  /* a formatting-only change lives on an equal paragraph: keep it visible under hide-eq while formatting is shown */
+  .hide-eq .para.equal.fmtchanged{display:flex}
+  .hide-eq.hide-fmt .para.equal.fmtchanged{display:none}
+
+  /* Footnotes/endnotes (v1.6.0): a single end-of-document band/section, redlined
+     like the body. Equal note paragraphs are plain .para elements so hide-unchanged
+     (.hide-eq .para.equal{display:none}) already applies to them with no extra rule. */
+  #paper .fnband,#paper .endnotes{margin-top:18px;border-top:1px solid var(--line);padding-top:8px;font-size:12px;color:#333}
+  #paper .noteshdr{font-weight:700;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  #paper .fnnum{color:var(--muted);margin-right:6px}
+  .fnref{font-size:.7em;vertical-align:super;color:var(--nav)}
+  ins .fnref{color:var(--ins)} del .fnref{color:var(--del)}
+
+  @media print{
+    @page{margin:20mm 16mm}
+    header,.setup,.summary,.toolbar,.filters{display:none !important}
+    body{background:#fff}
+    #results{display:block !important;height:auto}
+    .split{display:block}
+    .docpane{overflow:visible;padding:0;background:#fff}
+    #paper{border:none;box-shadow:none;max-width:none;padding:0;font-size:12px}
+    .para::before{display:none}.para{padding-left:0}
+    ins{background:transparent}del{background:transparent}.moved,.moved-src{background:transparent}
+    .pgbreak-sep,.pgbreak-auto{display:none !important}
+    .para.keepnext,.para.h1,.para.h2,.para.h3,.para.h4,.para.h5,.para.h6{break-after:avoid-page}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <svg class="brandmark" width="34" height="35" viewBox="0 0 18 19" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="3" y="0" width="1" height="1" fill="#e9b949"/><rect x="8" y="0" width="2" height="1" fill="#e9b949"/><rect x="14" y="0" width="1" height="1" fill="#e9b949"/><rect x="2" y="1" width="2" height="1" fill="#e9b949"/><rect x="7" y="1" width="1" height="1" fill="#e9b949"/><rect x="8" y="1" width="1" height="1" fill="#f6d97a"/><rect x="9" y="1" width="1" height="1" fill="#e9b949"/><rect x="13" y="1" width="2" height="1" fill="#e9b949"/><rect x="2" y="2" width="2" height="1" fill="#e9b949"/><rect x="6" y="2" width="4" height="1" fill="#e9b949"/><rect x="12" y="2" width="2" height="1" fill="#e9b949"/><rect x="15" y="2" width="1" height="1" fill="#e9b949"/><rect x="1" y="3" width="16" height="1" fill="#e9b949"/><rect x="1" y="4" width="6" height="1" fill="#e9b949"/><rect x="7" y="4" width="1" height="1" fill="#e2231a"/><rect x="8" y="4" width="2" height="1" fill="#e9b949"/><rect x="10" y="4" width="1" height="1" fill="#e2231a"/><rect x="11" y="4" width="6" height="1" fill="#e9b949"/><rect x="1" y="5" width="16" height="1" fill="#e9b949"/><rect x="3" y="6" width="12" height="1" fill="#f3efe3"/><rect x="2" y="7" width="14" height="1" fill="#f3efe3"/><rect x="1" y="8" width="16" height="1" fill="#f3efe3"/><rect x="1" y="9" width="2" height="1" fill="#f3efe3"/><rect x="3" y="9" width="3" height="1" fill="#20242b"/><rect x="6" y="9" width="6" height="1" fill="#f3efe3"/><rect x="12" y="9" width="3" height="1" fill="#20242b"/><rect x="15" y="9" width="2" height="1" fill="#f3efe3"/><rect x="1" y="10" width="2" height="1" fill="#f3efe3"/><rect x="3" y="10" width="3" height="1" fill="#20242b"/><rect x="6" y="10" width="6" height="1" fill="#f3efe3"/><rect x="12" y="10" width="3" height="1" fill="#20242b"/><rect x="15" y="10" width="2" height="1" fill="#f3efe3"/><rect x="1" y="11" width="2" height="1" fill="#f3efe3"/><rect x="3" y="11" width="3" height="1" fill="#20242b"/><rect x="6" y="11" width="2" height="1" fill="#f3efe3"/><rect x="8" y="11" width="2" height="1" fill="#cfc8b4"/><rect x="10" y="11" width="2" height="1" fill="#f3efe3"/><rect x="12" y="11" width="3" height="1" fill="#20242b"/><rect x="15" y="11" width="2" height="1" fill="#f3efe3"/><rect x="1" y="12" width="7" height="1" fill="#f3efe3"/><rect x="8" y="12" width="2" height="1" fill="#cfc8b4"/><rect x="10" y="12" width="7" height="1" fill="#f3efe3"/><rect x="1" y="13" width="6" height="1" fill="#f3efe3"/><rect x="7" y="13" width="4" height="1" fill="#20242b"/><rect x="11" y="13" width="6" height="1" fill="#f3efe3"/><rect x="2" y="14" width="14" height="1" fill="#f3efe3"/><rect x="2" y="15" width="1" height="1" fill="#cfc8b4"/><rect x="3" y="15" width="12" height="1" fill="#f3efe3"/><rect x="15" y="15" width="1" height="1" fill="#cfc8b4"/><rect x="3" y="16" width="1" height="1" fill="#f3efe3"/><rect x="4" y="16" width="1" height="1" fill="#20242b"/><rect x="5" y="16" width="2" height="1" fill="#f3efe3"/><rect x="7" y="16" width="1" height="1" fill="#20242b"/><rect x="8" y="16" width="2" height="1" fill="#f3efe3"/><rect x="10" y="16" width="1" height="1" fill="#20242b"/><rect x="11" y="16" width="2" height="1" fill="#f3efe3"/><rect x="13" y="16" width="1" height="1" fill="#20242b"/><rect x="14" y="16" width="1" height="1" fill="#f3efe3"/><rect x="3" y="17" width="1" height="1" fill="#f3efe3"/><rect x="4" y="17" width="1" height="1" fill="#20242b"/><rect x="5" y="17" width="2" height="1" fill="#f3efe3"/><rect x="7" y="17" width="1" height="1" fill="#20242b"/><rect x="8" y="17" width="2" height="1" fill="#f3efe3"/><rect x="10" y="17" width="1" height="1" fill="#20242b"/><rect x="11" y="17" width="2" height="1" fill="#f3efe3"/><rect x="13" y="17" width="1" height="1" fill="#20242b"/><rect x="14" y="17" width="1" height="1" fill="#f3efe3"/><rect x="4" y="18" width="10" height="1" fill="#f3efe3"/></svg>
+    <div class="brandtext">
+      <h1>SorkWhare Compare<sup class="tm">®</sup> <span class="ver">v1.6.0</span></h1>
+      <div class="sub">HeckSoft — a King of Heck Company™</div>
+    </div>
+  </div>
+  <div class="toolbar" id="navToolbar" style="display:none">
+    <span id="navStatus" style="font-size:12px;color:#b9c7d6"></span>
+    <button class="navbtn" id="btnPrev" title="Previous change">◀ Prev</button>
+    <button class="navbtn" id="btnNext" title="Next change">Next ▶</button>
+    <button class="ghost" id="btnNew">New comparison</button>
+    <button class="ghost" id="btnPrint" title="Browser print (may add page headers/footers)">🖨 Print</button>
+    <button class="primary" id="btnPdf" title="Download a clean PDF — no browser headers/footers">⬇ PDF</button>
+  </div>
+</header>
+
+<div class="setup" id="setup">
+  <div class="card">
+    <div class="drops">
+      <div class="drop" id="dropA"><h3>Original (v1)</h3><small>Click or drag a .docx here</small><div class="name" id="nameA"></div></div>
+      <div class="drop" id="dropB"><h3>Revised (v2)</h3><small>Click or drag a .docx here</small><div class="name" id="nameB"></div></div>
+    </div>
+    <div class="opts">
+      <label><input type="checkbox" id="optCase"> Ignore case</label>
+      <label>Move threshold (words): <input type="number" id="optMove" value="5" min="2" max="10"></label>
+      <label>Rendering set: <select id="rsSet"></select></label>
+      <button class="primary" id="btnCompare" disabled style="margin-left:auto">Compare ▶</button>
+    </div>
+    <div id="err"></div>
+    <p style="font-size:12px;color:var(--muted);margin:14px 0 0">
+      Runs entirely in your browser — no install, no internet, no upload. Files never leave your computer.
+    </p>
+  </div>
+</div>
+
+<div id="results">
+  <div id="notice" style="display:none"></div>
+  <div class="split">
+    <aside class="summary">
+      <h2>Change Summary</h2>
+      <div class="counts">
+        <div class="count"><div class="n" id="cTotal">0</div><div class="l">Total</div></div>
+        <div class="count ins"><div class="n" id="cIns">0</div><div class="l">Insertions</div></div>
+        <div class="count del"><div class="n" id="cDel">0</div><div class="l">Deletions</div></div>
+        <div class="count mov"><div class="n" id="cMov">0</div><div class="l">Moves</div></div>
+      </div>
+      <div class="cats" id="catRow"></div>
+      <div class="fmtinfo" id="cFmtInfo" style="font-size:11px;color:var(--muted)"></div>
+      <div class="filters">
+        <strong style="font-size:11px;color:var(--muted);text-transform:uppercase">Show</strong>
+        <label><input type="checkbox" id="fIns" checked> Insertions</label>
+        <label><input type="checkbox" id="fDel" checked> Deletions</label>
+        <label><input type="checkbox" id="fMov" checked> Moves</label>
+        <label><input type="checkbox" id="fEq" checked> Unchanged text</label>
+        <label><input type="checkbox" id="fFmt" checked> Formatting</label>
+      </div>
+      <div class="clist" id="clist"></div>
+    </aside>
+    <main class="docpane"><div id="paper"></div></main>
+  </div>
+</div>
+
+<script>
+/* ================= DOCX (ZIP) reader — pure JS ================= */
+function u32(b,o){return (b[o]|(b[o+1]<<8)|(b[o+2]<<16)|(b[o+3]<<24))>>>0;}
+function u16(b,o){return (b[o]|(b[o+1]<<8));}
+function findEOCD(b){for(let i=b.length-22;i>=0;i--){if(b[i]===0x50&&b[i+1]===0x4b&&b[i+2]===0x05&&b[i+3]===0x06)return i;}return -1;}
+async function inflateRaw(bytes){const ds=new DecompressionStream('deflate-raw');const s=new Blob([bytes]).stream().pipeThrough(ds);return new Uint8Array(await new Response(s).arrayBuffer());}
+async function readZipEntry(buf,target){
+  const eocd=findEOCD(buf); if(eocd<0) throw new Error('Not a valid .docx file (not a ZIP archive).');
+  const count=u16(buf,eocd+10); let p=u32(buf,eocd+16);
+  for(let i=0;i<count;i++){
+    if(u32(buf,p)!==0x02014b50) break;
+    const method=u16(buf,p+10),compSize=u32(buf,p+20),nameLen=u16(buf,p+28),extraLen=u16(buf,p+30),comLen=u16(buf,p+32),local=u32(buf,p+42);
+    const name=new TextDecoder().decode(buf.slice(p+46,p+46+nameLen));
+    if(name===target){const ln=u16(buf,local+26),le=u16(buf,local+28),start=local+30+ln+le,data=buf.slice(start,start+compSize);
+      if(method===0)return data;
+      if(method===8){try{return await inflateRaw(data);}catch(e){throw new Error('The .docx appears to be corrupt (could not decompress "'+name+'").');}}
+      throw new Error('Unsupported compression in "'+name+'".');}
+    p+=46+nameLen+extraLen+comLen;
+  }
+  return null;
+}
+async function tryEntry(buf,name){const d=await readZipEntry(buf,name);return d?new TextDecoder().decode(d):null;}
+function unxml(s){return (s||'')
+  .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'")
+  .replace(/&#x([0-9a-fA-F]+);/g,(_,h)=>String.fromCodePoint(parseInt(h,16)))
+  .replace(/&#(\d+);/g,(_,d)=>String.fromCodePoint(+d))
+  .replace(/&amp;/g,'&');}
+
+/* ================= styles.xml & numbering.xml ================= */
+// Parse a <w:ind ...> attribute string into twips {left,hanging,firstLine}; null if none.
+function _indFrom(str){if(!str)return null;const g=re=>{const m=str.match(re);return m?+m[1]:null;};const left=g(/w:left="(-?\d+)"/),hanging=g(/w:hanging="(\d+)"/),firstLine=g(/w:firstLine="(\d+)"/);if(left==null&&hanging==null&&firstLine==null)return null;return{left,hanging,firstLine};}
+// Parse a <w:spacing ...> ATTRIBUTE string into paragraph spacing (twips) + lineRule.
+// Returns null when none of before/after/line present (e.g. rPr letter-spacing w:val).
+function _spacingFrom(str){if(!str)return null;const g=re=>{const m=str.match(re);return m?+m[1]:null;};
+  const before=g(/w:before="(\d+)"/),after=g(/w:after="(\d+)"/),line=g(/w:line="(-?\d+)"/);
+  if(before==null&&after==null&&line==null)return null;
+  const lineRule=(str.match(/w:lineRule="([^"]+)"/)||[])[1]||null;
+  return {before,after,line,lineRule};}
+// A toggle element like <w:keepNext/> is ON unless explicitly w:val="0|false|off".
+function _flagOn(scope,tag){const m=scope.match(new RegExp('<w:'+tag+'\\b([^>]*)/?>'));
+  if(!m)return false;return !/w:val="(?:0|false|off)"/.test(m[1]);}
+// Tri-state toggle: true/false when the element is present, null when absent.
+function _flagTri(scope,tag){const m=scope.match(new RegExp('<w:'+tag+'\\b([^>]*)/?>'));
+  if(!m)return null;return !/w:val="(?:0|false|off)"/.test(m[1]);}
+function parseStyles(xml){const map={};if(!xml)return map;const blocks=xml.match(/<w:style [\s\S]*?<\/w:style>/g)||[];for(const b of blocks){const id=(b.match(/w:styleId="([^"]+)"/)||[])[1];if(!id)continue;const name=(b.match(/<w:name w:val="([^"]+)"/)||[])[1]||'';const numId=(b.match(/<w:numId w:val="(\d+)"/)||[])[1];const ilvl=(b.match(/<w:ilvl w:val="(\d+)"/)||[])[1];const outl=(b.match(/<w:outlineLvl w:val="(\d+)"/)||[])[1];const based=(b.match(/<w:basedOn w:val="([^"]+)"/)||[])[1];
+    // Paragraph alignment (w:jc) and indentation (w:ind) carried on the STYLE. Many
+    // legal templates set "justified" body and indents at the style level, not inline.
+    const jc=(b.match(/<w:jc w:val="([^"]+)"/)||[])[1]||null;
+    const indM=b.match(/<w:ind\b([^>]*?)\/?>/); const ind=indM?_indFrom(indM[1]):null;
+    const pPrB=(b.match(/<w:pPr>[\s\S]*?<\/w:pPr>/)||[''])[0];
+    const spM=pPrB.match(/<w:spacing\b([^>]*?)\/?>/); const spacing=spM?_spacingFrom(spM[1]):null;
+    const keepNext=_flagOn(pPrB,'keepNext'),keepLines=_flagOn(pPrB,'keepLines'),contextualSpacing=_flagOn(pPrB,'contextualSpacing');
+    map[id]={name,numId:numId?+numId:null,ilvl:ilvl?+ilvl:0,outlineLvl:outl!==undefined?+outl:null,basedOn:based||null,jc,ind,spacing,keepNext,keepLines,contextualSpacing};
+    const open=b.slice(0,b.indexOf('>'));
+    if(/w:default="1"/.test(open)&&/w:type="paragraph"/.test(open))map.__defaultPara=id;}
+  // Resolve numId/ilvl AND jc/ind through the basedOn inheritance chain (legal MultiLevel
+  // styles only declare these on a parent; children inherit them via basedOn).
+  function resolve(id,seen){seen=seen||new Set();if(!id||seen.has(id))return;seen.add(id);if(typeof map[id]==='string')return;const st=map[id];if(!st)return;if(st.basedOn){resolve(st.basedOn,seen);const par=map[st.basedOn];if(par){if(st.numId==null&&par.numId!=null){st.numId=par.numId;if(st.ilvl==null)st.ilvl=par.ilvl;}if(st.jc==null&&par.jc!=null)st.jc=par.jc;if(st.ind==null&&par.ind!=null)st.ind=par.ind;
+    if(par.spacing){const s=st.spacing||{};st.spacing={
+      before:s.before!=null?s.before:par.spacing.before,
+      after:s.after!=null?s.after:par.spacing.after,
+      line:s.line!=null?s.line:par.spacing.line,
+      lineRule:s.line!=null?s.lineRule:par.spacing.lineRule};}
+    if(par.keepNext&&!st.keepNext)st.keepNext=true;
+    if(par.keepLines&&!st.keepLines)st.keepLines=true;
+    if(par.contextualSpacing&&!st.contextualSpacing)st.contextualSpacing=true;}}}
+  for(const id in map)resolve(id);
+  return map;}
+function parseNumbering(xml){const numToAbs={},abs={},styleToNum={};if(!xml)return{numToAbs,abs,styleToNum};const nums=xml.match(/<w:num w:numId="\d+"[\s\S]*?<\/w:num>/g)||[];for(const n of nums){const id=(n.match(/w:numId="(\d+)"/)||[])[1],a=(n.match(/<w:abstractNumId w:val="(\d+)"/)||[])[1];if(id&&a)numToAbs[+id]=+a;}const absBlocks=xml.match(/<w:abstractNum w:abstractNumId="\d+"[\s\S]*?<\/w:abstractNum>/g)||[];for(const ab of absBlocks){const aid=+(ab.match(/w:abstractNumId="(\d+)"/)||[])[1];const levels={};const lvls=ab.match(/<w:lvl w:ilvl="\d+"[\s\S]*?<\/w:lvl>/g)||[];for(const lv of lvls){const il=+(lv.match(/w:ilvl="(\d+)"/)||[])[1];const fmt=(lv.match(/<w:numFmt w:val="([^"]+)"/)||[])[1]||'decimal';const txt=unxml((lv.match(/<w:lvlText w:val="([^"]*)"/)||[])[1]||'');const start=+((lv.match(/<w:start w:val="(\d+)"/)||[])[1]||1);const pStyle=(lv.match(/<w:pStyle w:val="([^"]+)"/)||[])[1]||null;const lIndM=lv.match(/<w:ind\b([^>]*?)\/?>/);const ind=lIndM?_indFrom(lIndM[1]):null;const ljc=(lv.match(/<w:jc w:val="([^"]+)"/)||[])[1]||null;const lSpM=lv.match(/<w:spacing\b([^>]*?)\/?>/);const lsp=lSpM?_spacingFrom(lSpM[1]):null;levels[il]={fmt,txt,start,pStyle,ind,jc:ljc,spacing:lsp};}abs[aid]=levels;}for(const [numId,aid] of Object.entries(numToAbs)){const levels=abs[aid]||{};for(const [il,lvl] of Object.entries(levels)){if(lvl.pStyle&&!styleToNum[lvl.pStyle])styleToNum[lvl.pStyle]={numId:+numId,ilvl:+il};}}return{numToAbs,abs,styleToNum};}
+function roman(n){const t=[[1000,'m'],[900,'cm'],[500,'d'],[400,'cd'],[100,'c'],[90,'xc'],[50,'l'],[40,'xl'],[10,'x'],[9,'ix'],[5,'v'],[4,'iv'],[1,'i']];let r='';for(const[v,s]of t){while(n>=v){r+=s;n-=v;}}return r||String(n);}
+function letters(n,up){let s='';while(n>0){n--;s=String.fromCharCode((up?65:97)+(n%26))+s;n=Math.floor(n/26);}return s;}
+function fmtNum(n,fmt){switch(fmt){case'lowerLetter':return letters(n,false);case'upperLetter':return letters(n,true);case'lowerRoman':return roman(n);case'upperRoman':return roman(n).toUpperCase();case'decimalZero':return n<10?'0'+n:String(n);default:return String(n);}}
+const BULLETS=['•','◦','▪','‣','·'];
+
+function extractStructured(docXml,styles,numbering,defaults){
+  const {numToAbs,abs,styleToNum}=numbering; const counters={}; const out=[];
+  // Carries a page break forward when it lives in an empty paragraph, or when it
+  // occurs AFTER text (Word puts following content on the next page in both cases).
+  let pendingBreak=false;
+  // Footnote/endnote body references in document reading order, with per-kind
+  // display ordinals. Populated in processPara; attached to the return array below.
+  const noteRefs=[]; let fnN=0, enN=0;
+  // tbl: {ti,ri,ci,cols,gw} when this paragraph lives in a table cell, else null.
+  function processPara(p,tbl){
+    // Tracked paragraph-property changes (<w:pPrChange>) carry the PRE-revision
+    // pPr; the nested </w:pPr> truncates our non-greedy capture and leaks rejected
+    // formatting. Strip them first (they contain no text runs).
+    const pX=p.replace(/<w:pPrChange[\s\S]*?<\/w:pPrChange>/g,'');
+    // ---- Page-break detection (manual break, pageBreakBefore, section break) ----
+    const pPr=(pX.match(/<w:pPr>[\s\S]*?<\/w:pPr>/)||[''])[0];
+    const hasBreakBefore=/<w:pageBreakBefore\b(?:[^>]*w:val="(?:0|false|off)")?[^>]*\/>/.test(pPr)
+                         && !/<w:pageBreakBefore\b[^>]*w:val="(?:0|false|off)"/.test(pPr);
+    const firstTextIdx=p.search(/<w:t(?:\s[^>]*)?>/);
+    const pageBrIdx=p.search(/<w:br\s+w:type="page"\s*\/>/);
+    const hasPageBr=pageBrIdx!==-1;
+    const brBeforeText=hasPageBr&&(firstTextIdx===-1||pageBrIdx<firstTextIdx);
+    // A <w:sectPr> INSIDE a paragraph marks the last para of a section; the break
+    // takes effect AFTER it (unless the section type is continuous/nextColumn).
+    const sectPr=(pPr.match(/<w:sectPr[\s\S]*?<\/w:sectPr>/)||[''])[0];
+    let sectBreak=false;
+    if(sectPr){const stype=(sectPr.match(/<w:type w:val="([^"]+)"/)||[])[1]||'nextPage';sectBreak=!(stype==='continuous'||stype==='nextColumn');}
+    // Run-aware extraction capturing PER-CHARACTER bold, so bold "defined terms"
+    // (e.g. OPG, Wesleyville Site) can be rendered inline — not just whole-para bold.
+    let chars=[]; // array of {c, b, i, u, f, z}
+    const runRe=/<w:r[ >][\s\S]*?<\/w:r>/g; let rm;
+    while((rm=runRe.exec(p))!==null){
+      const run=rm[0];
+      const rpr=(run.match(/<w:rPr>[\s\S]*?<\/w:rPr>/)||[''])[0];
+      let bold=false; const bm=rpr.match(/<w:b(?:\s+w:val="([^"]*)")?\s*\/>/);
+      if(bm){const v=bm[1];bold=!(v==='false'||v==='0');}
+      // Same per-run rPr also carries italic/underline/font/size, resolved against
+      // the document default (`defaults`) when absent from the run.
+      const im = rpr.match(/<w:i(?:\s+w:val="([^"]*)")?\s*\/>/);
+      const ital = !!im && !(im[1]==='false' || im[1]==='0');
+      const uEl = rpr.match(/<w:u\b[^>]*\/?>/);
+      const under = !!uEl && (uEl[0].match(/\bw:val="([^"]*)"/)||[])[1] !== 'none';
+      const fMatch = rpr.match(/<w:rFonts[^>]*w:ascii="([^"]+)"/);
+      const font = fMatch ? fMatch[1] : (defaults && defaults.font) || null;
+      const szMatch = rpr.match(/<w:sz\s+w:val="(\d+)"/);
+      const size = szMatch ? (+szMatch[1])/2 : ((defaults && defaults.fontPt) || 11);
+      const tRe=/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>|<w:tab\/>|<w:br\/>/g; let m;
+      while((m=tRe.exec(run))!==null){
+        let piece; if(m[1]!==undefined)piece=unxml(m[1]); else if(m[0].indexOf('tab')!==-1)piece='\t'; else piece=' ';
+        for(const ch of piece)chars.push({c:ch,b:bold,i:ital,u:under,f:font,z:size});
+      }
+    }
+    if(!chars.length){ const tRe=/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>|<w:tab\/>|<w:br\/>/g; let m;
+      while((m=tRe.exec(p))!==null){ let piece; if(m[1]!==undefined)piece=unxml(m[1]); else if(m[0].indexOf('tab')!==-1)piece='\t'; else piece=' '; for(const ch of piece)chars.push({c:ch,b:false,i:false,u:false,f:(defaults&&defaults.font)||null,z:(defaults&&defaults.fontPt)||11}); } }
+    // Normalize (whitespace -> single space, trim) while keeping all formatting aligned to chars.
+    const norm=chars.map(o=>({c:(/\s/.test(o.c)?' ':o.c),b:o.b,i:o.i,u:o.u,f:o.f,z:o.z}));
+    const coll=[]; for(const o of norm){ if(o.c===' '&&coll.length&&coll[coll.length-1].c===' '){coll[coll.length-1].b=coll[coll.length-1].b||o.b;continue;} coll.push({c:o.c,b:o.b,i:o.i,u:o.u,f:o.f,z:o.z}); }
+    while(coll.length&&coll[0].c===' ')coll.shift();
+    while(coll.length&&coll[coll.length-1].c===' ')coll.pop();
+    let text=coll.map(o=>o.c).join('');
+    // Compact bold character ranges [start,end) over the normalized text.
+    const boldRuns=[]; let bs=-1;
+    for(let k=0;k<coll.length;k++){ if(coll[k].b){ if(bs<0)bs=k; } else if(bs>=0){ boldRuns.push([bs,k]); bs=-1; } }
+    if(bs>=0)boldRuns.push([bs,coll.length]);
+    // Maximal formatting-constant runs {s,e,b,i,u,f,z} over the same normalized text,
+    // index-aligned with boldRuns/text — feeds formatting-only change detection.
+    const fmtSpans=[];
+    for(let k=0;k<coll.length;k++){ const o=coll[k], last=fmtSpans[fmtSpans.length-1];
+      if(last && last.b===o.b && last.i===o.i && last.u===o.u && last.f===o.f && last.z===o.z){ last.e=k+1; }
+      else fmtSpans.push({s:k,e:k+1,b:o.b,i:o.i,u:o.u,f:o.f,z:o.z}); }
+    // Whole-paragraph bold ratio (for headings/fully-bold clauses) from non-space chars.
+    let boldChars=0,totalChars=0; for(const o of coll){ if(o.c===' ')continue; totalChars++; if(o.b)boldChars++; }
+    if(!text){
+      // Empty paragraph is dropped from the redline, but a manual/section break it
+      // carries must survive — hand it to the next real paragraph.
+      // KNOWN LIMITATION: this return happens BEFORE the footnote/endnote reference
+      // scan below, so a paragraph whose ONLY content is a footnote/endnote reference
+      // (no other text) is not captured as a body reference here (rare). The note
+      // itself still diffs and counts as an orphan — only its number/position degrade.
+      if(hasBreakBefore||hasPageBr||sectBreak) pendingBreak=true;
+      return;
+    }
+    const isBold = totalChars>0 && (boldChars/totalChars)>=0.6;
+    // This paragraph starts a new page if a break was pending, if it declares
+    // pageBreakBefore, or if it contains a manual break BEFORE any of its text.
+    let pageBreakBefore = pendingBreak || hasBreakBefore || (hasPageBr && brBeforeText);
+    pendingBreak=false;
+    // A break that sits AFTER this paragraph's text, or a section break on this
+    // paragraph, pushes the FOLLOWING paragraph to a new page.
+    if((hasPageBr && !brBeforeText) || sectBreak) pendingBreak=true;
+
+    const styleId=(pX.match(/<w:pStyle w:val="([^"]+)"/)||[])[1]||null; const st=styleId?styles[styleId]:null;
+    // Heading ONLY from an explicit Heading N / Title style. Bold is handled separately
+    // via real run formatting (isBold), so numbered body clauses are never over-bolded.
+    let heading=null;
+    if(styleId){ if(/^Title$/i.test(styleId))heading=1;
+      else{const hn=(st&&st.name&&st.name.match(/heading\s*(\d)/i))||styleId.match(/Heading(\d)/i);
+        if(hn)heading=Math.min(6,+hn[1]);}}
+
+    let numId=null,ilvl=0; const inlineNum=pX.match(/<w:numPr>[\s\S]*?<\/w:numPr>/);
+    if(inlineNum){const ni=inlineNum[0].match(/<w:numId w:val="(\d+)"/),il=inlineNum[0].match(/<w:ilvl w:val="(\d+)"/);if(ni)numId=+ni[1];if(il)ilvl=+il[1];}
+    if(numId==null&&st&&st.numId){numId=st.numId;ilvl=st.ilvl||0;}
+    if(numId==null&&styleId&&styleToNum[styleId]){numId=styleToNum[styleId].numId;ilvl=styleToNum[styleId].ilvl;}
+
+    let marker='',isNumbered=false,lvlObj=null;
+    if(numId!=null&&numId!==0){const aid=numToAbs[numId],lvl=abs[aid]&&abs[aid][ilvl];
+      if(lvl){lvlObj=lvl;isNumbered=true; if(lvl.fmt==='bullet'){marker=BULLETS[Math.min(ilvl,BULLETS.length-1)];}
+        else{
+          // Single cascading counter keyed by LEVEL: a shallower increment resets deeper
+          // levels, so "(a)" restarts under each new numbered section (Word behaviour).
+          counters[ilvl]=(counters[ilvl]==null?(lvl.start-1):counters[ilvl])+1;
+          for(const k in counters)if(+k>ilvl)delete counters[k];
+          marker=(lvl.txt||'%1.').replace(/%(\d+)/g,(_,d)=>{const li=+d-1,lv=abs[aid][li]||{},cv=counters[li]!=null?counters[li]:(lv.start||1);return fmtNum(cv,lv.fmt||'decimal');});
+        }}}
+
+    // ---- Alignment (w:jc): paragraph overrides numbering level, which overrides style.
+    const pJc=(pPr.match(/<w:jc w:val="([^"]+)"/)||[])[1]||null;
+    let align=pJc||(lvlObj&&lvlObj.jc)||(st&&st.jc)||null;
+    if(align==='both'||align==='distribute')align='justify';
+    else if(align==='right'||align==='end')align='right';
+    else if(align==='center')align='center';
+    else align='left';
+    // ---- Indentation (w:ind, twips): same precedence. Stored in points (twips/20).
+    const pIndM=pPr.match(/<w:ind\b([^>]*?)\/?>/); const pInd=pIndM?_indFrom(pIndM[1]):null;
+    const indSrc=pInd||(lvlObj&&lvlObj.ind)||(st&&st.ind)||null;
+    const tw=v=>(v==null?null:v/20);
+    const indLeftPt=tw(indSrc&&indSrc.left)||0;
+    const indHangingPt=tw(indSrc&&indSrc.hanging)||0;
+    const indFirstLinePt=tw(indSrc&&indSrc.firstLine)||0;
+
+    // ---- Spacing (w:spacing) & keep flags: paragraph -> numbering level -> style
+    // chain -> docDefaults, resolved PER ATTRIBUTE. Paragraphs without a pStyle use
+    // the default paragraph style. Absent values stay null so consumers keep the
+    // pre-1.2.0 rendering defaults.
+    const stEff=st||(styles&&styles.__defaultPara?styles[styles.__defaultPara]:null);
+    const pSpM=pPr.match(/<w:spacing\b([^>]*?)\/?>/); const pSp=pSpM?_spacingFrom(pSpM[1]):null;
+    const srcs=[pSp,(lvlObj&&lvlObj.spacing)||null,(stEff&&stEff.spacing)||null,(defaults&&defaults.spacing)||null];
+    const pick=k=>{for(const s of srcs)if(s&&s[k]!=null)return s;return null;};
+    const befS=pick('before'),aftS=pick('after'),linS=pick('line');
+    const spaceBeforePt=befS?befS.before/20:null;
+    const spaceAfterPt=aftS?aftS.after/20:null;
+    let lineSpacing=null,lineExactPt=null,lineRule=null;
+    if(linS){const lr=linS.lineRule||'auto';
+      if(lr==='exact'||lr==='atLeast'){lineExactPt=linS.line/20;lineRule=lr;}
+      else lineSpacing=linS.line/240;}
+    const kN=_flagTri(pPr,'keepNext'),kL=_flagTri(pPr,'keepLines'),cS=_flagTri(pPr,'contextualSpacing');
+    const keepNext=kN!=null?kN:!!(stEff&&stEff.keepNext);
+    const keepLines=kL!=null?kL:!!(stEff&&stEff.keepLines);
+    const contextualSpacing=cS!=null?cS:!!(stEff&&stEff.contextualSpacing);
+
+    // Footnote/endnote references: scan in document order, assign a running
+    // per-kind display number, and append a delimited sentinel to `text` (end-
+    // append only — boldRuns/fmtSpans are computed above and stay index-aligned
+    // with the pre-sentinel text; the sentinel is additive to `text` alone).
+    const refRe=/<w:(footnote|endnote)Reference\b[^>]*w:id="(-?\d+)"/g; let refM;
+    while((refM=refRe.exec(p))){
+      const kind=refM[1], id=refM[2];
+      const dispNum = kind==='footnote' ? (++fnN) : (++enN);
+      noteRefs.push({kind, id, dispNum, paraIndex: out.length});
+      text += '\uE000'+kind+':'+id+'\uE001';
+    }
+
+    out.push({text,heading,isNumbered,marker,ilvl,isBold,pageBreakBefore,align,indLeftPt,indHangingPt,indFirstLinePt,boldRuns,fmtSpans,
+      styleId,spaceBeforePt,spaceAfterPt,lineSpacing,lineExactPt,lineRule,keepNext,keepLines,contextualSpacing,
+      tbl:tbl||null});
+  }
+  // Top-level walk in document order: tables become per-cell paragraph rows tagged
+  // with tbl meta; everything else is a plain paragraph. Nested tables are not
+  // split out (their content stays part of the outer cell's paragraphs).
+  const blocks=docXml.match(/<w:tbl[ >][\s\S]*?<\/w:tbl>|<w:p[ >][\s\S]*?<\/w:p>/g)||[];
+  let ti=0;
+  for(const blk of blocks){
+    if(blk.lastIndexOf('<w:tbl',0)===0){
+      const gw=(blk.match(/<w:gridCol[^>]*w:w="(\d+)"/g)||[]).map(g=>+(g.match(/w:w="(\d+)"/)||[])[1]);
+      const trs=blk.match(/<w:tr[ >][\s\S]*?<\/w:tr>/g)||[];
+      // No tblGrid -> ragged rows would otherwise split into separate tables.
+      // Pin ONE column count for the whole table: the widest row.
+      const maxCells=trs.reduce((m,tr)=>Math.max(m,(tr.match(/<w:tc[ >]/g)||[]).length),0);
+      const cols=gw.length||maxCells;
+      trs.forEach((trXml,ri)=>{
+        const tcs=trXml.match(/<w:tc[ >][\s\S]*?<\/w:tc>/g)||[];
+        tcs.forEach((tc,ci)=>{
+          const cps=tc.match(/<w:p[ >][\s\S]*?<\/w:p>/g)||[];
+          for(const p of cps)processPara(p,{ti,ri,ci,cols,gw});
+        });
+      });
+      // Tables are atomic: a break carried IN from before the table was already
+      // consumed by the first real cell paragraph, so anything still pending here
+      // originated INSIDE a cell — clear it so it can't leak past the table.
+      pendingBreak=false;
+      ti++;
+    } else processPara(blk,null);
+  }
+  out.noteRefs=noteRefs;
+  return out;
+}
+/* Page geometry from the LAST <w:sectPr> (the document/body section). Twips→inches
+   (1440 twips = 1 inch). Used to reproduce Word's automatic pagination as closely as
+   possible when we hand the layout to the browser for print/PDF. */
+function parseSectionGeom(docXml){
+  const sect=(docXml.match(/<w:sectPr[\s\S]*?<\/w:sectPr>/g)||[]).pop()||'';
+  const g={wIn:8.5,hIn:11,mt:1,mr:1,mb:1,ml:1};
+  const sz=sect.match(/<w:pgSz\b[^>]*\/?>/);
+  if(sz){const w=+(sz[0].match(/w:w="(\d+)"/)||[])[1]||12240,h=+(sz[0].match(/w:h="(\d+)"/)||[])[1]||15840;g.wIn=w/1440;g.hIn=h/1440;}
+  const mar=sect.match(/<w:pgMar\b[^>]*\/?>/);
+  if(mar){const gv=(re,d)=>{const m=mar[0].match(re);return m?(+m[1])/1440:d;};g.mt=gv(/w:top="(-?\d+)"/,1);g.mb=gv(/w:bottom="(-?\d+)"/,1);g.ml=gv(/w:left="(\d+)"/,1);g.mr=gv(/w:right="(\d+)"/,1);}
+  return g;
+}
+/* Default body font size (half-points→pt) and family from styles.xml docDefaults,
+   falling back to the Normal style. Font metrics drive where lines — and therefore
+   pages — break, so matching these meaningfully improves fidelity. */
+function parseDocDefaults(xml){
+  const d={fontPt:11,font:null,spacing:null};
+  if(!xml)return d;
+  const dd=(xml.match(/<w:docDefaults[\s\S]*?<\/w:docDefaults>/)||[''])[0];
+  const normal=(xml.match(/<w:style [^>]*w:styleId="Normal"[\s\S]*?<\/w:style>/)||[''])[0];
+  const scope=dd+normal;
+  const sz=(scope.match(/<w:sz w:val="(\d+)"/)||[])[1];
+  if(sz)d.fontPt=(+sz)/2;
+  const f=(scope.match(/<w:rFonts[^>]*w:ascii="([^"]+)"/)||[])[1];
+  if(f)d.font=f;
+  const pd=(dd.match(/<w:pPrDefault>[\s\S]*?<\/w:pPrDefault>/)||[''])[0];
+  const dsM=pd.match(/<w:spacing\b([^>]*?)\/?>/); d.spacing=dsM?_spacingFrom(dsM[1]):null;
+  return d;
+}
+/* Parses word/footnotes.xml or word/endnotes.xml into a Map<id, {id, kind, paras}>.
+   Separator/continuationSeparator entries (the note-reference-mark plumbing Word
+   inserts into every notes part) are skipped — they aren't user content. Each
+   note's paragraphs are extracted by wrapping its inner XML in a throwaway
+   <w:body> and running it through the same extractStructured machinery used for
+   the main document, so note paragraphs get identical paraMeta shape. */
+function parseNotes(xml, kind, styles, numbering, defaults){
+  const map = new Map();
+  if(!xml) return map;
+  const tag = kind==='endnote' ? 'endnote' : 'footnote';
+  const re = new RegExp('<w:'+tag+'\\b([^>]*)>([\\s\\S]*?)</w:'+tag+'>','g');
+  let m;
+  while((m = re.exec(xml))){
+    const attrs = m[1], inner = m[2];
+    const type = (attrs.match(/w:type="([^"]+)"/)||[])[1];
+    if(type==='separator' || type==='continuationSeparator') continue;
+    const id = (attrs.match(/w:id="(-?\d+)"/)||[])[1];
+    if(id==null) continue;
+    const paras = extractStructured('<w:body>'+inner+'</w:body>', styles, numbering, defaults);
+    map.set(id, {id, kind:tag, paras});
+  }
+  return map;
+}
+async function docxToParagraphs(file){
+  const buf=new Uint8Array(await file.arrayBuffer());
+  const docXml=await tryEntry(buf,'word/document.xml'); if(!docXml)throw new Error('document.xml not found — is this a real .docx?');
+  const stylesXml=await tryEntry(buf,'word/styles.xml');
+  const styles=parseStyles(stylesXml);
+  const numbering=parseNumbering(await tryEntry(buf,'word/numbering.xml'));
+  const dd=parseDocDefaults(stylesXml);
+  const out=extractStructured(docXml,styles,numbering,dd);
+  out.footnotes=parseNotes(await tryEntry(buf,'word/footnotes.xml'),'footnote',styles,numbering,dd);
+  out.endnotes =parseNotes(await tryEntry(buf,'word/endnotes.xml'), 'endnote', styles,numbering,dd);
+  out.hasTrackedChanges=/<w:(?:ins|del)[ >]/.test(docXml);
+  out.geometry=Object.assign({},parseSectionGeom(docXml),dd);
+  return out;
+}
+
+/* ================= diff engine ================= */
+/* LCS diff with bounded memory: trim common prefix/suffix, DP on small middles
+   (identical output to the old implementation), patience-style recursion on
+   unique anchors for large ones, replace-all as the anchorless last resort. */
+const DP_CELL_CAP=1000000; // max (n*m) cells the exact DP may allocate (~4MB)
+function lcsOps(a,b){const ops=[];_diff(a,0,a.length,b,0,b.length,ops);return ops;}
+function _dpOps(a,a0,a1,b,b0,b1,ops){
+  const n=a1-a0,m=b1-b0,dp=Array.from({length:n+1},()=>new Uint32Array(m+1));
+  for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)dp[i][j]=a[a0+i]===b[b0+j]?dp[i+1][j+1]+1:Math.max(dp[i+1][j],dp[i][j+1]);
+  let i=0,j=0;
+  while(i<n&&j<m){if(a[a0+i]===b[b0+j]){ops.push(['equal',a0+i,b0+j]);i++;j++;}
+    else if(dp[i+1][j]>=dp[i][j+1]){ops.push(['delete',a0+i,b0+j]);i++;}
+    else{ops.push(['insert',a0+i,b0+j]);j++;}}
+  while(i<n){ops.push(['delete',a0+i,b0+j]);i++;}
+  while(j<m){ops.push(['insert',a0+i,b0+j]);j++;}
+}
+function _diff(a,a0,a1,b,b0,b1,ops){
+  if((a1-a0)*(b1-b0)<=DP_CELL_CAP){_dpOps(a,a0,a1,b,b0,b1,ops);return;}
+  while(a0<a1&&b0<b1&&a[a0]===b[b0]){ops.push(['equal',a0,b0]);a0++;b0++;}
+  let suf=0;
+  while(a1>a0&&b1>b0&&a[a1-1]===b[b1-1]){a1--;b1--;suf++;}
+  const n=a1-a0,m=b1-b0;
+  if(n===0){for(let j=b0;j<b1;j++)ops.push(['insert',a0,j]);}
+  else if(m===0){for(let i=a0;i<a1;i++)ops.push(['delete',i,b0]);}
+  else if(n*m<=DP_CELL_CAP){_dpOps(a,a0,a1,b,b0,b1,ops);}
+  else{
+    const anchors=_uniqueAnchors(a,a0,a1,b,b0,b1);
+    if(!anchors.length){
+      for(let i=a0;i<a1;i++)ops.push(['delete',i,b0]);
+      for(let j=b0;j<b1;j++)ops.push(['insert',a1,j]);
+    }else{
+      let pa=a0,pb=b0;
+      for(const[ai,bi]of anchors){_diff(a,pa,ai,b,pb,bi,ops);ops.push(['equal',ai,bi]);pa=ai+1;pb=bi+1;}
+      _diff(a,pa,a1,b,pb,b1,ops);
+    }
+  }
+  for(let k=0;k<suf;k++)ops.push(['equal',a1+k,b1+k]);
+}
+function _uniqueAnchors(a,a0,a1,b,b0,b1){
+  // Elements occurring exactly once in each slice, chained by longest
+  // increasing subsequence of b-positions (patience diff anchors).
+  const ca=new Map(),cb=new Map();
+  for(let i=a0;i<a1;i++){const v=a[i];ca.set(v,ca.has(v)?-1:i);}
+  for(let j=b0;j<b1;j++){const v=b[j];cb.set(v,cb.has(v)?-1:j);}
+  const pairs=[];
+  for(let i=a0;i<a1;i++){const v=a[i];if(ca.get(v)===i){const j=cb.get(v);if(j!=null&&j>=0)pairs.push([i,j]);}}
+  const tails=[],tailIdx=[],prev=new Array(pairs.length);
+  for(let p=0;p<pairs.length;p++){const j=pairs[p][1];
+    let lo=0,hi=tails.length;
+    while(lo<hi){const mid=(lo+hi)>>1;if(tails[mid]<j)lo=mid+1;else hi=mid;}
+    tails[lo]=j;tailIdx[lo]=p;prev[p]=lo>0?tailIdx[lo-1]:-1;
+  }
+  const out=[];let p=tails.length?tailIdx[tails.length-1]:-1;
+  while(p>=0){out.push(pairs[p]);p=prev[p];}
+  return out.reverse();
+}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+// Numbers with internal separators (486,000 / 4:30 / 2026-0417 / 1.5) stay ONE
+// token so money, dates and quantities replace whole — never "486" vs ",000".
+function tok(t){return String(t||'').match(/\d[\d,.\-\/:]*\d|\w+|[^\w\s]|\s+/gu)||[];}
+function wordsOnly(t){return String(t||'').toLowerCase().match(/\w+/gu)||[];}
+function inlineDiff(o,n){const a=tok(o),b=tok(n),ops=lcsOps(a,b);let out='',mode=null,buf='';const flush=()=>{if(!buf)return;if(mode==='del')out+='<del>'+esc(buf)+'</del>';else if(mode==='ins')out+='<ins>'+esc(buf)+'</ins>';else out+=esc(buf);buf='';};for(const[tag,i,j]of ops){const piece=tag==='insert'?b[j]:a[i],mm=tag==='equal'?'eq':(tag==='delete'?'del':'ins');if(mm!==mode){flush();mode=mm;}buf+=piece;}flush();return out;}
+// True if character index i falls within any [start,end) bold range.
+function _inRuns(runs,i){if(!runs)return false;for(const r of runs){if(i>=r[0]&&i<r[1])return true;if(r[0]>i)break;}return false;}
+// Escape text and wrap maximal bold ranges in <b>. Keeps defined-term bolding inline.
+function boldWrap(text,runs){if(!runs||!runs.length)return esc(text);let out='',pos=0;for(const[s,e]of runs){if(s>pos)out+=esc(text.slice(pos,s));out+='<b>'+esc(text.slice(s,e))+'</b>';pos=e;}if(pos<text.length)out+=esc(text.slice(pos));return out;}
+// Render `text` in its revised formatting (bold/italic/underline via nested tags),
+// with each diff range additionally wrapped in a titled <span class="fmtchg">.
+// Font/size differences are described in the tooltip (via diff.desc), not re-rendered
+// as glyphs — see fmtDiff's _fmtDesc for the description text.
+function fmtWrap(text,spans,diff){
+  const inDiff=pos=>diff.find(d=>pos>=d.s&&pos<d.e)||null;
+  const spanAt=pos=>{for(const sp of spans)if(pos>=sp.s&&pos<sp.e)return sp;return null;};
+  let out='',i=0;
+  while(i<text.length){
+    const sp=spanAt(i)||{b:false,i:false,u:false,f:null,z:null},d=inDiff(i);
+    let j=i+1;
+    while(j<text.length){const s2=spanAt(j)||sp,d2=inDiff(j);
+      if(s2.b!==sp.b||s2.i!==sp.i||s2.u!==sp.u||s2.f!==sp.f||s2.z!==sp.z)break;
+      if((d?d.desc:null)!==(d2?d2.desc:null))break; j++;}
+    let inner=esc(text.slice(i,j));
+    if(sp.b)inner='<b>'+inner+'</b>';
+    if(sp.i)inner='<i>'+inner+'</i>';
+    if(sp.u)inner='<u>'+inner+'</u>';
+    if(d)inner='<span class="fmtchg" title="'+esc(d.desc).replace(/"/g,'&quot;')+'">'+inner+'</span>'; // Escape " for attribute context
+    out+=inner; i=j;
+  }
+  return out;
+}
+function _fmtAt(spans,pos){for(const sp of spans)if(pos>=sp.s&&pos<sp.e)return sp;return null;}
+function _fmtDesc(a,b){const d=[];
+  if(a.b!==b.b)d.push('bold '+(b.b?'added':'removed'));
+  if(a.i!==b.i)d.push('italic '+(b.i?'added':'removed'));
+  if(a.u!==b.u)d.push('underline '+(b.u?'added':'removed'));
+  if(a.f!==b.f)d.push('font '+a.f+' → '+b.f);
+  if(a.z!==b.z)d.push('size '+a.z+' → '+b.z);
+  return d.join('; ');}
+function _fmtEq(a,b){return a&&b&&a.b===b.b&&a.i===b.i&&a.u===b.u&&a.f===b.f&&a.z===b.z;}
+function fmtDiff(a,b){
+  const end=Math.max(a.length?a[a.length-1].e:0,b.length?b[b.length-1].e:0);
+  const out=[]; let run=null;
+  for(let pos=0;pos<end;pos++){ const av=_fmtAt(a,pos),bv=_fmtAt(b,pos);
+    if(!av||!bv){ if(run){out.push(run);run=null;} continue; }
+    if(_fmtEq(av,bv)){ if(run){out.push(run);run=null;} continue; }
+    const desc=_fmtDesc(av,bv);
+    if(run&&run.desc===desc&&run.e===pos)run.e=pos+1;
+    else{ if(run)out.push(run); run={s:pos,e:pos+1,desc}; } }
+  if(run)out.push(run);
+  return out;
+}
+// Per-token bold flags: a token is bold if a majority of its non-space chars are bold.
+function _tokBold(tokens,runs){const f=new Array(tokens.length).fill(false);if(!runs||!runs.length)return f;let off=0;for(let i=0;i<tokens.length;i++){const tk=tokens[i],len=tk.length;let cnt=0,bc=0;for(let c=0;c<len;c++){if(/\s/.test(tk[c]))continue;cnt++;if(_inRuns(runs,off+c))bc++;}f[i]=cnt>0&&(bc/cnt)>=0.5;off+=len;}return f;}
+// Coalesce DENSE alternating replacements. A "span" is a maximal run of segments
+// that are del, ins, or whitespace-only equal. When a span holds >=2 del segments
+// AND >=2 ins segments, word-by-word alternation is unreadable — rebuild it as one
+// deleted phrase followed by one inserted phrase (shared whitespace goes to both
+// sides), the Workshare-style presentation lawyers expect for rewritten passages.
+function _coalesce(segs){
+  const out=[];let i=0;
+  const isWsEq=s=>s.m==='eq'&&/^\s+$/.test(s.t);
+  // A lone short connective word folds into both sides of a dense rewrite, exactly
+  // like whitespace: it separates mode-runs and is duplicated into both the struck
+  // and inserted phrase. A multi-word shared run (interior spaces) is NOT a lone
+  // connective, so it stays a hard anchor and preserved clauses are never swallowed.
+  const CONN=new Set(['a','an','the','and','or','nor','of','to','in','on','at','by','for','as','if','is']);
+  const isConnEq=s=>s.m==='eq'&&/^\s*\w+\s*$/u.test(s.t)&&CONN.has(s.t.trim().toLowerCase());
+  const isTransparent=s=>isWsEq(s)||isConnEq(s);
+  while(i<segs.length){
+    if(segs[i].m==='eq'&&!isWsEq(segs[i])){out.push(segs[i]);i++;continue;}
+    let j=i;while(j<segs.length&&(segs[j].m!=='eq'||isTransparent(segs[j])))j++;
+    const span=segs.slice(i,j);
+    while(span.length&&isTransparent(span[0]))out.push(span.shift());
+    const tail=[];
+    while(span.length&&isTransparent(span[span.length-1]))tail.unshift(span.pop());
+    // Count MODE RUNS (maximal same-mode groups), not raw segments: inlineDiffB
+    // splits a single phrase whenever bold flips, so counting segments would trip
+    // the collapse on a clean one-phrase replace that merely contains bold.
+    let delRuns=0,insRuns=0,prevMode=null;
+    for(const x of span){
+      if(isTransparent(x)){prevMode=null;continue;}   // whitespace or connective separates runs
+      if(x.m!==prevMode){if(x.m==='del')delRuns++;else if(x.m==='ins')insRuns++;}
+      prevMode=x.m;
+    }
+    if(delRuns>=2&&insRuns>=2){
+      const olds=[],news=[];
+      for(const x of span){
+        if(x.m==='del')olds.push({m:'del',t:x.t,b:x.b});
+        else if(x.m==='ins')news.push({m:'ins',t:x.t,b:x.b});
+        else{olds.push({m:'del',t:x.t,b:x.b});news.push({m:'ins',t:x.t,b:x.b});}
+      }
+      out.push(...olds,...news);
+    } else out.push(...span);
+    out.push(...tail);
+    i=j;
+  }
+  return out;
+}
+// Inline word-diff that ALSO preserves inline bold on both sides. Segment-based:
+// build (mode,bold) segments, coalesce dense alternations, then emit with ONE
+// <del>/<ins> wrapper per same-mode run (bold nests inside the wrapper).
+function inlineDiffB(o,n,ob,nb){
+  const a=tok(o),b=tok(n),ops=lcsOps(a,b),af=_tokBold(a,ob),bf=_tokBold(b,nb);
+  const segs=[];
+  for(const[tag,i,j]of ops){
+    const isIns=tag==='insert';
+    const piece=isIns?b[j]:a[i];
+    const m=tag==='equal'?'eq':(tag==='delete'?'del':'ins');
+    const bb=isIns?!!bf[j]:!!af[i];
+    const last=segs[segs.length-1];
+    if(last&&last.m===m&&last.b===bb)last.t+=piece;
+    else segs.push({m,t:piece,b:bb});
+  }
+  const coal=_coalesce(segs);
+  let html='',k=0;
+  while(k<coal.length){
+    const m=coal[k].m;let inner='';
+    while(k<coal.length&&coal[k].m===m){
+      const s=coal[k];inner+=s.b?'<b>'+esc(s.t)+'</b>':esc(s.t);k++;
+    }
+    if(m==='del')html+='<del>'+inner+'</del>';
+    else if(m==='ins')html+='<ins>'+inner+'</ins>';
+    else html+=inner;
+  }
+  return html;
+}
+// Inline diff with a token cap: beyond it, LCS quality/latency isn't worth it —
+// render the change as a whole-paragraph replace instead.
+const INLINE_TOKEN_CAP=4000;
+function safeInline(o,n,ob,nb){
+  if(tok(o).length>INLINE_TOKEN_CAP||tok(n).length>INLINE_TOKEN_CAP)
+    return (o?'<del>'+boldWrap(o,ob)+'</del>':'')+(n?'<ins>'+boldWrap(n,nb)+'</ins>':'');
+  return inlineDiffB(o,n,ob,nb);
+}
+function sim(a,b){const ta=tok(a).filter(x=>x.trim()),tb=tok(b).filter(x=>x.trim());if(!ta.length&&!tb.length)return 1;const ops=lcsOps(ta,tb);let c=0;for(const[t]of ops)if(t==='equal')c++;return(2*c)/(ta.length+tb.length);}
+// Upper bound on sim(): LCS length can't exceed the multiset intersection, and
+// 2*min(len)/(sum of lens) bounds it too. Both are cheap; used to skip full LCS.
+function simUpper(ta,tb){
+  const la=ta.length,lb=tb.length; if(!la&&!lb)return 1; if(!la||!lb)return 0;
+  const ratio=(2*Math.min(la,lb))/(la+lb);
+  const c=new Map();for(const w of ta)c.set(w,(c.get(w)||0)+1);
+  let inter=0;for(const w of tb){const k=c.get(w);if(k>0){inter++;c.set(w,k-1);}}
+  return Math.min(ratio,(2*inter)/(la+lb));
+}
+function norm2(t,ic){t=t.replace(/\s+/g,' ').trim();if(ic)t=t.toLowerCase();return t;}
+function categorize(o,n){const wa=wordsOnly(o).join(' '),wb=wordsOnly(n).join(' ');if(wa===wb&&o!==n)return 'punctuation';return 'content';}
+
+function compare(orig,rev,opts){
+  const ic=opts.ignoreCase, moveMin=opts.moveMin||5;
+  const oT=orig.map(o=>norm2(o.text,ic)), rT=rev.map(o=>norm2(o.text,ic));
+  const ops=lcsOps(oT,rT);
+  const oTok=oT.map(t=>tok(t).filter(x=>x.trim())), rTok=rT.map(t=>tok(t).filter(x=>x.trim()));
+  const segs=[]; for(const[tag,i,j]of ops){const last=segs[segs.length-1];if(last&&last.tag===tag)last.items.push([i,j]);else segs.push({tag,items:[[i,j]]});}
+  const rows=[],pureDel=[],pureIns=[];
+  for(let s=0;s<segs.length;s++){
+    const seg=segs[s];
+    if(seg.tag==='equal'){for(const[i,j]of seg.items){
+      const diff=fmtDiff(orig[i].fmtSpans||[],rev[j].fmtSpans||[]);
+      if(diff.length){rows.push({type:'equal',oi:i,ni:j,meta:rev[j],fmtChanged:true,fmtDescs:diff.map(d=>d.desc),html:fmtWrap(rev[j].text,rev[j].fmtSpans||[],diff)});}
+      else{rows.push({type:'equal',oi:i,ni:j,meta:rev[j],html:boldWrap(rev[j].text,rev[j].boldRuns)});}
+    }continue;}
+    let dels=[],ins=[];
+    if(seg.tag==='delete'){dels=seg.items.map(([i])=>i);if(segs[s+1]&&segs[s+1].tag==='insert'){ins=segs[s+1].items.map(([,j])=>j);s++;}}
+    else{ins=seg.items.map(([,j])=>j);if(segs[s+1]&&segs[s+1].tag==='delete'){dels=segs[s+1].items.map(([i])=>i);s++;}}
+    const used=new Set(),paired=[];
+    for(const di of dels){let best=-1,bs=0;for(const ji of ins){if(used.has(ji))continue;
+      if(simUpper(oTok[di],rTok[ji])<=Math.max(bs,0.5-1e-9))continue; // can't beat current best or reach threshold
+      const v=sim(oT[di],rT[ji]);if(v>bs){bs=v;best=ji;}}
+      if(best>=0&&bs>=0.5){used.add(best);paired.push([di,best]);}else paired.push([di,-1]);}
+    const done=new Set();
+    for(const[di,ji]of paired){
+      if(ji>=0){rows.push({type:'changed',oi:di,ni:ji,meta:rev[ji],html:safeInline(orig[di].text,rev[ji].text,orig[di].boldRuns,rev[ji].boldRuns),cat:categorize(oT[di],rT[ji])});done.add(ji);}
+      else{const r={type:'deleted',oi:di,meta:orig[di],html:'<del>'+boldWrap(orig[di].text,orig[di].boldRuns)+'</del>'};rows.push(r);pureDel.push(r);}
+    }
+    for(const ji of ins)if(!done.has(ji)){const r={type:'inserted',ni:ji,meta:rev[ji],html:'<ins>'+boldWrap(rev[ji].text,rev[ji].boldRuns)+'</ins>'};rows.push(r);pureIns.push(r);}
+  }
+  for(const dr of pureDel){
+    if(dr.moved)continue; const dw=wordsOnly(oT[dr.oi]); if(dw.length<moveMin)continue;
+    let best=null,bestSim=0;
+    for(const ir of pureIns){if(ir.moved)continue;const iw=wordsOnly(rT[ir.ni]);if(iw.length<moveMin)continue;
+      if(simUpper(oTok[dr.oi],rTok[ir.ni])<=Math.max(bestSim,0.8-1e-9))continue;
+      const v=sim(oT[dr.oi],rT[ir.ni]);if(v>bestSim){bestSim=v;best=ir;}}
+    if(best&&bestSim>=0.8){
+      dr.type='moved-from';dr.moved=true;dr.partner=best;
+      best.type='moved-to';best.moved=true;best.partner=dr;
+      best.html='<span class="moved">'+(bestSim<1?safeInline(orig[dr.oi].text,rev[best.ni].text,orig[dr.oi].boldRuns,rev[best.ni].boldRuns):boldWrap(rev[best.ni].text,rev[best.ni].boldRuns))+'</span>';
+      dr.html='<span class="moved-src">'+boldWrap(orig[dr.oi].text,orig[dr.oi].boldRuns)+'</span>';
+    }
+  }
+  const summary={insertions:0,deletions:0,moves:0,amendments:0,content:0,numbering:0,punctuation:0,total:0,formatting:0};
+  let n=0;
+  for(const r of rows){
+    if(r.type==='equal'){ if(r.fmtChanged)summary.formatting++; continue; }
+    if(r.type==='moved-from'||r.type==='moved-to'){ if(r.partner&&r.partner.cid){r.cid=r.partner.cid;} else {r.cid=++n;summary.moves++;} continue; }
+    r.cid=++n;
+    if(r.type==='inserted'){summary.insertions++;summary.content++;}
+    else if(r.type==='deleted'){summary.deletions++;summary.content++;}
+    else if(r.type==='changed'){ summary.amendments++; if(r.cat==='punctuation')summary.punctuation++; else summary.content++; summary.insertions++;summary.deletions++; }
+  }
+  summary.total=n; // unique numbered changes — matches "Change X of Y" navigation
+  return {rows,summary};
+}
+
+/* ============ Footnote/endnote note-stream diff ============ */
+function buildNoteStream(kind, noteRefs, notesMap){
+  const stream=[], usedIds=new Set();
+  for(const ref of noteRefs){
+    if(ref.kind!==kind) continue;
+    const note=notesMap.get(ref.id); if(!note) continue;
+    usedIds.add(ref.id);
+    for(const p of note.paras) stream.push(Object.assign({}, p, {note:{kind, dispNum:ref.dispNum, id:ref.id}}));
+  }
+  // orphan (unreferenced) notes, ascending numeric id
+  const orphans=[...notesMap.keys()].filter(id=>!usedIds.has(id)).sort((a,b)=>(+a)-(+b));
+  for(const id of orphans){
+    for(const p of notesMap.get(id).paras) stream.push(Object.assign({}, p, {note:{kind, dispNum:null, id, orphan:true}}));
+  }
+  return stream;
+}
+function compareNotes(kind, sideA, sideB, ignoreCase){
+  return compare(sideA, sideB, {ignoreCase:!!ignoreCase, moveMin:Infinity});
+}
+function mergeNoteResults(summary, bodyRows, noteResult, key){
+  let base=summary.total;                       // current max cid
+  for(const r of noteResult.rows){
+    if(r.cid!=null) r.cid += base;              // continue the numbering
+  }
+  summary.total   += noteResult.summary.total;
+  summary.insertions += noteResult.summary.insertions;
+  summary.deletions  += noteResult.summary.deletions;
+  summary.amendments += noteResult.summary.amendments;
+  summary.content    += noteResult.summary.content;
+  summary.punctuation+= noteResult.summary.punctuation;
+  summary.formatting += noteResult.summary.formatting;
+  summary[key] = noteResult.summary.total;      // new sub-tally: summary.footnotes / summary.endnotes
+  for(const r of noteResult.rows) bodyRows.push(r);
+}
+
+/* ================= UI ================= */
+let fileA=null,fileB=null,lastRows=null,changeOrder=[],curIdx=-1,pageGeom=null,lastSummary=null,estPages=0;
+let resultsShown=false;
+const $=id=>document.getElementById(id);
+function wireDrop(dropId,nameId,which){const d=$(dropId),input=document.createElement('input');input.type='file';input.accept='.docx';input.style.display='none';d.appendChild(input);d.addEventListener('click',()=>input.click());input.addEventListener('change',e=>{if(e.target.files[0])setFile(e.target.files[0],which,d,nameId);});d.addEventListener('dragover',e=>{e.preventDefault();d.classList.add('dragover');});d.addEventListener('dragleave',()=>d.classList.remove('dragover'));d.addEventListener('drop',e=>{e.preventDefault();d.classList.remove('dragover');const f=e.dataTransfer.files[0];if(f)setFile(f,which,d,nameId);});}
+function setFile(f,which,d,nameId){if(!f.name.toLowerCase().endsWith('.docx')){showErr('Please choose a .docx file.');return;}if(which==='A')fileA=f;else fileB=f;d.classList.add('filled');$(nameId).textContent=f.name;$('btnCompare').disabled=!(fileA&&fileB);showErr('');}
+// Message text is treated as PLAIN TEXT and escaped — never let a filename or a
+// thrown error message inject markup into the error banner.
+function showErr(m){$('err').innerHTML=m?('<div class="err">'+esc(m)+'</div>'):'';}
+wireDrop('dropA','nameA','A');wireDrop('dropB','nameB','B');
+
+$('btnCompare').addEventListener('click',async()=>{
+  showErr('');$('btnCompare').disabled=true;$('btnCompare').textContent='Comparing…';
+  try{
+    if(typeof DecompressionStream==='undefined')throw new Error('Browser too old — use recent Edge or Chrome.');
+    const [oa,ra]=await Promise.all([docxToParagraphs(fileA),docxToParagraphs(fileB)]);
+    // Prefer the REVISED doc's geometry (that's the text the redline shows), fall back to original.
+    pageGeom=(ra&&ra.geometry)||(oa&&oa.geometry)||null;
+    const tc=[];
+    if(oa.hasTrackedChanges)tc.push(fileA.name);
+    if(ra.hasTrackedChanges)tc.push(fileB.name);
+    const notice=$('notice');
+    if(tc.length){notice.innerHTML='<button title="Dismiss" onclick="this.parentNode.style.display=\'none\'">✕</button>⚠ '
+      +esc(tc.join(' and '))+' contain'+(tc.length===1?'s':'')+' unaccepted tracked changes — compared as if all changes were accepted.';
+      notice.style.display='block';}
+    else notice.style.display='none';
+    const {rows,summary}=compare(oa,ra,{ignoreCase:$('optCase').checked,moveMin:+$('optMove').value||5});
+    const fnStreamA=buildNoteStream('footnote', oa.noteRefs||[], oa.footnotes||new Map());
+    const fnStreamB=buildNoteStream('footnote', ra.noteRefs||[], ra.footnotes||new Map());
+    const enStreamA=buildNoteStream('endnote',  oa.noteRefs||[], oa.endnotes ||new Map());
+    const enStreamB=buildNoteStream('endnote',  ra.noteRefs||[], ra.endnotes ||new Map());
+    const fn=compareNotes('footnote', fnStreamA, fnStreamB, $('optCase').checked);
+    const en=compareNotes('endnote',  enStreamA, enStreamB, $('optCase').checked);
+    mergeNoteResults(summary, rows, fn, 'footnotes');
+    mergeNoteResults(summary, rows, en, 'endnotes');
+    lastRows=rows; renderAll(rows,summary);
+    $('setup').style.display='none';$('results').style.display='block';$('navToolbar').style.display='flex';resultsShown=true;
+  }catch(err){showErr(err.message||String(err));}
+  finally{$('btnCompare').disabled=false;$('btnCompare').textContent='Compare ▶';}
+});
+$('btnNew').addEventListener('click',()=>{$('results').style.display='none';$('navToolbar').style.display='none';$('setup').style.display='block';resultsShown=false;});
+
+function exportPdf(){
+  const paper=document.getElementById('paper');
+  if(!paper||!paper.innerHTML.trim()){ showErr('Run a comparison first, then export to PDF.'); return; }
+  try{
+    const styles=Array.from(document.querySelectorAll('style')).map(s=>s.textContent).join('\n');
+    const viewClasses=(document.getElementById('results').className||'');
+    // Drive @page size/margins and body font from the source document's real geometry so
+    // the browser's automatic pagination reproduces Word's page breaks as closely as possible.
+    const g=pageGeom;
+    const pageCss=g
+      ? '@page{size:'+g.wIn.toFixed(3)+'in '+g.hIn.toFixed(3)+'in;margin:'+g.mt.toFixed(3)+'in '+g.mr.toFixed(3)+'in '+g.mb.toFixed(3)+'in '+g.ml.toFixed(3)+'in}'
+        +'#paper{font-size:'+(g.fontPt||11)+'pt;line-height:1.15;font-family:'+(g.font?('"'+g.font+'",'):'')+'\'Times New Roman\',Georgia,serif}'
+      : '@page{margin:20mm 16mm}';
+    const html='<!doctype html><html><head><meta charset="utf-8"><title>Redline Comparison</title>'
+      +'<style>'+styles+'</style>'
+      +'<style>'+renderSetCss(activeSet)+'</style>'
+      +'<style>'+pageCss+' html,body{background:#fff;margin:0;height:auto}'
+      +'.docpane{overflow:visible;padding:0;background:#fff} '
+      +'#paper{border:none;box-shadow:none;max-width:none;margin:0;padding:0;width:auto}'
+      +'.pgbreak-auto{display:none !important}</style></head>'
+      +'<body class="'+viewClasses+'"><div class="docpane"><div id="paper">'+paper.innerHTML+'</div></div></body></html>';
+    const f=document.createElement('iframe');
+    f.setAttribute('aria-hidden','true');
+    // Give the iframe a real (offscreen) size — some browsers won't paginate/print a 0x0 frame.
+    f.style.cssText='position:fixed;left:-10000px;top:0;width:816px;height:1056px;border:0;opacity:0;';
+    document.body.appendChild(f);
+    const idoc=f.contentWindow.document; idoc.open(); idoc.write(html); idoc.close();
+    const go=()=>{ try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){ window.print(); }
+                   setTimeout(()=>{ try{ f.remove(); }catch(_){} },1500); };
+    if(idoc.readyState==='complete') setTimeout(go,150); else f.onload=()=>setTimeout(go,150);
+  }catch(e){ try{ window.print(); }catch(_){ showErr('Your browser blocked printing — press Ctrl+P to save as PDF.'); } }
+}
+
+/* ============================================================================
+   Native vector-PDF generator (pure JS, offline, no libraries).
+   Writes a real multi-page PDF and downloads it — no browser print dialog, so
+   NO auto-injected page headers/footers. Uses the base-14 Times family (no font
+   embedding needed) and the browser's Canvas measureText for accurate line
+   wrapping, honouring the source document's real page geometry & pagination.
+   ============================================================================ */
+const PT=72; // points per inch
+// Times-Roman AFM advance widths (units/1000 em) so text can be measured accurately
+// even when Canvas is unavailable (old browsers / headless). Unlisted chars -> 500.
+const TIMESW={' ':250,'!':333,'"':408,'#':500,'$':500,'%':833,'&':778,"'":180,'(':333,')':333,'*':500,'+':564,',':250,'-':333,'.':250,'/':278,'0':500,'1':500,'2':500,'3':500,'4':500,'5':500,'6':500,'7':500,'8':500,'9':500,':':278,';':278,'<':564,'=':564,'>':564,'?':444,'@':921,'A':722,'B':667,'C':667,'D':722,'E':611,'F':556,'G':722,'H':722,'I':333,'J':389,'K':722,'L':611,'M':889,'N':722,'O':722,'P':556,'Q':722,'R':667,'S':556,'T':611,'U':722,'V':722,'W':944,'X':722,'Y':722,'Z':611,'[':333,'\\':278,']':333,'^':469,'_':500,'`':333,'a':444,'b':500,'c':444,'d':500,'e':444,'f':333,'g':500,'h':500,'i':278,'j':278,'k':500,'l':278,'m':778,'n':500,'o':500,'p':500,'q':500,'r':333,'s':389,'t':278,'u':500,'v':500,'w':722,'x':500,'y':500,'z':444,'{':480,'|':200,'}':480,'~':541,'\u2018':333,'\u2019':333,'\u201C':444,'\u201D':444,'\u2013':500,'\u2014':1000,'\u2022':350,'\u00A0':250};
+function timesWidth(t,size,bold){let u=0;for(const ch of t){const w=TIMESW[ch];u+=(w!=null?w:500);}return u/1000*size*(bold?1.05:1);}
+function fmt(n){return (Math.round(n*100)/100).toString();}
+function pdfEsc(s){return s.replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)').replace(/[\r\n]/g,'');}
+// Map Unicode → WinAnsi bytes (fonts declare /Encoding/WinAnsiEncoding).
+const WINANSI={0x2018:0x91,0x2019:0x92,0x201C:0x93,0x201D:0x94,0x2022:0x95,0x2013:0x96,0x2014:0x97,0x2026:0x85,0x2122:0x99,0x2039:0x8B,0x203A:0x9B,0x2020:0x86,0x2021:0x87,0x2030:0x89,0x0152:0x8C,0x0153:0x9C,0x0178:0x9F,0x017D:0x8E,0x017E:0x9E,0x0192:0x83,0x02C6:0x88,0x02DC:0x98};
+function encWin(s){let o='';for(const ch of s){let c=ch.codePointAt(0),b;
+  if(c<0x80)b=c; else if(WINANSI[c]!==undefined)b=WINANSI[c]; else if(c>=0xA0&&c<=0xFF)b=c;
+  else if(c===0x25E6||c===0x25AA||c===0x2023||c===0x2043)b=0x95; /* other bullets → • */
+  else if(c===0x2192||c===0x25B6)b=0x3E; /* → ▶ */ else if(c===0x25C0)b=0x3C; /* ◀ */
+  else b=0x3F; /* ? */
+  o+=String.fromCharCode(b);} return o;}
+function pdfFontKey(bold,italic){return bold&&italic?'F4':bold?'F2':italic?'F3':'F1';}
+/* ---- Rendering sets (R6) -------------------------------------------------
+   Single source of truth for change styling on BOTH surfaces: renderSetVars()
+   feeds the screen's CSS custom properties, hexToPdfRgb() feeds pdfStyle().
+   Moves declare color/bg once with two decorations (line = destination,
+   srcLine = struck source) so the two halves of a move can never drift apart.
+   NB: `var`, not `const` — top-level const/let bindings are invisible to the
+   tests/load.mjs vm harness (only var and function declarations reach the
+   context object), and the tests read this table directly. */
+var RENDER_SETS=[
+  {id:'sorkwhare',label:'SorkWhare (default)',cats:{
+    ins:{color:'#0b5cad',bg:'#e7f0fb',line:'underline',style:'solid'},
+    del:{color:'#b3261e',bg:'#fdeceb',line:'line-through',style:'solid'},
+    mov:{color:'#1b7f3b',bg:'#e6f5ec',line:'underline',style:'dotted',srcLine:'line-through'},
+    fmt:{color:'#7c3aed',bg:'transparent',line:'underline',style:'dotted'}}},
+  {id:'litera',label:'Litera Classic',cats:{
+    ins:{color:'#0000ff',bg:'transparent',line:'underline',style:'double'},
+    del:{color:'#ff0000',bg:'transparent',line:'line-through',style:'solid'},
+    mov:{color:'#008000',bg:'transparent',line:'underline',style:'double',srcLine:'line-through'},
+    fmt:{color:'#7c3aed',bg:'transparent',line:'underline',style:'dotted'}}},
+  {id:'contrast',label:'High contrast',cats:{
+    ins:{color:'#0072b2',bg:'transparent',line:'underline',style:'solid'},
+    del:{color:'#d55e00',bg:'transparent',line:'line-through',style:'solid'},
+    mov:{color:'#cc79a7',bg:'transparent',line:'underline',style:'double',srcLine:'line-through'},
+    fmt:{color:'#009e73',bg:'transparent',line:'underline',style:'dotted'}}},
+];
+// Flat CSS-custom-property map for a set. Pure: no DOM, unit-tested directly.
+function renderSetVars(set){
+  const c=set.cats,v={};
+  v['--ins']=c.ins.color; v['--ins-bg']=c.ins.bg; v['--ins-line']=c.ins.line; v['--ins-style']=c.ins.style;
+  v['--del']=c.del.color; v['--del-bg']=c.del.bg; v['--del-line']=c.del.line; v['--del-style']=c.del.style;
+  v['--mov']=c.mov.color; v['--mov-bg']=c.mov.bg; v['--mov-line']=c.mov.line; v['--mov-style']=c.mov.style;
+  v['--mov-src-line']=c.mov.srcLine;
+  v['--fmt']=c.fmt.color; v['--fmt-bg']=c.fmt.bg; v['--fmt-line']=c.fmt.line; v['--fmt-style']=c.fmt.style;
+  return v;
+}
+// Serialize a set as a :root{} block, for surfaces that can only carry
+// stylesheet TEXT (the print-export iframe) rather than inline properties.
+function renderSetCss(set){
+  const v=renderSetVars(set);
+  return ':root{'+Object.keys(v).map(k=>k+':'+v[k]).join(';')+'}';
+}
+// '#0b5cad' -> '0.043 0.361 0.678'. toFixed(3) reproduces every v1.4.1 literal exactly.
+function hexToPdfRgb(hex){
+  const h=String(hex).replace('#',''),
+        n=(h.length===3)?h[0]+h[0]+h[1]+h[1]+h[2]+h[2]:h;
+  const r=parseInt(n.slice(0,2),16)/255,g=parseInt(n.slice(2,4),16)/255,b=parseInt(n.slice(4,6),16)/255;
+  return r.toFixed(3)+' '+g.toFixed(3)+' '+b.toFixed(3);
+}
+/* Resolve a run's PDF style. `set` defaults to the SorkWhare set so every
+   existing 4-arg call site is byte-identical to v1.4.1. */
+// Redline colours as PDF "r g b" (0-1), matching the on-screen palette.
+function pdfStyle(meta,kind,bodyPt,runBold,set){
+  const h=meta.heading; let size=bodyPt,bold=(!!meta.isBold||!!runBold),italic=false;
+  if(h===1){size=bodyPt*1.6;bold=true;} else if(h===2){size=bodyPt*1.35;bold=true;}
+  else if(h===3){size=bodyPt*1.18;bold=true;} else if(h>=4){size=bodyPt;bold=true;italic=true;}
+  let color='0 0 0',underline=false,strike=false,doubleU=false;
+  const c=(set||RENDER_SETS[0]).cats;
+  const use=(cat,line)=>{color=hexToPdfRgb(cat.color);
+    underline=(line==='underline'); strike=(line==='line-through');
+    doubleU=(line==='underline'&&cat.style==='double');};
+  if(kind==='ins')use(c.ins,c.ins.line);
+  else if(kind==='del')use(c.del,c.del.line);
+  else if(kind==='moved')use(c.mov,c.mov.line);
+  else if(kind==='moved-src')use(c.mov,c.mov.srcLine);
+  else if(kind==='fmt')use(c.fmt,c.fmt.line);
+  return {size,bold,italic,color,underline,strike,doubleU};
+}
+// Parse our generated redline HTML into typed runs (eq/ins/del/moved/moved-src/fmt).
+// fmtOn gates the 'fmt' kind: when false, fmtchg-wrapped text is treated as plain 'eq'
+// (clean export — no violet mark) without needing a second HTML-stripping pass.
+function pdfParseRuns(html,fmtOn){
+  const out=[],stack=[]; let bold=0; const re=/<ins>|<\/ins>|<del>|<\/del>|<span class="moved">|<span class="moved-src">|<span class="fmtchg"[^>]*>|<\/span>|<b>|<\/b>|[^<]+/g; let m;
+  while((m=re.exec(html))){const t=m[0];
+    if(t==='<ins>')stack.push('ins'); else if(t==='<del>')stack.push('del');
+    else if(t==='<span class="moved">')stack.push('moved'); else if(t==='<span class="moved-src">')stack.push('moved-src');
+    else if(t.slice(0,17)==='<span class="fmtc')stack.push('fmt');
+    else if(t==='</ins>'||t==='</del>'||t==='</span>')stack.pop();
+    else if(t==='<b>')bold++; else if(t==='</b>')bold=Math.max(0,bold-1);
+    else {let k=stack.length?stack[stack.length-1]:'eq'; if(k==='fmt'&&!fmtOn)k='eq';
+      out.push({text:t.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&'),kind:k,bold:bold>0});}
+  } return out;
+}
+/* Pure page-fill planner for the native PDF generator.
+   blocks: [{lineHeights:[pt], spaceBeforePt, spaceAfterPt, keepNext, keepLines,
+   pageBreakBefore}] with contextualSpacing already resolved into the gap fields.
+   avail = printable height of a normal page; firstAvail = page 1 (banner).
+   Returns [{b,l}] = start a new page before line l of block b (l===lineHeights.length
+   is an overflow sentinel renderers skip). Rules: space-before ignored at page top;
+   2-line widow/orphan minimums; keepLines keeps a block whole when it can ever fit;
+   keepNext keeps a block with its successor's first lines (chain capped at 4). */
+function planBreaks(blocks,avail,firstAvail,availOf){
+  // availOf(pageIndex) — OPTIONAL per-page free height (v1.6.0 footnote float).
+  // It returns the FINAL usable height for that page (banner + footnote reserve
+  // already folded in), so page 0's value should equal the old firstAvail minus
+  // any page-0 reserve. When omitted, `pa` reproduces the exact scalar behaviour
+  // (page 0 = firstAvail‖avail, later pages = avail) so output is byte-identical.
+  const pa=pi=>availOf?availOf(pi):(pi===0?(firstAvail!=null?firstAvail:avail):avail);
+  const breaks=[];let pageIndex=0,free=pa(0),top=true;
+  const sum=(a,f,t)=>{let s=0;const e=(t==null?a.length:t);for(let i=(f||0);i<e;i++)s+=a[i];return s;};
+  function commit(b,depth){
+    if(b>=blocks.length)return 0;
+    const Bk=blocks[b],total=sum(Bk.lineHeights);
+    let need=(Bk.keepLines&&total<=avail)?total:sum(Bk.lineHeights,0,Math.min(2,Bk.lineHeights.length));
+    if(Bk.keepNext&&depth<4&&b+1<blocks.length&&!blocks[b+1].pageBreakBefore)
+      need=total+(Bk.spaceAfterPt||0)+(blocks[b+1].spaceBeforePt||0)+commit(b+1,depth+1);
+    return need;
+  }
+  const newPage=(b,l)=>{breaks.push({b,l});pageIndex++;free=pa(pageIndex);top=true;};
+  for(let b=0;b<blocks.length;b++){
+    const Bk=blocks[b],lines=Bk.lineHeights;
+    if(Bk.pageBreakBefore&&!top)newPage(b,0);
+    if(!top){
+      const before=Bk.spaceBeforePt||0;
+      if(before+commit(b,0)>free)newPage(b,0);else free-=before;
+    }
+    let start=0;
+    while(start<lines.length){
+      let fit=start,h=0;
+      while(fit<lines.length&&h+lines[fit]<=free){h+=lines[fit];fit++;}
+      if(fit>=lines.length){free-=h;top=false;start=fit;break;}
+      let cut=fit;
+      if(lines.length-cut===1)cut--;               // widow: >=2 lines must follow the break
+      if(start===0&&cut-start===1)cut=start;       // orphan: never strand 1 leading line
+      if(cut<=start){
+        if(top&&(fit===start||free===(availOf?pa(pageIndex):avail))){cut=Math.max(fit,start+1);newPage(b,cut);start=cut;} // nothing fits, or a full-size page can't help: force progress
+        else {newPage(b,start);} // widow/orphan pushed back but a fresh (bigger) page might help: retry there
+      } else {newPage(b,cut);start=cut;}
+    }
+    if(start>=lines.length&&!top)free=Math.max(0,free-(Bk.spaceAfterPt||0));
+  }
+  return breaks;
+}
+function generateRedlinePdf(opts){
+  opts=opts||{};
+  // v1.6.0: split note rows out of the body. Endnote rows render as a titled
+  // section after the body (below); footnote rows are Task 6 (ignored here).
+  // Note-free input: bodyRows has the SAME elements as allRows, enRows is empty,
+  // so nothing new runs and the output stays byte-identical to v1.5.0.
+  const allRows=opts.rows||lastRows||[];
+  const bodyRows=allRows.filter(r=>!(r.meta&&r.meta.note));
+  const enRows=allRows.filter(r=>r.meta&&r.meta.note&&r.meta.note.kind==='endnote');
+  const g=opts.geom||pageGeom||{wIn:8.5,hIn:11,mt:1,mr:1,mb:1,ml:1,fontPt:11,font:'Times New Roman'};
+  const summary=opts.summary||lastSummary;
+  const faName=opts.fileAName!=null?opts.fileAName:((fileA&&fileA.name)||'');
+  const fbName=opts.fileBName!=null?opts.fileBName:((fileB&&fileB.name)||'');
+  const Wpt=g.wIn*PT,Hpt=g.hIn*PT,mlPt=g.ml*PT,mrPt=g.mr*PT,mtPt=g.mt*PT,mbPt=g.mb*PT;
+  const contentRight=Wpt-mrPt, bodyPt=g.fontPt||11;
+  const show=opts.show||{ins:$('fIns').checked,del:$('fDel').checked,mov:$('fMov').checked,eq:$('fEq').checked,fmt:$('fFmt')?$('fFmt').checked:true};
+  const set=opts.set||activeSet||RENDER_SETS[0];
+  let ctx=null; try{ctx=document.createElement('canvas').getContext('2d');}catch(_){}
+  // Use the document's real font when we can both MEASURE it (Canvas) and expect the
+  // viewer to render it (installed locally). Otherwise: v1.1.5 base-14 Times path.
+  const docFont=String(g.font||'').trim();
+  let useDocFont=false;
+  try{useDocFont=!!(ctx&&docFont&&!/^times\s*new\s*roman$/i.test(docFont)
+    &&typeof document!=='undefined'&&document.fonts&&typeof document.fonts.check==='function'
+    &&document.fonts.check('12px "'+docFont.replace(/"/g,'')+'"'));}catch(_){useDocFont=false;}
+  const famCss=(useDocFont?('"'+docFont.replace(/"/g,'')+'", '):'')+'"Times New Roman", Georgia, serif';
+  const measure=(t,size,bold,italic)=>{ if(!t)return 0;
+    if(ctx){ctx.font=(italic?'italic ':'')+(bold?'bold ':'')+(size*96/72)+'px '+famCss;return ctx.measureText(t).width*0.75;}
+    return timesWidth(t,size,bold); };
+  const pages=[],barSpans=[]; let ops=null,penY=0;
+  const newPage=()=>{ops=[];pages.push(ops);barSpans.push([]);penY=Hpt-mtPt;};
+  const curBar=()=>barSpans[barSpans.length-1];
+  const seg=(x,baseline,text,st)=>{ if(text==null||text==='')return;
+    const fk=st.font||pdfFontKey(st.bold,st.italic);
+    ops.push('BT','/'+fk+' '+fmt(st.size)+' Tf',st.color+' rg','1 0 0 1 '+fmt(x)+' '+fmt(baseline)+' Tm','('+pdfEsc(encWin(text))+') Tj','ET');
+    if(st.underline||st.strike){const w=measure(text,st.size,st.bold,st.italic);
+      // Draw every rule asked for. No v1.4.1 kind set both, so single-rule
+      // output is byte-unchanged; doubleU adds a second rule 1.6pt lower.
+      const rule=y=>ops.push(st.color+' RG','0.6 w',fmt(x)+' '+fmt(y)+' m '+fmt(x+w)+' '+fmt(y)+' l S');
+      if(st.strike)rule(baseline+st.size*0.26);
+      if(st.underline){rule(baseline-1.3); if(st.doubleU)rule(baseline-2.9);}}
+  };
+  newPage();
+  // ---- Compact banner (identifies the comparison; only on page 1) ----
+  let by=penY;
+  seg(mlPt,by-13,'Redline Comparison',{size:13,bold:true,italic:false,color:'0.12 0.16 0.26',font:'F5',underline:false,strike:false});
+  by-=20;
+  seg(mlPt,by-9,'Original: '+faName+'   \u2192   Revised: '+fbName,{size:9,bold:false,italic:false,color:'0.36 0.40 0.44',font:'F5',underline:false,strike:false});
+  by-=12;
+  seg(mlPt,by-9,'Generated '+new Date().toLocaleString()+'   \u2022   '+((summary&&summary.total)||0)+' change'+(((summary&&summary.total)===1)?'':'s'),{size:9,bold:false,italic:false,color:'0.36 0.40 0.44',font:'F5',underline:false,strike:false});
+  by-=14;
+  ops.push('0.85 0.87 0.90 RG','0.8 w',fmt(mlPt)+' '+fmt(by)+' m '+fmt(contentRight)+' '+fmt(by)+' l S');
+  by-=16; penY=by;
+  // ---- Pass 1: filter + wrap every row into positioned lines (no page decisions) ----
+  const paras=[];
+  // Strip the PUA-delimited reference sentinel (Task 2) so no raw footnote:N text
+  // garbage is drawn in the body. Rendering the ref NUMBER as a superscript is deferred;
+  // stripping is the shipped behaviour. No-op (returns the same string) when absent.
+  const stripSent=h=>String(h==null?'':h).replace(/\uE000(footnote|endnote):(-?\d+)\uE001/g,'');
+  /* ---- Footnote float (v1.6.0, Task 6) --------------------------------------
+     Footnote rows float to the BOTTOM of the page that holds their reference.
+     Every helper below is INERT when the document has no footnotes (fnRows empty
+     -> hasFootnotes false), so the note-free PDF stays byte-identical to v1.5.0.
+     Delimiters written as \uE000/\uE001 escapes, never literal glyphs. */
+  const fnPt=Math.max(1,bodyPt-1);               // footnotes render one point smaller
+  const FN_TOPGAP=6, FN_RULEGAP=4, FN_NOTEGAP=3; // above-rule / below-rule / between-notes gaps
+  const SEPW=Math.min(contentRight-mlPt,144);    // ~2in footnote separator, Word-style
+  const dnMap=buildDispNumMap(allRows);          // 'footnote:'+id -> dispNum
+  // Harvest the ordered footnote ids referenced by a body row's html BEFORE the
+  // display strip (Task 5 strips sentinels, so this must run on the raw html).
+  const harvestFnRefs=html=>{const ids=[];const re=/\uE000footnote:(-?\d+)\uE001/g;let m;
+    while((m=re.exec(String(html==null?'':html))))ids.push(m[1]);return ids;};
+  // Group footnote rows by dispNum (a footnote may span several paragraphs).
+  const fnRows=allRows.filter(r=>r.meta&&r.meta.note&&r.meta.note.kind==='footnote');
+  const fnGroups=new Map();
+  for(const r of fnRows){const dn=r.meta.note&&r.meta.note.dispNum;if(dn==null)continue;
+    if(!fnGroups.has(dn))fnGroups.set(dn,[]);fnGroups.get(dn).push(r);}
+  // Build one footnote's rendered block: flat drawable lines at the smaller size,
+  // the first paragraph prefixed "dispNum. ". Atomic (whole block floats as a unit).
+  const buildFnBlock=(rowsForNote,dispNum)=>{
+    const drawn=[];
+    rowsForNote.forEach((row,idx)=>{
+      const meta=row.meta||{},base=pdfStyle(meta,'eq',fnPt,false,set),atoms=[];
+      if(idx===0){for(const tk of ((dispNum+'. ').match(/\S+|\s+/g)||[]))atoms.push({text:tk,st:base});}
+      for(const r of pdfParseRuns(stripSent(row.html),show.fmt)){const st=pdfStyle(meta,r.kind,fnPt,r.bold,set);
+        for(const tk of (r.text.match(/\S+|\s+/g)||[]))atoms.push({text:tk,st});}
+      const availW=contentRight-mlPt,lines=[];let cur=[],curW=0;
+      for(const a of atoms){const isSp=/^\s+$/.test(a.text),w=measure(a.text,a.st.size,a.st.bold,a.st.italic);
+        if(!cur.length&&isSp)continue;
+        if(curW+w>availW&&cur.length){lines.push(cur);cur=[];curW=0;if(isSp)continue;}
+        cur.push(a);curW+=w;}
+      if(cur.length)lines.push(cur);
+      if(!lines.length)lines.push([{text:'',st:base}]);
+      const isChange=row.type!=='equal'||!!(row.fmtChanged&&show.fmt);
+      for(const line of lines){let ms=base.size;for(const a of line)if(a.st.size>ms)ms=a.st.size;
+        drawn.push({line,lh:ms*1.15,isChange});}
+    });
+    return {dispNum,drawn,h:drawn.reduce((s,d)=>s+d.lh,0)};
+  };
+  const fnBlockByNum={};
+  for(const [dn,rws] of fnGroups)fnBlockByNum[dn]=buildFnBlock(rws,dn);
+  const hasFootnotes=Object.keys(fnBlockByNum).length>0;
+  // Reserve height for the set of footnotes floated on one page (0 when empty).
+  const fnReserveFor=dns=>{if(!dns||!dns.length)return 0;
+    let h=FN_TOPGAP+FN_RULEGAP;dns.forEach((dn,i)=>{h+=fnBlockByNum[dn].h;if(i>0)h+=FN_NOTEGAP;});return h;};
+  const _visible=row=>{const t=row.type;
+    if(t==='equal'){ if(show.eq) return true; return !!(row.fmtChanged && show.fmt); }
+    if(t==='inserted'&&!show.ins)return false;
+    if(t==='deleted'&&!show.del)return false;
+    if((t==='moved-to'||t==='moved-from')&&!show.mov)return false;
+    return true;};
+  // Wrap one cell paragraph's runs to a given width (used by the table branch).
+  const _wrapCellPara=(row,availW)=>{
+    const meta=row.meta||{},base=pdfStyle(meta,'eq',bodyPt,false,set),atoms=[];
+    if(meta.marker)atoms.push({text:meta.marker,st:base},{text:' ',st:base});
+    for(const r of pdfParseRuns(stripSent(row.html),show.fmt)){const st=pdfStyle(meta,r.kind,bodyPt,r.bold,set);
+      const toks=r.text.match(/\S+|\s+/g)||[];
+      for(const tk of toks)atoms.push({text:tk,st});}
+    const lines=[];let cur=[],curW=0;
+    for(const a of atoms){const isSp=/^\s+$/.test(a.text);const w=measure(a.text,a.st.size,a.st.bold,a.st.italic);
+      if(!cur.length&&isSp)continue;
+      if(curW+w>availW&&cur.length){lines.push(cur);cur=[];curW=0;if(isSp)continue;}
+      cur.push(a);curW+=w;}
+    if(cur.length)lines.push(cur);
+    if(!lines.length)lines.push([{text:'',st:base}]);
+    const lineHeights=lines.map(line=>{let ms=base.size;for(const a of line)if(a.st.size>ms)ms=a.st.size;return ms*1.15;});
+    return {lines,lineHeights,h:lineHeights.reduce((x,y)=>x+y,0)};
+  };
+  // Turn a contiguous run of visible table-cell rows into one pseudo-para per
+  // visual table ROW: planBreaks sees each row as a single unsplittable line, so
+  // pages break BETWEEN table rows, never through one.
+  const _pushTableRows=(run,cols)=>{
+    const PADX=4,PADY=3;
+    const contentW=contentRight-mlPt;
+    const gw=(run[0].meta.tbl.gw&&run[0].meta.tbl.gw.length===cols)?run[0].meta.tbl.gw:null;
+    const totGw=gw?gw.reduce((a,b)=>a+b,0):0;
+    const colW=[],cx=[];let acc=mlPt;
+    for(let c=0;c<cols;c++){const w=(gw&&totGw)?contentW*(gw[c]/totGw):contentW/cols;colW.push(w);cx.push(acc);acc+=w;}
+    const trs=[];let curT=null,curKey=null;
+    for(const r of run){
+      const k=(r.ni!=null?'r':'o')+':'+r.meta.tbl.ti+':'+r.meta.tbl.ri;
+      if(k!==curKey){curT={cells:Array.from({length:cols},()=>[]),flat:[]};trs.push(curT);curKey=k;}
+      curT.cells[Math.min(r.meta.tbl.ci,cols-1)].push(r);
+      curT.flat.push(r);
+    }
+    const pageH=Hpt-mtPt-mbPt;
+    trs.forEach((tr,t)=>{
+      const cells=[];let rowContentH=0;
+      for(let c=0;c<cols;c++){
+        const wrapped=tr.cells[c].map(r=>_wrapCellPara(r,Math.max(20,colW[c]-2*PADX)));
+        const h=wrapped.reduce((x,w)=>x+w.h,0);
+        if(h>rowContentH)rowContentH=h;
+        cells.push(wrapped);
+      }
+      const rowH=rowContentH+2*PADY;
+      if(rowH>pageH-12){
+        // A row taller than one page cannot render as an unsplittable grid row —
+        // degrade its cells to ordinary stacked paragraphs so line-level page
+        // breaking applies (never draw off-page).
+        for(const r of tr.flat){
+          const w=_wrapCellPara(r,Math.max(40,contentRight-mlPt));
+          paras.push({meta:r.meta||{},lines:w.lines,lineHeights:w.lineHeights,bodyX:mlPt,
+            markerText:'',markerX:mlPt,base:pdfStyle(r.meta||{},'eq',bodyPt,false,set),align:'left',indFLPt:0,
+            isChange:r.type!=='equal'||!!(r.fmtChanged&&show.fmt),
+            fnRefs:harvestFnRefs(r.html),
+            spaceBeforePt:0,spaceAfterPt:2,keepNext:false,keepLines:false,pageBreakBefore:false});
+        }
+        return;
+      }
+      paras.push({isTableRow:true,cells,colW,cx,rowH,padX:PADX,padY:PADY,
+        meta:{},lines:[[]],lineHeights:[rowH],bodyX:mlPt,markerText:'',markerX:mlPt,
+        base:pdfStyle({},'eq',bodyPt,false,set),align:'left',indFLPt:0,
+        isChange:tr.flat.some(r=>r.type!=='equal'||(r.fmtChanged&&show.fmt)),
+        fnRefs:[].concat.apply([],tr.flat.map(r=>harvestFnRefs(r.html))),
+        spaceBeforePt:t===0?6:0,spaceAfterPt:t===trs.length-1?6:0,
+        keepNext:false,keepLines:false,
+        pageBreakBefore:t===0&&!!(run[0].meta&&run[0].meta.pageBreakBefore)&&paras.length>0});
+    });
+  };
+  // Build one wrapped paragraph and push it to `paras`. Shared by the body pass and
+  // the endnotes section (v1.6.0). prevRaw/nextRaw are the RAW document neighbours
+  // used only for contextualSpacing gap-zeroing; prefix (e.g. "1. ") is prepended as
+  // leading atoms in the base style. Body callers pass no prefix, so their output is
+  // byte-identical to v1.5.0 (stripSent is a no-op on note-free text).
+  const emitParaRow=(row,prevRaw,nextRaw,prefix)=>{
+    const meta=row.meta||{};
+    const indLeftPt=meta.indLeftPt||0, indHangPt=meta.indHangingPt||0, indFLPt=meta.indFirstLinePt||0;
+    const bodyX=mlPt+indLeftPt;
+    const markerText=meta.marker||'';
+    const markerX=mlPt+indLeftPt-(indHangPt||0);
+    const base=pdfStyle(meta,'eq',bodyPt,false,set);
+    const align=meta.align||'left';
+    const atoms=[];
+    if(prefix){for(const tk of (prefix.match(/\S+|\s+/g)||[]))atoms.push({text:tk,st:base});}
+    for(const r of pdfParseRuns(stripSent(row.html),show.fmt)){const st=pdfStyle(meta,r.kind,bodyPt,r.bold,set);
+      const toks=r.text.match(/\S+|\s+/g)||[];
+      for(const tk of toks)atoms.push({text:tk,st});}
+    // Compact inline note for a formatting-only change — consumes row.fmtDescs
+    // (set alongside row.fmtChanged in Task 4's compare wiring); no title-attribute
+    // re-parsing here. Clean export when formatting is hidden: no mark, no note.
+    if(row.fmtChanged&&show.fmt){
+      const noteSt=pdfStyle(meta,'fmt',bodyPt,false,set);
+      const noteText='  [formatting: '+(row.fmtDescs||[]).join('; ')+']';
+      const noteToks=noteText.match(/\S+|\s+/g)||[];
+      for(const tk of noteToks)atoms.push({text:tk,st:noteSt}); // word-wrapped like ordinary runs so a long note breaks across lines instead of overflowing the page
+    }
+    const availFor=li=>Math.max(40,contentRight-(bodyX+(li===0?indFLPt:0)));
+    const lines=[]; let cur=[],curW=0;
+    for(const a of atoms){const isSp=/^\s+$/.test(a.text);const w=measure(a.text,a.st.size,a.st.bold,a.st.italic);
+      if(!cur.length&&isSp)continue;
+      if(curW+w>availFor(lines.length)&&cur.length){lines.push(cur);cur=[];curW=0;if(isSp)continue;}
+      cur.push(a);curW+=w;}
+    if(cur.length)lines.push(cur);
+    if(!lines.length)lines.push([{text:'',st:base}]);
+    // Per-line height from the document's real line spacing (Word "auto" multiplies
+    // single spacing; our single-spacing factor stays 1.15 as in v1.1.5).
+    const lineHeights=lines.map(line=>{
+      let maxSize=base.size; for(const a of line)if(a.st.size>maxSize)maxSize=a.st.size;
+      const natural=maxSize*1.15*(meta.lineSpacing||1);
+      if(meta.lineExactPt!=null)return meta.lineRule==='exact'?meta.lineExactPt:Math.max(natural,meta.lineExactPt);
+      return natural;});
+    // contextualSpacing by RAW document adjacency (same rule as screen paraHtml):
+    // zero the gap against an immediately-neighbouring same-style paragraph,
+    // independent of which rows the Show filter hides.
+    let sb=meta.spaceBeforePt!=null?meta.spaceBeforePt:0;
+    let sa=meta.spaceAfterPt!=null?meta.spaceAfterPt:6;   // v1.1.5 flat gap when undeclared
+    if(meta.contextualSpacing&&meta.styleId){
+      if(prevRaw&&prevRaw.meta&&prevRaw.meta.styleId===meta.styleId)sb=0;
+      if(nextRaw&&nextRaw.meta&&nextRaw.meta.styleId===meta.styleId)sa=0;
+    }
+    paras.push({meta,lines,lineHeights,bodyX,markerText,markerX,base,align,indFLPt,
+      spaceBeforePt:sb,
+      spaceAfterPt:sa,
+      keepNext:!!meta.keepNext||!!meta.heading,
+      keepLines:!!meta.keepLines,
+      isChange:row.type!=='equal'||!!(row.fmtChanged&&show.fmt),
+      // Ordered footnote ids this row references (harvested from RAW html before
+      // stripSent). Empty for note-free / endnote rows, so it is an inert extra
+      // property there — never read unless hasFootnotes.
+      fnRefs:harvestFnRefs(row.html),
+      pageBreakBefore:!!meta.pageBreakBefore&&paras.length>0});
+  };
+  let _ri=0;
+  while(_ri<bodyRows.length){
+    const row0=bodyRows[_ri];
+    const tbl0=row0.meta&&row0.meta.tbl;
+    if(tbl0){
+      const cols=tbl0.cols,run=[],seenTi={r:null,o:null};
+      while(_ri<bodyRows.length&&bodyRows[_ri].meta&&bodyRows[_ri].meta.tbl&&bodyRows[_ri].meta.tbl.cols===cols){
+        const r2=bodyRows[_ri],side=(r2.ni!=null)?'r':'o',t2=r2.meta.tbl.ti;
+        if(seenTi[side]!=null&&seenTi[side]!==t2)break; // adjacent distinct table
+        seenTi[side]=t2;
+        // Equal cells stay in the table even under the "unchanged" filter —
+        // parity with the screen CSS (a table without them is unreadable).
+        if(_visible(r2)||r2.type==='equal')run.push(r2);
+        _ri++;}
+      if(run.length)_pushTableRows(run,cols);
+      continue;
+    }
+    if(!_visible(row0)){_ri++;continue;}
+    const row=row0;_ri++;
+    emitParaRow(row,bodyRows[_ri-2],bodyRows[_ri]);
+  }
+  // ---- Endnotes section (v1.6.0): a titled block after the body. Empty for a
+  // note-free doc (enRows.length===0), so the whole block is skipped and output is
+  // unchanged. Endnote change rows flow through the same emitParaRow → they get
+  // v1.4.0 margin change bars for free via their isChange flag in Pass 3. ----
+  const enVis=enRows.filter(_visible);
+  if(enVis.length){
+    // Bold heading; keepNext ties it to the first endnote so it never dangles.
+    emitParaRow({type:'equal',meta:{isBold:true,keepNext:true,spaceBeforePt:14,spaceAfterPt:6},html:'Endnotes'},null,null);
+    enVis.forEach((er,i)=>{
+      const dn=er.meta&&er.meta.note&&er.meta.note.dispNum;
+      emitParaRow(er,enVis[i-1],enVis[i+1],(dn!=null?dn+'. ':''));
+    });
+  }
+  // ---- Pass 2: page planning (banner shortens page 1) ----
+  const availH=Hpt-mtPt-mbPt;
+  const BANNER_H=62; // 20+12+14+16 from the banner block above
+  const blocks=paras.map(p=>({lineHeights:p.lineHeights,spaceBeforePt:p.spaceBeforePt,
+    spaceAfterPt:p.spaceAfterPt,keepNext:p.keepNext,keepLines:p.keepLines,
+    pageBreakBefore:p.pageBreakBefore}));
+  // Page index of each para (its FIRST line), replayed from a break list exactly
+  // as Pass 3 does: page++ on every planned break, para page recorded at line 0.
+  const pageOfPara=brkList=>{const seen=new Set(brkList.map(x=>x.b+':'+x.l));
+    const out=new Array(paras.length);let pg=0;
+    for(let pI=0;pI<paras.length;pI++){const n=paras[pI].lineHeights.length||1;
+      for(let li=0;li<n;li++){if(seen.has(pI+':'+li))pg++;if(li===0)out[pI]=pg;}}
+    return out;};
+  // Notes floated on each page: map page -> ordered unique dispNums referenced by
+  // that page's body paras (only footnotes we actually built a block for).
+  const notesForPages=poParas=>{const m=new Map();
+    for(let pI=0;pI<paras.length;pI++){const refs=paras[pI].fnRefs;if(!refs||!refs.length)continue;
+      const pg=poParas[pI];let arr=m.get(pg);if(!arr){arr=[];m.set(pg,arr);}
+      for(const id of refs){const dn=dnMap['footnote:'+id];
+        if(dn!=null&&fnBlockByNum[dn]&&arr.indexOf(dn)<0)arr.push(dn);}}
+    // drop pages whose refs mapped to nothing
+    for(const [pg,arr] of [...m])if(!arr.length)m.delete(pg);
+    return m;};
+  let brks,pageNotes=new Map();
+  if(hasFootnotes){
+    // Float pre-pass: paginate, reserve per page, re-paginate up to 3x (footnote
+    // height shortens its page's body area — a feedback loop). Accept the last
+    // assignment if not converged (KNOWN LIMITATION).
+    let availOf; // iter 0: no reserve -> default (byte path)
+    let prevKey=null;
+    for(let iter=0;iter<3;iter++){
+      const bi=planBreaks(blocks,availH,availH-BANNER_H,availOf);
+      const po=pageOfPara(bi);
+      const nf=notesForPages(po);
+      brks=bi;pageNotes=nf;
+      const key=JSON.stringify([...nf].map(([p,a])=>[p,a]).sort((x,y)=>x[0]-y[0]));
+      if(key===prevKey)break;              // converged
+      prevKey=key;
+      availOf=pg=>{const base=(pg===0?(availH-BANNER_H):availH)-fnReserveFor(nf.get(pg));
+        return Math.max(40,base);};        // floor guards against a pathological oversized reserve
+    }
+  }else{
+    brks=planBreaks(blocks,availH,availH-BANNER_H); // byte-identical original call
+  }
+  const brkSet=new Set(brks.map(x=>x.b+':'+x.l));
+  // Draw one page's floated footnotes: a distinct-gray separator rule (NOT the
+  // 0.15 change-bar literal) then the footnote blocks stacked above the bottom
+  // margin. Changed footnote lines push to curBar() so v1.4.0 bars cover them.
+  const drawFootnotesForPage=P=>{
+    const dns=pageNotes.get(P);if(!dns||!dns.length)return;
+    const resH=fnReserveFor(dns);
+    const ySep=mbPt+resH-FN_TOPGAP;
+    ops.push('0.5 0.5 0.5 RG','0.5 w',fmt(mlPt)+' '+fmt(ySep)+' m '+fmt(mlPt+SEPW)+' '+fmt(ySep)+' l S');
+    let top=mbPt+resH-FN_TOPGAP-FN_RULEGAP;
+    dns.forEach((dn,i)=>{if(i>0)top-=FN_NOTEGAP;
+      for(const d of fnBlockByNum[dn].drawn){const line=d.line,lh=d.lh;
+        let ms=0;for(const a of line)if(a.st&&a.st.size>ms)ms=a.st.size;if(!ms)ms=fnPt;
+        const baseline=top-ms*0.8;let x=mlPt;
+        for(const a of line){seg(x,baseline,a.text,a.st);x+=measure(a.text,a.st.size,a.st.bold,a.st.italic);}
+        if(d.isChange)curBar().push({top:top,bot:top-lh});
+        top-=lh;}});
+  };
+  // ---- Pass 3: render ----
+  let atTop=true, curPageIndex=0;
+  // Flush the finished page's footnotes, then start the next physical page.
+  // Inert when there are no footnotes (drawFootnotesForPage returns immediately),
+  // so replacing newPage() with nextPage() below is a no-op for note-free docs.
+  const nextPage=()=>{if(hasFootnotes)drawFootnotesForPage(curPageIndex);newPage();curPageIndex++;};
+  for(let pi=0;pi<paras.length;pi++){
+    const p=paras[pi],meta=p.meta;
+    if(!atTop&&!brkSet.has(pi+':0'))penY-=p.spaceBeforePt;
+    if(p.isTableRow){
+      // One visual table row: light grid + per-cell wrapped text.
+      if(brkSet.has(pi+':0')){nextPage();atTop=true;}
+      if(penY-p.rowH<mbPt&&!atTop)nextPage();
+      const yTop=penY,xL=p.cx[0],xR=p.cx[p.cx.length-1]+p.colW[p.colW.length-1];
+      ops.push('0.72 0.75 0.79 RG','0.7 w');
+      ops.push(fmt(xL)+' '+fmt(yTop)+' m '+fmt(xR)+' '+fmt(yTop)+' l S');
+      ops.push(fmt(xL)+' '+fmt(yTop-p.rowH)+' m '+fmt(xR)+' '+fmt(yTop-p.rowH)+' l S');
+      for(let c=0;c<=p.colW.length;c++){const x=(c<p.colW.length)?p.cx[c]:xR;
+        ops.push(fmt(x)+' '+fmt(yTop)+' m '+fmt(x)+' '+fmt(yTop-p.rowH)+' l S');}
+      for(let c=0;c<p.cells.length;c++){
+        let y=yTop-p.padY;
+        for(const cp of p.cells[c]){
+          for(let li=0;li<cp.lines.length;li++){
+            const line=cp.lines[li],lh=cp.lineHeights[li];
+            let ms=0;for(const a of line)if(a.st&&a.st.size>ms)ms=a.st.size;if(!ms)ms=bodyPt;
+            const baseline=y-ms*0.8;
+            let x=p.cx[c]+p.padX;
+            for(const a of line){seg(x,baseline,a.text,a.st);x+=measure(a.text,a.st.size,a.st.bold,a.st.italic);}
+            y-=lh;
+          }
+        }
+      }
+      if(p.isChange)curBar().push({top:yTop,bot:yTop-p.rowH});
+      penY-=p.rowH;atTop=false;
+      penY-=p.spaceAfterPt;
+      continue;
+    }
+    for(let li=0;li<p.lines.length;li++){
+      if(brkSet.has(pi+':'+li)){nextPage();atTop=true;}
+      const line=p.lines[li],lh=p.lineHeights[li];
+      let maxSize=p.base.size; for(const a of line)if(a.st.size>maxSize)maxSize=a.st.size;
+      const ascent=maxSize*0.8;
+      if(penY-lh<mbPt&&!atTop)nextPage();   // safety net; planBreaks should have caught it
+      const baseline=penY-ascent;
+      if(li===0&&p.markerText)seg(p.markerX,baseline,p.markerText,p.base);
+      const lineStartX=p.bodyX+(li===0?p.indFLPt:0), lineAvail=contentRight-lineStartX;
+      let natural=0,gaps=0;
+      for(let k=0;k<line.length;k++){const a=line[k];natural+=measure(a.text,a.st.size,a.st.bold,a.st.italic);
+        if(/^\s+$/.test(a.text)&&k!==line.length-1)gaps++;}
+      const isLast=(li===p.lines.length-1);
+      let x=lineStartX,extraPerGap=0;
+      if(p.align==='center')x=lineStartX+Math.max(0,(lineAvail-natural)/2);
+      else if(p.align==='right')x=lineStartX+Math.max(0,(lineAvail-natural));
+      else if(p.align==='justify'&&!isLast&&gaps>0){const extra=lineAvail-natural;if(extra>0)extraPerGap=extra/gaps;}
+      for(let k=0;k<line.length;k++){const a=line[k];seg(x,baseline,a.text,a.st);
+        x+=measure(a.text,a.st.size,a.st.bold,a.st.italic);
+        if(extraPerGap&&/^\s+$/.test(a.text)&&k!==line.length-1)x+=extraPerGap;}
+      if(p.isChange)curBar().push({top:penY,bot:penY-lh});
+      penY-=lh; atTop=false;
+    }
+    penY-=p.spaceAfterPt;
+  }
+  if(hasFootnotes)drawFootnotesForPage(curPageIndex); // flush the final page's footnotes
+  // ---- Margin change bars: merge each page's changed-line intervals, stroke one bar per run ----
+  const barX=mlPt-8;
+  for(let bp=0;bp<barSpans.length;bp++){
+    const spans=barSpans[bp]; if(!spans.length)continue;
+    spans.sort((a,b)=>b.top-a.top); // top-of-page (larger y) first
+    const merged=[]; let cur=null;
+    for(const s of spans){
+      if(cur&&s.top>=cur.bot-0.5){ if(s.bot<cur.bot)cur.bot=s.bot; } // abuts/overlaps -> extend
+      else { cur={top:s.top,bot:s.bot}; merged.push(cur); }
+    }
+    const pg=pages[bp];
+    for(const mg of merged)
+      pg.push('0.15 0.15 0.15 RG','1.3 w',fmt(barX)+' '+fmt(mg.top)+' m '+fmt(barX)+' '+fmt(mg.bot)+' l S');
+  }
+  // ---- Assemble PDF objects: base-14 Times, or non-embedded TrueType named after the doc font. ----
+  const parts=[];let nextObj=3;const fontRefs={};
+  if(useDocFont){
+    const psBase=docFont.replace(/[^\x21-\x7E]/g,'').replace(/\s+/g,'')||'DocFont';
+    const REVW={};for(const u in WINANSI)REVW[WINANSI[u]]=+u;
+    const winChar=c=>String.fromCodePoint(REVW[c]!=null?REVW[c]:c);
+    const styles=[['F1','',false,false],['F2',',Bold',true,false],['F3',',Italic',false,true],['F4',',BoldItalic',true,true]];
+    for(const[key,suf,bo,it]of styles){
+      const name=psBase+suf;
+      const w=[];for(let c=32;c<=255;c++)w.push(Math.round(measure(winChar(c),1000,bo,it))||500);
+      const descN=nextObj++;
+      parts[descN]='<</Type/FontDescriptor/FontName/'+name+'/Flags 32/FontBBox[-250 -300 1300 1000]'
+        +'/ItalicAngle '+(it?-12:0)+'/Ascent 800/Descent -250/CapHeight 700/StemV '+(bo?160:80)+'>>';
+      const fontN=nextObj++;
+      parts[fontN]='<</Type/Font/Subtype/TrueType/BaseFont/'+name+'/FirstChar 32/LastChar 255'
+        +'/Widths['+w.join(' ')+']/Encoding/WinAnsiEncoding/FontDescriptor '+descN+' 0 R>>';
+      fontRefs[key]=fontN;
+    }
+    const f5=nextObj++;
+    parts[f5]='<</Type/Font/Subtype/Type1/BaseFont/Helvetica-Bold/Encoding/WinAnsiEncoding>>';
+    fontRefs.F5=f5;
+  }else{
+    const base14=[['F1','Times-Roman'],['F2','Times-Bold'],['F3','Times-Italic'],['F4','Times-BoldItalic'],['F5','Helvetica-Bold']];
+    for(const[key,bf]of base14){const n=nextObj++;
+      parts[n]='<</Type/Font/Subtype/Type1/BaseFont/'+bf+'/Encoding/WinAnsiEncoding>>';fontRefs[key]=n;}
+  }
+  const firstPageObj=nextObj;
+  const kids=[];for(let i=0;i<pages.length;i++)kids.push((firstPageObj+2*i)+' 0 R');
+  const fontRes=Object.keys(fontRefs).map(k=>'/'+k+' '+fontRefs[k]+' 0 R').join(' ');
+  parts[1]='<</Type/Catalog/Pages 2 0 R>>';
+  parts[2]='<</Type/Pages/Count '+pages.length+'/Kids['+kids.join(' ')+']/MediaBox[0 0 '+fmt(Wpt)+' '+fmt(Hpt)+']>>';
+  for(let i=0;i<pages.length;i++){const pn=firstPageObj+2*i,cn=pn+1;const content=pages[i].join('\n');
+    parts[pn]='<</Type/Page/Parent 2 0 R/Resources<</Font<<'+fontRes+'>>/ProcSet[/PDF/Text]>>/Contents '+cn+' 0 R>>';
+    parts[cn]='<</Length '+content.length+'>>\nstream\n'+content+'\nendstream';}
+  let pdf='%PDF-1.4\n'; const off=[];
+  for(let n=1;n<parts.length;n++){off[n]=pdf.length;pdf+=n+' 0 obj\n'+parts[n]+'\nendobj\n';}
+  const xrefStart=pdf.length, count=parts.length;
+  pdf+='xref\n0 '+count+'\n0000000000 65535 f \n';
+  for(let n=1;n<count;n++)pdf+=(''+off[n]).padStart(10,'0')+' 00000 n \n';
+  pdf+='trailer\n<</Size '+count+'/Root 1 0 R>>\nstartxref\n'+xrefStart+'\n%%EOF';
+  return {pdf,pages:pages.length};
+}
+function downloadPdf(){
+  if(!lastRows||!lastRows.length){showErr('Run a comparison first, then download the PDF.');return;}
+  try{
+    const {pdf}=generateRedlinePdf();
+    const bytes=new Uint8Array(pdf.length); for(let i=0;i<pdf.length;i++)bytes[i]=pdf.charCodeAt(i)&0xff;
+    const blob=new Blob([bytes],{type:'application/pdf'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url;
+    a.download=((fileB&&fileB.name)?fileB.name.replace(/\.docx$/i,''):'document')+' — Redline.pdf';
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{try{URL.revokeObjectURL(url);a.remove();}catch(_){}},1500);
+  }catch(e){showErr('PDF generation failed: '+(e&&e.message||e));}
+}
+$('btnPdf').addEventListener('click',downloadPdf);
+$('btnPrint').addEventListener('click',exportPdf);
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&(e.key==='p'||e.key==='P')&&resultsShown){
+    e.preventDefault(); downloadPdf();
+  }
+});
+
+function markerHtml(meta,minW){return '<span class="marker" style="min-width:'+minW.toFixed(1)+'px">'+esc((meta&&meta.marker)||'')+'</span>';}
+function paraHtml(row,pageBreak,prevMeta,nextMeta){
+  const meta=row.meta||{},cls=['para',row.type];
+  if(row.fmtChanged)cls.push('fmtchanged');
+  if(meta.heading)cls.push('h'+meta.heading);
+  if(meta.isBold)cls.push('bold');
+  if(meta.keepNext||meta.heading)cls.push('keepnext');
+  if(pageBreak)cls.push('pgbreak');
+  // Real Word indents (pt) -> px. Marker hangs at (left-hanging); body sits at left.
+  const PX=4/3, leftPt=meta.indLeftPt||0, hangPt=meta.indHangingPt||0;
+  const markerText=(meta.marker||'');
+  const blockLeftPx=Math.max(0,(markerText?(leftPt-hangPt):leftPt))*PX;
+  const markerMinPx=markerText?Math.max(0,hangPt*PX-10):0; // -10 offsets the flex gap
+  const align=meta.align||'left';
+  let anchor='';
+  if(row.type==='moved-to')anchor='<span class="anchor" title="Moved from earlier">▲ moved</span>';
+  if(row.type==='moved-from')anchor='<span class="anchor" title="Moved to later">▼ moved</span>';
+  const badge=row.cid?('<span class="cbadge">'+row.cid+'</span>'):'';
+  const id=row.cid?(' id="chg-'+row.cid+(row.type==='moved-from'?'-from':'')+'"'):'';
+  // Real Word spacing -> inline margins / line-height (1pt = 4/3 px). contextualSpacing
+  // zeroes the gap against a same-style neighbour. Absent values emit NOTHING so the
+  // stylesheet defaults (v1.1.5 look) still apply.
+  let sp='';
+  const prevSame=!!(prevMeta&&prevMeta.styleId&&prevMeta.styleId===meta.styleId);
+  const nextSame=!!(nextMeta&&nextMeta.styleId&&nextMeta.styleId===meta.styleId);
+  const sb=(meta.contextualSpacing&&prevSame)?null:meta.spaceBeforePt;
+  const sa=(meta.contextualSpacing&&nextSame)?null:meta.spaceAfterPt;
+  if(sb!=null)sp+='margin-top:'+(sb*PX).toFixed(1)+'px;';
+  if(sa!=null)sp+='margin-bottom:'+(sa*PX).toFixed(1)+'px;';
+  if(meta.lineExactPt!=null){
+    const lh=(meta.lineExactPt*PX).toFixed(1)+'px';
+    // atLeast = minimum height that still grows with content (Word/PDF semantics);
+    // exact = fixed height.
+    sp+='line-height:'+(meta.lineRule==='atLeast'?('max('+lh+', 1.15em)'):lh)+';';
+  }
+  else if(meta.lineSpacing!=null)sp+='line-height:'+(1.15*meta.lineSpacing).toFixed(2)+';';
+  if(blockLeftPx>0.5)sp+='margin-left:'+blockLeftPx.toFixed(1)+'px;';
+  const paraStyle=sp?(' style="'+sp+'"'):'';
+  const bodyStyle=(align!=='left')?(' style="text-align:'+align+'"'):'';
+  return '<p class="'+cls.join(' ')+'"'+id+paraStyle+' data-cid="'+(row.cid||'')+'">'+markerHtml(meta,markerMinPx)+
+         '<span class="body"'+bodyStyle+'>'+badge+row.html+anchor+'</span></p>';
+}
+function snippetHtml(row){
+  // Tag-safe truncation: walk tags/text, keep ~90 visible chars, close open tags.
+  const LIMIT=90; const re=/<[^>]+>|[^<]+/g; let m,out='',vis=0; const stack=[];
+  while(vis<LIMIT&&(m=re.exec(row.html))){
+    const t=m[0];
+    if(t[0]==='<'){
+      out+=t;
+      if(t[1]==='/')stack.pop(); else stack.push(t.match(/^<(\w+)/)[1]);
+    }else if(vis+t.length<=LIMIT){ out+=t; vis+=t.length; }
+    else { out+=t.slice(0,LIMIT-vis)+'…'; vis=LIMIT; }
+  }
+  while(stack.length)out+='</'+stack.pop()+'>';
+  return out;
+}
+function typeLabel(t){return t==='inserted'?'Insertion':t==='deleted'?'Deletion':t==='changed'?'Amendment':t==='moved-to'?'Move (to)':t==='moved-from'?'Move (from)':t;}
+
+/* ================= table-aware body rendering (v1.3.0) ================= */
+// One table CELL paragraph, kept as .para so navigation (data-cid / #chg-N),
+// filters and the change list keep working. Indent/margin styles are omitted —
+// the cell provides the box.
+function cellHtml(row){
+  const meta=row.meta||{},cls=['para','tcell',row.type];
+  if(meta.heading)cls.push('h'+meta.heading);
+  if(meta.isBold)cls.push('bold');
+  let anchor='';
+  if(row.type==='moved-to')anchor='<span class="anchor" title="Moved from earlier">▲ moved</span>';
+  if(row.type==='moved-from')anchor='<span class="anchor" title="Moved to later">▼ moved</span>';
+  const badge=row.cid?('<span class="cbadge">'+row.cid+'</span>'):'';
+  const id=row.cid?(' id="chg-'+row.cid+(row.type==='moved-from'?'-from':'')+'"'):'';
+  const marker=meta.marker?esc(meta.marker)+' ':'';
+  return '<div class="'+cls.join(' ')+'"'+id+' data-cid="'+(row.cid||'')+'"><span class="body">'+badge+marker+row.html+anchor+'</span></div>';
+}
+// Visual-row key: side-aware so a DELETED source row (orig-side indices) forms its
+// own <tr> instead of merging into the revised row that replaced it.
+function _trKey(r){const t=r.meta.tbl;return (r.ni!=null?'r':'o')+':'+t.ti+':'+t.ri;}
+// Group a contiguous run of table-cell rows (same column count) into one <table>.
+// Cells land in their source column; missing columns pad with empty <td>s.
+function tableHtml(run,cols){
+  const trs=[];let cur=null,curKey=null;
+  for(const r of run){
+    const k=_trKey(r);
+    if(k!==curKey){cur={cells:Array.from({length:cols},()=>'')};trs.push(cur);curKey=k;}
+    const ci=Math.min(r.meta.tbl.ci,cols-1);
+    cur.cells[ci]+=cellHtml(r);
+  }
+  return '<table class="ctable">'+trs.map(tr=>'<tr>'+tr.cells.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')+'</table>';
+}
+// The document body: paragraphs via paraHtml, consecutive table-cell rows grouped
+// into real tables. A new visual table starts when the column count changes.
+function bodyRowsHtml(rows){
+  let html='',firstPara=true,i=0;
+  while(i<rows.length){
+    const r=rows[i],tbl=r.meta&&r.meta.tbl;
+    if(!tbl){
+      // Honour Word page breaks in print/PDF. Suppress on the very first paragraph
+      // so the document never opens with a blank leading page.
+      const brk=!!(r.meta&&r.meta.pageBreakBefore)&&!firstPara;
+      if(brk)html+='<div class="pgbreak-sep" aria-hidden="true"><span>Page break</span></div>';
+      const pm=i>0?rows[i-1].meta:null,nm=i+1<rows.length?rows[i+1].meta:null;
+      html+=paraHtml(r,brk,pm,nm);
+      firstPara=false;i++;continue;
+    }
+    const cols=tbl.cols,run=[],seenTi={r:null,o:null};
+    while(i<rows.length&&rows[i].meta&&rows[i].meta.tbl&&rows[i].meta.tbl.cols===cols){
+      const r2=rows[i],side=(r2.ni!=null)?'r':'o',t2=r2.meta.tbl.ti;
+      if(seenTi[side]!=null&&seenTi[side]!==t2)break; // adjacent distinct table
+      seenTi[side]=t2;
+      run.push(r2);i++;}
+    if(!!(run[0].meta&&run[0].meta.pageBreakBefore)&&!firstPara)
+      html+='<div class="pgbreak-sep" aria-hidden="true"><span>Page break</span></div>';
+    html+=tableHtml(run,cols);
+    firstPara=false;
+  }
+  return html;
+}
+
+/* ================= footnotes/endnotes screen render (v1.6.0) ================= */
+// Maps 'kind:id' -> display number, used to resolve body-reference sentinels below.
+function buildDispNumMap(rows){
+  const m={};
+  for(const r of rows){ const nt=r.meta&&r.meta.note; if(nt&&nt.dispNum!=null) m[nt.kind+':'+nt.id]=nt.dispNum; }
+  return m;
+}
+// Replaces PUA-delimited reference sentinels (\uE000<kind>:<id>\uE001, written here as
+// literal escapes) with a numbered superscript. A body reference that was added/removed
+// renders inside an <ins>/<del>, so the <sup> lands inside it and inherits ins/del color
+// via the "ins .fnref"/"del .fnref" CSS rules — no extra logic needed here. Note-free HTML
+// has no delimiters to match, so this is a no-op then (the additive guarantee).
+function noteSup(html, dnMap){
+  return html.replace(/\uE000(footnote|endnote):(-?\d+)\uE001/g, (_,kind,id)=>{
+    const n=dnMap&&dnMap[kind+':'+id];
+    return '<sup class="fnref">'+(n!=null?n:'*')+'</sup>';
+  });
+}
+// One labeled end-of-document section (Footnotes band / Endnotes section) built from the
+// note rows of the given kind, redlined the same way as body paragraphs. Empty string when
+// the document has no notes of that kind — the additive guarantee for note-free documents.
+function notesSectionHtml(rows, kind){
+  const noteRows=rows.filter(r=>r.meta && r.meta.note && r.meta.note.kind===kind);
+  if(!noteRows.length) return '';
+  const label = kind==='endnote' ? 'Endnotes' : 'Footnotes';
+  let inner='';
+  for(const r of noteRows){
+    const n=r.meta.note.dispNum!=null ? (r.meta.note.dispNum+'. ') : '';
+    inner += '<p class="para '+(r.type==='equal'?'equal':r.type)+'" data-cid="'+(r.cid||'')+'"'
+           + (r.cid?(' id="chg-'+r.cid+'"'):'') + '><span class="fnnum">'+n+'</span>'+r.html+'</p>';
+  }
+  return '<div class="'+(kind==='endnote'?'endnotes':'fnband')+'"><div class="noteshdr">'+label+'</div>'+inner+'</div>';
+}
+
+/* Style the on-screen "paper" to the ACTUAL Word page: real width, margins (as padding),
+   default font & size. This makes the browser wrap lines — and therefore estimate page
+   breaks — the same way it will when printing, so screen and PDF agree. 96 CSS px = 1in. */
+function applyPageGeometry(){
+  const paper=$('paper'); if(!paper)return;
+  if(!pageGeom){paper.removeAttribute('style');return;}
+  const g=pageGeom, PX=96;
+  paper.style.width=(g.wIn*PX)+'px';
+  paper.style.maxWidth='none';
+  paper.style.padding=(g.mt*PX)+'px '+(g.mr*PX)+'px '+(g.mb*PX)+'px '+(g.ml*PX)+'px';
+  paper.style.fontSize=(g.fontPt||11)+'pt';
+  paper.style.fontFamily=(g.font?('"'+g.font+'",'):'')+'"Times New Roman",Georgia,serif';
+  paper.style.lineHeight='1.15';
+}
+/* Estimate Word's AUTOMATIC page breaks by filling each page top-to-bottom with the
+   rendered blocks and marking where the next block would overflow the printable height.
+   This is an approximation (browser font metrics ≠ Word's), but with real geometry it
+   lands close. Explicit breaks (.pgbreak-sep) always force a new page. */
+/* Pure page-count estimator. items: {h} atomic block | {brk:true} explicit break |
+   {rows:[h,...]} table whose rows may straddle a page boundary. */
+function _estPages(items,pageContent){
+  if(!(pageContent>0))return 1;
+  let used=0,pages=1;
+  const place=h=>{ if(used>0&&used+h>pageContent){pages++;used=0;} used+=h; };
+  for(const it of items){
+    if(it.brk){pages++;used=0;continue;}
+    if(it.rows){for(const rh of it.rows)place(rh);continue;} // per-row: boundary may fall between rows
+    place(it.h||0);
+  }
+  return pages;
+}
+function paginate(){
+  try{
+    const paper=$('paper'); if(!paper||!pageGeom)return;
+    paper.querySelectorAll('.pgbreak-auto').forEach(e=>e.remove());
+    const g=pageGeom, PX=96;
+    const pageContent=(g.hIn-g.mt-g.mb)*PX;      // printable height per page, in px
+    if(!(pageContent>60))return;
+    const mb=el=>{const s=getComputedStyle(el);return (parseFloat(s.marginTop)||0)+(parseFloat(s.marginBottom)||0);};
+    let used=0, pages=1;
+    const items=[];
+    const kids=Array.prototype.slice.call(paper.children);
+    for(const el of kids){
+      const cl=el.classList;
+      // The redline banner isn't part of the Word doc — don't let it consume page 1.
+      if(cl.contains('docttl')||cl.contains('docmeta'))continue;
+      if(cl.contains('pgbreak-sep')){ used=0; pages++; items.push({brk:true}); continue; }   // explicit break: hard reset
+      if(!el.offsetHeight)continue; // hidden by a Show filter — contributes no height in print either
+      const h=el.offsetHeight+mb(el);
+      if(used>0 && used+h>pageContent){
+        const mk=document.createElement('div');
+        mk.className='pgbreak-auto'; mk.setAttribute('aria-hidden','true');
+        mk.innerHTML='<span>Page break</span>';
+        paper.insertBefore(mk,el);
+        pages++; used=0;
+      }
+      used+=h;
+      // Accurate page COUNT accounts for a tall table splitting between its rows;
+      // the visual divider above stays atomic (a table can't be split in the DOM).
+      if(cl.contains('ctable')){
+        const trs=Array.prototype.slice.call(el.querySelectorAll('tr'));
+        const rows=trs.map(tr=>tr.offsetHeight||0).filter(x=>x>0);
+        items.push(rows.length?{rows}:{h});
+      } else items.push({h});
+    }
+    estPages=_estPages(items,pageContent); updateNavStatus();
+  }catch(e){/* pagination is best-effort; never block the redline */}
+}
+let _pgTimer=null;
+function schedulePaginate(){ if(_pgTimer)clearTimeout(_pgTimer); _pgTimer=setTimeout(paginate,120); }
+window.addEventListener('resize',schedulePaginate);
+
+function renderAll(rows,summary){
+  lastSummary=summary;
+  $('cTotal').textContent=summary.total;$('cIns').textContent=summary.insertions;$('cDel').textContent=summary.deletions;$('cMov').textContent=summary.moves;
+  const cats=[];if(summary.amendments)cats.push(['Amendments',summary.amendments]);if(summary.content)cats.push(['Content',summary.content]);if(summary.punctuation)cats.push(['Punctuation',summary.punctuation]);if(summary.numbering)cats.push(['Numbering',summary.numbering]);if(summary.moves)cats.push(['Moves',summary.moves]);
+  $('catRow').innerHTML=cats.map(([l,n])=>'<span class="cat">'+l+': '+n+'</span>').join('');
+  $('cFmtInfo').textContent = summary.formatting ? ('Formatting changes: '+summary.formatting) : '';
+  const now=new Date().toLocaleString();
+  let html='<div class="docttl">Redline Comparison</div><div class="docmeta">Original: <b>'+esc(fileA.name)+'</b> &nbsp;→&nbsp; Revised: <b>'+esc(fileB.name)+'</b><br>Generated '+esc(now)+' &nbsp;•&nbsp; '+summary.total+' change'+(summary.total===1?'':'s')+'</div>';
+  const bodyRows=rows.filter(r=>!(r.meta && r.meta.note));
+  html+=bodyRowsHtml(bodyRows);
+  html+=notesSectionHtml(rows,'footnote');
+  html+=notesSectionHtml(rows,'endnote');
+  const dnMap=buildDispNumMap(rows);
+  $('paper').innerHTML=noteSup(html, dnMap);
+  const seen=new Set(); changeOrder=[]; let items='';
+  for(const r of rows){
+    if(r.type==='equal'||r.type==='moved-from')continue;
+    if(r.cid&&seen.has(r.cid))continue; if(r.cid)seen.add(r.cid);
+    changeOrder.push(r.cid);
+    const cls=r.type.startsWith('moved')?'moved':r.type;
+    items+='<div class="citem '+cls+'" data-cid="'+r.cid+'"><span class="cid">'+r.cid+'</span><span class="tag">'+typeLabel(r.type)+'</span><span class="snip">'+noteSup(snippetHtml(r), dnMap)+'</span></div>';
+  }
+  $('clist').innerHTML=items;
+  $('clist').querySelectorAll('.citem').forEach(el=>el.addEventListener('click',()=>{const cid=+el.dataset.cid;const idx=changeOrder.indexOf(cid);if(idx>=0){curIdx=idx;goToCurrent();}}));
+  applyPageGeometry();
+  estPages=0;
+  curIdx=changeOrder.length?0:-1; applyFilters(); updateNavStatus();
+  // Estimate page breaks after layout settles (needs real rendered heights).
+  requestAnimationFrame(()=>requestAnimationFrame(paginate));
+}
+function applyFilters(){const r=$('results');r.classList.toggle('hide-ins',!$('fIns').checked);r.classList.toggle('hide-del',!$('fDel').checked);r.classList.toggle('hide-mov',!$('fMov').checked);r.classList.toggle('hide-eq',!$('fEq').checked);
+  r.classList.toggle('hide-fmt',!$('fFmt').checked);
+  // Hiding/showing paragraphs changes the layout, so re-estimate page breaks.
+  schedulePaginate();}
+['fIns','fDel','fMov','fEq','fFmt'].forEach(id=>$(id).addEventListener('change',applyFilters));
+
+/* ---- Rendering-set application (R6) --------------------------------------
+   applyRenderSet is the single choke point for all three failure modes:
+   unknown id, missing id, unavailable storage. Everything lands on the default
+   rather than applying a partial map. `target` exists so tests can record the
+   writes without a DOM. */
+let activeSet=RENDER_SETS[0];
+const RS_KEY='sw.renderSet';
+function loadRenderSetId(){
+  try{return localStorage.getItem(RS_KEY)||null;}catch(_){return null;}
+}
+function applyRenderSet(id,target){
+  const set=RENDER_SETS.find(s=>s.id===id)||RENDER_SETS[0];
+  const vars=renderSetVars(set);
+  const t=target||(document.documentElement&&document.documentElement.style);
+  if(t&&t.setProperty)for(const k in vars)t.setProperty(k,vars[k]);
+  activeSet=set;
+  try{localStorage.setItem(RS_KEY,set.id);}catch(_){}
+  return set;
+}
+(function initRenderSets(){
+  const sel=$('rsSet');
+  const start=RENDER_SETS.find(s=>s.id===loadRenderSetId())||RENDER_SETS[0];
+  if(sel&&sel.appendChild){
+    for(const s of RENDER_SETS){
+      const o=document.createElement('option');
+      o.value=s.id; o.textContent=s.label;
+      if(s.id===start.id)o.selected=true;
+      sel.appendChild(o);
+    }
+    sel.value=start.id;
+    sel.addEventListener('change',()=>applyRenderSet(sel.value));
+  }
+  applyRenderSet(start.id);
+})();
+function updateNavStatus(){
+  let t=changeOrder.length?('Change '+(curIdx+1)+' of '+changeOrder.length):'No changes';
+  if(estPages>0)t+=' · ~'+estPages+' page'+(estPages===1?'':'s');
+  $('navStatus').textContent=t;
+}
+function goToCurrent(){
+  if(curIdx<0||!changeOrder.length)return;
+  const cid=changeOrder[curIdx];
+  document.querySelectorAll('.citem').forEach(el=>el.classList.toggle('active',+el.dataset.cid===cid));
+  const activeItem=document.querySelector('.citem[data-cid="'+cid+'"]'); if(activeItem)activeItem.scrollIntoView({block:'nearest'});
+  const target=document.getElementById('chg-'+cid)||document.querySelector('.para[data-cid="'+cid+'"]');
+  if(target){target.scrollIntoView({behavior:'smooth',block:'center'});target.classList.remove('target-flash');void target.offsetWidth;target.classList.add('target-flash');}
+  updateNavStatus();
+}
+$('btnPrev').addEventListener('click',()=>{if(curIdx>0){curIdx--;goToCurrent();}});
+$('btnNext').addEventListener('click',()=>{if(curIdx<changeOrder.length-1){curIdx++;goToCurrent();}});
+document.addEventListener('keydown',e=>{if(!resultsShown)return;if(e.key==='ArrowDown'||e.key==='j'){e.preventDefault();$('btnNext').click();}if(e.key==='ArrowUp'||e.key==='k'){e.preventDefault();$('btnPrev').click();}});
+</script>
+</body>
+</html>

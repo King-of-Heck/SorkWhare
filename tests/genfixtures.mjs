@@ -63,4 +63,102 @@ const spacingDocB='<?xml version="1.0"?><w:document><w:body>'+
 writeFileSync(new URL('./fixtures/spacingA.docx',import.meta.url),makeDocx({'word/document.xml':spacingDocA,'word/styles.xml':spacingStyles}));
 writeFileSync(new URL('./fixtures/spacingB.docx',import.meta.url),makeDocx({'word/document.xml':spacingDocB,'word/styles.xml':spacingStyles}));
 
+// --- notes-A/notes-B: a COMPLETE, openable .docx pair exercising footnote +
+// endnote comparison end to end (v1.6.0). Unlike the minimal fixtures above
+// (document.xml only — the app's parser looks up parts by fixed zip-entry
+// name and doesn't need Content_Types/rels), these carry the full part set a
+// real Word package would: [Content_Types].xml overrides + a top-level and a
+// word/-level rels file wiring footnotes.xml/endnotes.xml as real relationships.
+const notesContentTypes=
+'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'+
+'<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'+
+'<Default Extension="xml" ContentType="application/xml"/>'+
+'<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'+
+'<Override PartName="/word/footnotes.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml"/>'+
+'<Override PartName="/word/endnotes.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.endnotes+xml"/>'+
+'</Types>';
+const notesRootRels=
+'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'+
+'</Relationships>';
+const notesDocRels=
+'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes" Target="footnotes.xml"/>'+
+'<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/endnotes" Target="endnotes.xml"/>'+
+'</Relationships>';
+// Plain paragraph, and paragraphs carrying a footnote/endnote reference run
+// (real Word tags the reference run with the FootnoteReference/EndnoteReference
+// character style; the app's regex only cares about the <w:footnoteReference>/
+// <w:endnoteReference> element + w:id, but we include the rStyle for realism).
+const notesP=t=>'<w:p><w:r><w:t>'+t+'</w:t></w:r></w:p>';
+const notesPFn=(t,id)=>'<w:p><w:r><w:t>'+t+'</w:t></w:r><w:r><w:rPr><w:rStyle w:val="FootnoteReference"/></w:rPr><w:footnoteReference w:id="'+id+'"/></w:r></w:p>';
+const notesPEn=(t,id)=>'<w:p><w:r><w:t>'+t+'</w:t></w:r><w:r><w:rPr><w:rStyle w:val="EndnoteReference"/></w:rPr><w:endnoteReference w:id="'+id+'"/></w:r></w:p>';
+// notes-A: footnote 1 + footnote 2 referenced (para 2/3), endnote 1 referenced
+// (para 5). notes-B adds a footnote 3 reference (para 6) — an INSERTED note —
+// and otherwise keeps the same paragraphs so the docs pair at the paragraph level.
+const notesBodyA=[
+  notesP('Agreement between the parties.'),
+  notesPFn('1. The Supplier shall deliver the goods on time.',1),
+  notesPFn('2. Payment is due within thirty days of invoice.',2),
+  notesP('3. This clause remains unchanged between versions.'),
+  notesPEn('4. Liability is limited to the fees paid in the preceding twelve months.',1),
+  notesP('5. Confidentiality obligations survive termination.'),
+  notesP('6. Notices shall be delivered in writing to the addresses above.'),
+  notesP('7. This agreement is governed by the laws of the State.'),
+  notesP('8. Either party may terminate for material breach.'),
+  notesP('9. No waiver shall be implied from a delay in enforcement.'),
+  notesP('10. The parties acknowledge they have read and understood this agreement.'),
+  notesP('Signed and dated as of the effective date.'),
+];
+const notesBodyB=notesBodyA.slice();
+notesBodyB[5]=notesPFn('5. Confidentiality obligations survive termination.',3); // insert footnote 3 reference
+const notesDocA='<?xml version="1.0"?><w:document><w:body>'+notesBodyA.join('')+'</w:body></w:document>';
+const notesDocB='<?xml version="1.0"?><w:document><w:body>'+notesBodyB.join('')+'</w:body></w:document>';
+// Reserved separator/continuationSeparator entries (id -1 / 0), as real Word
+// footnotes.xml/endnotes.xml always include, then the real note content.
+// footnote 1: unchanged text (equal-note path). footnote 2: text EDITED in B.
+// footnote 3: present ONLY in B (inserted note). endnote 1: text EDITED in B.
+const fnSeparators=
+  '<w:footnote w:type="separator" w:id="-1"><w:p><w:r><w:separator/></w:r></w:p></w:footnote>'+
+  '<w:footnote w:type="continuationSeparator" w:id="0"><w:p><w:r><w:continuationSeparator/></w:r></w:p></w:footnote>';
+const enSeparators=
+  '<w:endnote w:type="separator" w:id="-1"><w:p><w:r><w:separator/></w:r></w:p></w:endnote>'+
+  '<w:endnote w:type="continuationSeparator" w:id="0"><w:p><w:r><w:continuationSeparator/></w:r></w:p></w:endnote>';
+const fnEntry=(id,t)=>'<w:footnote w:id="'+id+'"><w:p><w:r><w:rPr><w:rStyle w:val="FootnoteReference"/></w:rPr><w:footnoteRef/></w:r><w:r><w:t xml:space="preserve"> '+t+'</w:t></w:r></w:p></w:footnote>';
+const enEntry=(id,t)=>'<w:endnote w:id="'+id+'"><w:p><w:r><w:rPr><w:rStyle w:val="EndnoteReference"/></w:rPr><w:endnoteRef/></w:r><w:r><w:t xml:space="preserve"> '+t+'</w:t></w:r></w:p></w:endnote>';
+const footnotesA='<?xml version="1.0"?><w:footnotes>'+fnSeparators+
+  fnEntry(1,'See Section 2 for further details on delivery timing.')+
+  fnEntry(2,'Thirty days is measured from the invoice date, not the delivery date.')+
+  '</w:footnotes>';
+const footnotesB='<?xml version="1.0"?><w:footnotes>'+fnSeparators+
+  fnEntry(1,'See Section 2 for further details on delivery timing.')+ // unchanged
+  fnEntry(2,'Forty-five days is measured from the invoice date, not the delivery date.')+ // edited
+  fnEntry(3,'This obligation survives termination of the agreement.')+ // inserted
+  '</w:footnotes>';
+const endnotesA='<?xml version="1.0"?><w:endnotes>'+enSeparators+
+  enEntry(1,'Fees means all amounts invoiced under this agreement, excluding taxes.')+
+  '</w:endnotes>';
+const endnotesB='<?xml version="1.0"?><w:endnotes>'+enSeparators+
+  enEntry(1,'Fees means all amounts invoiced under this agreement, excluding taxes and shipping costs.')+ // edited
+  '</w:endnotes>';
+writeFileSync(new URL('./fixtures/notes-A.docx',import.meta.url),makeDocx({
+  '[Content_Types].xml':notesContentTypes,
+  '_rels/.rels':notesRootRels,
+  'word/document.xml':notesDocA,
+  'word/_rels/document.xml.rels':notesDocRels,
+  'word/footnotes.xml':footnotesA,
+  'word/endnotes.xml':endnotesA,
+}));
+writeFileSync(new URL('./fixtures/notes-B.docx',import.meta.url),makeDocx({
+  '[Content_Types].xml':notesContentTypes,
+  '_rels/.rels':notesRootRels,
+  'word/document.xml':notesDocB,
+  'word/_rels/document.xml.rels':notesDocRels,
+  'word/footnotes.xml':footnotesB,
+  'word/endnotes.xml':endnotesB,
+}));
+
 console.log('fixtures written');

@@ -17,6 +17,21 @@ assigned during development (numbering is not sequential/uniform by design).
 
 
 -------------------------------------------------------------------------------
+ v1.6.0  -  Footnote & Endnote Comparison            (2026-08-16)
+-------------------------------------------------------------------------------
+ - Footnotes and endnotes are now compared, not just the main document body -
+   edits, insertions, and deletions inside them are detected.
+ - These changes count in the change total and are reachable with the Change X
+   of Y navigation, just like changes in the body text.
+ - In the exported PDF, footnotes appear at the bottom of the page that holds
+   their reference, and endnotes in a section at the end of the document, each
+   with the margin change bar beside changed lines.
+ - On screen, a Footnotes band and an Endnotes section show the full redline,
+   and the reference marks in the text carry the footnote number.
+ - Documents with no footnotes or endnotes produce exactly the same output as
+   before.
+
+-------------------------------------------------------------------------------
  v1.5.0  -  Configurable Rendering Sets              (2026-08-15)
 -------------------------------------------------------------------------------
  - Added a "Rendering set" picker to choose how changes are styled.
