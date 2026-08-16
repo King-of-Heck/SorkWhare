@@ -280,6 +280,9 @@ function extractStructured(docXml,styles,numbering,defaults){
   // Carries a page break forward when it lives in an empty paragraph, or when it
   // occurs AFTER text (Word puts following content on the next page in both cases).
   let pendingBreak=false;
+  // Footnote/endnote body references in document reading order, with per-kind
+  // display ordinals. Populated in processPara; attached to the return array below.
+  const noteRefs=[]; let fnN=0, enN=0;
   // tbl: {ti,ri,ci,cols,gw} when this paragraph lives in a table cell, else null.
   function processPara(p,tbl){
     // Tracked paragraph-property changes (<w:pPrChange>) carry the PRE-revision
@@ -418,6 +421,18 @@ function extractStructured(docXml,styles,numbering,defaults){
     const keepLines=kL!=null?kL:!!(stEff&&stEff.keepLines);
     const contextualSpacing=cS!=null?cS:!!(stEff&&stEff.contextualSpacing);
 
+    // Footnote/endnote references: scan in document order, assign a running
+    // per-kind display number, and append a delimited sentinel to `text` (end-
+    // append only — boldRuns/fmtSpans are computed above and stay index-aligned
+    // with the pre-sentinel text; the sentinel is additive to `text` alone).
+    const refRe=/<w:(footnote|endnote)Reference\b[^>]*w:id="(-?\d+)"/g; let refM;
+    while((refM=refRe.exec(p))){
+      const kind=refM[1], id=refM[2];
+      const dispNum = kind==='footnote' ? (++fnN) : (++enN);
+      noteRefs.push({kind, id, dispNum, paraIndex: out.length});
+      text += '\uE000'+kind+':'+id+'\uE001';
+    }
+
     out.push({text,heading,isNumbered,marker,ilvl,isBold,pageBreakBefore,align,indLeftPt,indHangingPt,indFirstLinePt,boldRuns,fmtSpans,
       styleId,spaceBeforePt,spaceAfterPt,lineSpacing,lineExactPt,lineRule,keepNext,keepLines,contextualSpacing,
       tbl:tbl||null});
@@ -449,6 +464,7 @@ function extractStructured(docXml,styles,numbering,defaults){
       ti++;
     } else processPara(blk,null);
   }
+  out.noteRefs=noteRefs;
   return out;
 }
 /* Page geometry from the LAST <w:sectPr> (the document/body section). Twips→inches
