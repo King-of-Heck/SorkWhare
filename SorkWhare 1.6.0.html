@@ -812,8 +812,8 @@ function buildNoteStream(kind, noteRefs, notesMap){
   }
   return stream;
 }
-function compareNotes(kind, sideA, sideB){
-  return compare(sideA, sideB, {ignoreCase:false, moveMin:Infinity});
+function compareNotes(kind, sideA, sideB, ignoreCase){
+  return compare(sideA, sideB, {ignoreCase:!!ignoreCase, moveMin:Infinity});
 }
 function mergeNoteResults(summary, bodyRows, noteResult, key){
   let base=summary.total;                       // current max cid
@@ -824,6 +824,9 @@ function mergeNoteResults(summary, bodyRows, noteResult, key){
   summary.insertions += noteResult.summary.insertions;
   summary.deletions  += noteResult.summary.deletions;
   summary.amendments += noteResult.summary.amendments;
+  summary.content    += noteResult.summary.content;
+  summary.punctuation+= noteResult.summary.punctuation;
+  summary.formatting += noteResult.summary.formatting;
   summary[key] = noteResult.summary.total;      // new sub-tally: summary.footnotes / summary.endnotes
   for(const r of noteResult.rows) bodyRows.push(r);
 }
@@ -859,8 +862,8 @@ $('btnCompare').addEventListener('click',async()=>{
     const fnStreamB=buildNoteStream('footnote', ra.noteRefs||[], ra.footnotes||new Map());
     const enStreamA=buildNoteStream('endnote',  oa.noteRefs||[], oa.endnotes ||new Map());
     const enStreamB=buildNoteStream('endnote',  ra.noteRefs||[], ra.endnotes ||new Map());
-    const fn=compareNotes('footnote', fnStreamA, fnStreamB);
-    const en=compareNotes('endnote',  enStreamA, enStreamB);
+    const fn=compareNotes('footnote', fnStreamA, fnStreamB, $('optCase').checked);
+    const en=compareNotes('endnote',  enStreamA, enStreamB, $('optCase').checked);
     mergeNoteResults(summary, rows, fn, 'footnotes');
     mergeNoteResults(summary, rows, en, 'endnotes');
     lastRows=rows; renderAll(rows,summary);
