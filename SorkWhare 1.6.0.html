@@ -1354,10 +1354,10 @@ function generateRedlinePdf(opts){
     pageBreakBefore:p.pageBreakBefore}));
   // Page index of each para (its FIRST line), replayed from a break list exactly
   // as Pass 3 does: page++ on every planned break, para page recorded at line 0.
-  const pageOfPara=brkList=>{const set=new Set(brkList.map(x=>x.b+':'+x.l));
+  const pageOfPara=brkList=>{const seen=new Set(brkList.map(x=>x.b+':'+x.l));
     const out=new Array(paras.length);let pg=0;
     for(let pI=0;pI<paras.length;pI++){const n=paras[pI].lineHeights.length||1;
-      for(let li=0;li<n;li++){if(set.has(pI+':'+li))pg++;if(li===0)out[pI]=pg;}}
+      for(let li=0;li<n;li++){if(seen.has(pI+':'+li))pg++;if(li===0)out[pI]=pg;}}
     return out;};
   // Notes floated on each page: map page -> ordered unique dispNums referenced by
   // that page's body paras (only footnotes we actually built a block for).

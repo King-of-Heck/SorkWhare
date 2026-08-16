@@ -104,9 +104,63 @@ test('footnote renders on the page of its reference with a non-bar separator rul
   assert.doesNotMatch(pdf,PUA,'no raw PUA delimiter bytes');
   // change bar present on the changed footnote line (reserved bar literal)
   assert.match(pdf,/0\.15 0\.15 0\.15 RG/,'change bar literal present for the changed footnote');
-  // separator rule uses a DIFFERENT gray (must not be the bar literal)
-  const sep=pdf.match(/0\.\d+ 0\.\d+ 0\.\d+ RG/g)||[];
-  assert.ok(sep.some(s=>s!=='0.15 0.15 0.15 RG'),'a non-bar gray stroke exists for the separator');
+  // separator rule is drawn with its OWN literal gray, distinct from the bar's.
+  // (A weaker "some non-0.15 gray exists" check would pass even if the separator
+  // were never drawn at all, since the pre-existing banner rule is also gray —
+  // assert the exact separator literal directly.)
+  assert.match(pdf,/0\.5 0\.5 0\.5 RG/,'the footnote separator draws its own 0.5 0.5 0.5 RG literal');
+});
+
+/* -------- Hardening pass: pin that the per-page reserve actually moves breaks -------- */
+
+// Split an assembled PDF into its page content streams, in page order. Page dict
+// objects are interleaved with their content-stream objects but carry no
+// "stream\n...\nendstream" body themselves, so every match here is a page's drawn
+// content, in ascending object number == ascending page order.
+const pageStreams=pdf=>[...pdf.matchAll(/stream\n([\s\S]*?)\nendstream/g)].map(m=>m[1]);
+
+test('planBreaks: a reduced per-page reserve (availOf) shifts the break list vs the scalar call', () => {
+  const app=loadApp();
+  const J=v=>JSON.parse(JSON.stringify(v)); // vm-realm arrays fail strict deepEqual otherwise
+  const B=(lines,extra)=>Object.assign({lineHeights:lines,spaceBeforePt:0,spaceAfterPt:0,
+    keepNext:false,keepLines:false,pageBreakBefore:false},extra||{});
+  // One block, 3 lines of 30pt (total 90). With a full 100pt page it fits on page 0
+  // untouched (no break). A reserve that shrinks page 0's avail to 60pt (simulating
+  // a footnote float reserve) cannot fit all 3 lines, forcing a break — proving the
+  // reserve genuinely changes where the page breaks, not just that it's plumbed
+  // through inertly.
+  const blocks=[B([30,30,30])];
+  const scalar=J(app.planBreaks(blocks,100,100));
+  assert.deepEqual(scalar,[],'without a reserve, all 3 lines fit on page 0 (sanity baseline)');
+  const reserved=J(app.planBreaks(blocks,100,100,pi=>pi===0?60:100));
+  assert.notDeepEqual(reserved,scalar,'a page-0 reserve must produce a DIFFERENT break list than the scalar call');
+  assert.ok(reserved.length>0,'the shrunken page 0 forces at least one break');
+});
+
+test('a footnote reserve shifts an actual reference-page-late document\'s pagination end to end', () => {
+  const app=loadApp();
+  // Enough body paragraphs to overflow page 1; the footnote reference sits on a
+  // paragraph well past page 1's capacity, tagged with a unique marker so its page
+  // can be located in the assembled PDF independent of the footnote content.
+  const N=60, REF_AT=45;
+  const rows=[];
+  for(let i=0;i<N;i++){
+    const html=(i===REF_AT)
+      ? 'UNIQUEREFMARK'+i+' ref'+S+'footnote:1'+E+' filler text for paragraph '+i+'.'
+      : 'Paragraph number '+i+' filler text to take up vertical space on the page.';
+    rows.push({type:'equal',meta:{marker:''},html});
+  }
+  rows.push(fnRow(1,'Fee is <del>ten</del><ins>twelve</ins> dollars.'));
+  const summary={total:1,footnotes:1};
+  const {pdf,pages}=app.generateRedlinePdf({rows,summary,geom:GEOM,set:app.RENDER_SETS[0],show:SHOW});
+  assert.ok(pages>=2,'the fixture must actually span multiple pages to exercise the float');
+  const streams=pageStreams(pdf);
+  const refPage=streams.findIndex(s=>s.includes('UNIQUEREFMARK'+REF_AT));
+  const notePage=streams.findIndex(s=>s.includes('twelve'));
+  assert.ok(refPage>0,'the reference paragraph must land past page 0 (proves the reserve/multi-page setup is real)');
+  assert.ok(notePage>=0,'the footnote text must be drawn somewhere');
+  assert.equal(notePage,refPage,'the footnote must float onto the SAME page as its reference');
+  assert.match(streams[notePage],/0\.5 0\.5 0\.5 RG/,'the separator is drawn on the footnote\'s page');
 });
 
 test('footnote block carries the dispNum prefix', () => {
