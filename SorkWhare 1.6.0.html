@@ -121,6 +121,15 @@
   .hide-eq .para.equal.fmtchanged{display:flex}
   .hide-eq.hide-fmt .para.equal.fmtchanged{display:none}
 
+  /* Footnotes/endnotes (v1.6.0): a single end-of-document band/section, redlined
+     like the body. Equal note paragraphs are plain .para elements so hide-unchanged
+     (.hide-eq .para.equal{display:none}) already applies to them with no extra rule. */
+  #paper .fnband,#paper .endnotes{margin-top:18px;border-top:1px solid var(--line);padding-top:8px;font-size:12px;color:#333}
+  #paper .noteshdr{font-weight:700;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  #paper .fnnum{color:var(--muted);margin-right:6px}
+  .fnref{font-size:.7em;vertical-align:super;color:var(--nav)}
+  ins .fnref{color:var(--ins)} del .fnref{color:var(--del)}
+
   @media print{
     @page{margin:20mm 16mm}
     header,.setup,.summary,.toolbar,.filters{display:none !important}
@@ -1509,6 +1518,40 @@ function bodyRowsHtml(rows){
   return html;
 }
 
+/* ================= footnotes/endnotes screen render (v1.6.0) ================= */
+// Maps 'kind:id' -> display number, used to resolve body-reference sentinels below.
+function buildDispNumMap(rows){
+  const m={};
+  for(const r of rows){ const nt=r.meta&&r.meta.note; if(nt&&nt.dispNum!=null) m[nt.kind+':'+nt.id]=nt.dispNum; }
+  return m;
+}
+// Replaces PUA-delimited reference sentinels (\uE000<kind>:<id>\uE001, written here as
+// literal escapes) with a numbered superscript. A body reference that was added/removed
+// renders inside an <ins>/<del>, so the <sup> lands inside it and inherits ins/del color
+// via the "ins .fnref"/"del .fnref" CSS rules — no extra logic needed here. Note-free HTML
+// has no delimiters to match, so this is a no-op then (the additive guarantee).
+function noteSup(html, dnMap){
+  return html.replace(/\uE000(footnote|endnote):(-?\d+)\uE001/g, (_,kind,id)=>{
+    const n=dnMap&&dnMap[kind+':'+id];
+    return '<sup class="fnref">'+(n!=null?n:'*')+'</sup>';
+  });
+}
+// One labeled end-of-document section (Footnotes band / Endnotes section) built from the
+// note rows of the given kind, redlined the same way as body paragraphs. Empty string when
+// the document has no notes of that kind — the additive guarantee for note-free documents.
+function notesSectionHtml(rows, kind){
+  const noteRows=rows.filter(r=>r.meta && r.meta.note && r.meta.note.kind===kind);
+  if(!noteRows.length) return '';
+  const label = kind==='endnote' ? 'Endnotes' : 'Footnotes';
+  let inner='';
+  for(const r of noteRows){
+    const n=r.meta.note.dispNum!=null ? (r.meta.note.dispNum+'. ') : '';
+    inner += '<p class="para '+(r.type==='equal'?'equal':r.type)+'" data-cid="'+(r.cid||'')+'"'
+           + (r.cid?(' id="chg-'+r.cid+'"'):'') + '><span class="fnnum">'+n+'</span>'+r.html+'</p>';
+  }
+  return '<div class="'+(kind==='endnote'?'endnotes':'fnband')+'"><div class="noteshdr">'+label+'</div>'+inner+'</div>';
+}
+
 /* Style the on-screen "paper" to the ACTUAL Word page: real width, margins (as padding),
    default font & size. This makes the browser wrap lines — and therefore estimate page
    breaks — the same way it will when printing, so screen and PDF agree. 96 CSS px = 1in. */
@@ -1589,8 +1632,12 @@ function renderAll(rows,summary){
   $('cFmtInfo').textContent = summary.formatting ? ('Formatting changes: '+summary.formatting) : '';
   const now=new Date().toLocaleString();
   let html='<div class="docttl">Redline Comparison</div><div class="docmeta">Original: <b>'+esc(fileA.name)+'</b> &nbsp;→&nbsp; Revised: <b>'+esc(fileB.name)+'</b><br>Generated '+esc(now)+' &nbsp;•&nbsp; '+summary.total+' change'+(summary.total===1?'':'s')+'</div>';
-  html+=bodyRowsHtml(rows);
-  $('paper').innerHTML=html;
+  const bodyRows=rows.filter(r=>!(r.meta && r.meta.note));
+  html+=bodyRowsHtml(bodyRows);
+  html+=notesSectionHtml(rows,'footnote');
+  html+=notesSectionHtml(rows,'endnote');
+  const dnMap=buildDispNumMap(rows);
+  $('paper').innerHTML=noteSup(html, dnMap);
   const seen=new Set(); changeOrder=[]; let items='';
   for(const r of rows){
     if(r.type==='equal'||r.type==='moved-from')continue;
