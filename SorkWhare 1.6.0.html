@@ -796,6 +796,38 @@ function compare(orig,rev,opts){
   return {rows,summary};
 }
 
+/* ============ Footnote/endnote note-stream diff ============ */
+function buildNoteStream(kind, noteRefs, notesMap){
+  const stream=[], usedIds=new Set();
+  for(const ref of noteRefs){
+    if(ref.kind!==kind) continue;
+    const note=notesMap.get(ref.id); if(!note) continue;
+    usedIds.add(ref.id);
+    for(const p of note.paras) stream.push(Object.assign({}, p, {note:{kind, dispNum:ref.dispNum, id:ref.id}}));
+  }
+  // orphan (unreferenced) notes, ascending numeric id
+  const orphans=[...notesMap.keys()].filter(id=>!usedIds.has(id)).sort((a,b)=>(+a)-(+b));
+  for(const id of orphans){
+    for(const p of notesMap.get(id).paras) stream.push(Object.assign({}, p, {note:{kind, dispNum:null, id, orphan:true}}));
+  }
+  return stream;
+}
+function compareNotes(kind, sideA, sideB){
+  return compare(sideA, sideB, {ignoreCase:false, moveMin:Infinity});
+}
+function mergeNoteResults(summary, bodyRows, noteResult, key){
+  let base=summary.total;                       // current max cid
+  for(const r of noteResult.rows){
+    if(r.cid!=null) r.cid += base;              // continue the numbering
+  }
+  summary.total   += noteResult.summary.total;
+  summary.insertions += noteResult.summary.insertions;
+  summary.deletions  += noteResult.summary.deletions;
+  summary.amendments += noteResult.summary.amendments;
+  summary[key] = noteResult.summary.total;      // new sub-tally: summary.footnotes / summary.endnotes
+  for(const r of noteResult.rows) bodyRows.push(r);
+}
+
 /* ================= UI ================= */
 let fileA=null,fileB=null,lastRows=null,changeOrder=[],curIdx=-1,pageGeom=null,lastSummary=null,estPages=0;
 let resultsShown=false;
@@ -823,6 +855,14 @@ $('btnCompare').addEventListener('click',async()=>{
       notice.style.display='block';}
     else notice.style.display='none';
     const {rows,summary}=compare(oa,ra,{ignoreCase:$('optCase').checked,moveMin:+$('optMove').value||5});
+    const fnStreamA=buildNoteStream('footnote', oa.noteRefs||[], oa.footnotes||new Map());
+    const fnStreamB=buildNoteStream('footnote', ra.noteRefs||[], ra.footnotes||new Map());
+    const enStreamA=buildNoteStream('endnote',  oa.noteRefs||[], oa.endnotes ||new Map());
+    const enStreamB=buildNoteStream('endnote',  ra.noteRefs||[], ra.endnotes ||new Map());
+    const fn=compareNotes('footnote', fnStreamA, fnStreamB);
+    const en=compareNotes('endnote',  enStreamA, enStreamB);
+    mergeNoteResults(summary, rows, fn, 'footnotes');
+    mergeNoteResults(summary, rows, en, 'endnotes');
     lastRows=rows; renderAll(rows,summary);
     $('setup').style.display='none';$('results').style.display='block';$('navToolbar').style.display='flex';resultsShown=true;
   }catch(err){showErr(err.message||String(err));}
