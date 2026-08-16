@@ -65,3 +65,28 @@ test('a body reference inside an ins/del inherits color via the surrounding elem
   const out = app.noteSup(html, dnMap);
   assert.equal(out, '<ins>New text<sup class="fnref">3</sup></ins>');
 });
+
+test('end-to-end: a real body reference resolves to a clean numbered superscript with no leftover PUA', async () => {
+  const app = await loadApp();
+  // Real producer: extraction appends the sentinel to text itself (no hand-built PUA).
+  const doc = `<w:body>
+    <w:p><w:r><w:t>See note</w:t></w:r><w:r><w:footnoteReference w:id="7"/></w:r></w:p>
+  </w:body>`;
+  const paras = app.extractStructured(doc, {}, {}, app.parseDocDefaults(null));
+  assert.equal(paras.length, 1);
+  assert.ok(paras[0].text.includes(PUA_OPEN + 'footnote:7' + PUA_CLOSE));
+
+  // Note row carrying the dispNum that buildDispNumMap resolves id '7' against.
+  const rows = [
+    {type:'equal', meta:{text:paras[0].text, note:null}, html: app.boldWrap(paras[0].text, paras[0].boldRuns)},
+    {type:'equal', cid:1, meta:{text:'Note body.', note:{kind:'footnote', dispNum:1, id:'7'}}, html:'Note body.'},
+  ];
+  const dnMap = app.buildDispNumMap(rows);
+  assert.equal(dnMap['footnote:7'], 1);
+
+  // Same path renderAll uses: bodyHtml (via boldWrap) piped through noteSup.
+  const out = app.noteSup(rows[0].html, dnMap);
+  assert.match(out, /<sup class="fnref">1<\/sup>/);
+  assert.ok(!out.includes(PUA_OPEN));
+  assert.ok(!out.includes(PUA_CLOSE));
+});
