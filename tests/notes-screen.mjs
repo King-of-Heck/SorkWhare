@@ -66,6 +66,37 @@ test('a body reference inside an ins/del inherits color via the surrounding elem
   assert.equal(out, '<ins>New text<sup class="fnref">3</sup></ins>');
 });
 
+test('nav-snippet path (snippetHtml + noteSup) never leaks the reference sentinel', async () => {
+  const app = await loadApp();
+  const SENTINEL = PUA_OPEN + 'footnote:1' + PUA_CLOSE;
+  const row = {type:'changed', cid:1, meta:{note:null, text:'Payment due in thirty days.'},
+    html:'Payment due in <del>thirty</del><ins>sixty</ins> days.' + SENTINEL};
+  const dnMap = {'footnote:1': 1};
+
+  // RED CHARACTERIZATION: the raw snippet alone — what the pre-fix #clist loop
+  // rendered straight into the DOM — still carries the literal sentinel/PUA.
+  // This is the bug: the change navigator must resolve it, snippetHtml() has no
+  // reason to (that's noteSup's job).
+  const rawSnippet = app.snippetHtml(row);
+  assert.ok(rawSnippet.includes('footnote:1'));
+
+  // GREEN: piping the snippet through noteSup (with dnMap already in scope at
+  // the #clist loop, as renderAll now does) yields a clean numbered superscript.
+  const out = app.noteSup(rawSnippet, dnMap);
+  assert.match(out, /<sup class="fnref">1<\/sup>/);
+  assert.ok(!out.includes(PUA_OPEN));
+  assert.ok(!out.includes(PUA_CLOSE));
+  assert.ok(!out.includes('footnote:1'));
+});
+
+test('note-free/reference-free snippet is byte-unchanged through noteSup (additive guarantee)', async () => {
+  const app = await loadApp();
+  const row = {type:'changed', cid:2, meta:{note:null, text:'Plain sentence.'},
+    html:'Plain <del>old</del><ins>new</ins> sentence.'};
+  const rawSnippet = app.snippetHtml(row);
+  assert.equal(app.noteSup(rawSnippet, {}), rawSnippet);
+});
+
 test('end-to-end: a real body reference resolves to a clean numbered superscript with no leftover PUA', async () => {
   const app = await loadApp();
   // Real producer: extraction appends the sentinel to text itself (no hand-built PUA).

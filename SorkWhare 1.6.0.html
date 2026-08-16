@@ -359,6 +359,10 @@ function extractStructured(docXml,styles,numbering,defaults){
     if(!text){
       // Empty paragraph is dropped from the redline, but a manual/section break it
       // carries must survive — hand it to the next real paragraph.
+      // KNOWN LIMITATION: this return happens BEFORE the footnote/endnote reference
+      // scan below, so a paragraph whose ONLY content is a footnote/endnote reference
+      // (no other text) is not captured as a body reference here (rare). The note
+      // itself still diffs and counts as an orphan — only its number/position degrade.
       if(hasBreakBefore||hasPageBr||sectBreak) pendingBreak=true;
       return;
     }
@@ -1792,7 +1796,7 @@ function renderAll(rows,summary){
     if(r.cid&&seen.has(r.cid))continue; if(r.cid)seen.add(r.cid);
     changeOrder.push(r.cid);
     const cls=r.type.startsWith('moved')?'moved':r.type;
-    items+='<div class="citem '+cls+'" data-cid="'+r.cid+'"><span class="cid">'+r.cid+'</span><span class="tag">'+typeLabel(r.type)+'</span><span class="snip">'+snippetHtml(r)+'</span></div>';
+    items+='<div class="citem '+cls+'" data-cid="'+r.cid+'"><span class="cid">'+r.cid+'</span><span class="tag">'+typeLabel(r.type)+'</span><span class="snip">'+noteSup(snippetHtml(r), dnMap)+'</span></div>';
   }
   $('clist').innerHTML=items;
   $('clist').querySelectorAll('.citem').forEach(el=>el.addEventListener('click',()=>{const cid=+el.dataset.cid;const idx=changeOrder.indexOf(cid);if(idx>=0){curIdx=idx;goToCurrent();}}));

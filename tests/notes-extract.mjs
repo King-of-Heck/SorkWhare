@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { loadApp } from './load.mjs';
-import { makeDocx } from './makedocx.mjs';
 
 const FN_XML = `<?xml version="1.0"?>
 <w:footnotes xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
