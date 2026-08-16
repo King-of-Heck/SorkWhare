@@ -58,11 +58,18 @@ the release that closed each.
 
 ## Tier 2 — Bigger coverage gains
 
-- [ ] **5. Footnotes / headers / footers / comments comparison** (gap R2) — *Effort L · Value high for legal docs*
+- [~] **5. Footnotes / headers / footers / comments comparison** (gap R2) — *Effort L · Value high for legal docs* — **FOOTNOTES + ENDNOTES SHIPPED in v1.6.0; headers/footers/comments remain**
   The reader only reads `word/document.xml`, so footnote and header/footer
   edits are invisible — a real hole for contracts.
   - Build: also read `footnotes.xml`, `endnotes.xml`, `header*.xml`,
     `footer*.xml`, `comments.xml`; diff and present each as its own section.
+  - **v1.6.0 (R2 part 1):** `footnotes.xml`/`endnotes.xml` now read, diffed via the
+    existing engine (notes = a second paragraph stream), COUNTED into the total + nav.
+    Screen: an end-of-document Footnotes band + Endnotes section with numbered reference
+    superscripts. PDF: footnotes float to the bottom of their reference's page; endnotes
+    as an end section; both with margin change bars. Note-free docs stay byte-identical.
+  - **Remaining (R2 part 2):** `header*.xml`, `footer*.xml`, `comments.xml` — a future
+    release.
 
 - [ ] **6. Split/merge as a distinct category** (gap C6) — *Effort M · Value medium*
   A split paragraph shows as change+insert with no linkage; Workshare flags
@@ -92,6 +99,16 @@ the release that closed each.
 
 - [ ] **Layout / render fidelity** (gap R7) — incremental improvements to the
   PDF renderer; already the thread of the v1.2.0 work.
+
+- [ ] **Paginated page-sheet view on screen** — *Effort L · Value medium* —
+  Today the on-screen redline is ONE continuous `#paper` column with dotted
+  `.pgbreak-auto` dividers (no real pages). Re-lay-out the screen into discrete
+  page "sheets" (Word print-layout style) so the screen has real page bottoms.
+  Unlocks **per-page on-screen footnote bands** for free (v1.6.0 shipped a single
+  end-of-document footnote band on screen precisely because the screen has no
+  page bottoms to pin to; footnotes ARE page-bottom in the PDF). Touches
+  pagination, change bars, and screen/print/PDF parity — its own release. Raised
+  by Sandy 2026-08-16 during the R2 (footnotes/endnotes) design.
 
 ---
 
