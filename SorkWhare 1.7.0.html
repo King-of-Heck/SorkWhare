@@ -891,6 +891,42 @@ function mergeNoteResults(summary, bodyRows, noteResult, key){
   for(const r of noteResult.rows) bodyRows.push(r);
 }
 
+/* ============ Header/footer stream diff (v1.7.0) ============
+   Same shape as the note-stream diff: each header/footer part is a paragraph
+   stream, compared with moveMin:Infinity (no cross-part moves → unambiguous cid
+   renumber), then merged into the body rows/summary. HF_ORDER is `var` so it
+   reaches the tests/load.mjs vm context (the binding rule). */
+var HF_ORDER=['header:default','header:first','header:even','footer:default','footer:first','footer:even'];
+function hfStream(unit){
+  if(!unit)return [];
+  return unit.paras.map(p=>Object.assign({},p,{hf:{kind:unit.kind,type:unit.type}}));
+}
+function compareHF(sideA, sideB, ignoreCase){
+  return compare(sideA, sideB, {ignoreCase:!!ignoreCase, moveMin:Infinity});
+}
+function mergeHFResults(summary, bodyRows, res, key){
+  const base=summary.total;
+  for(const r of res.rows) if(r.cid!=null) r.cid+=base;
+  summary.total      += res.summary.total;
+  summary.insertions += res.summary.insertions;
+  summary.deletions  += res.summary.deletions;
+  summary.amendments += res.summary.amendments;
+  summary.content    += res.summary.content;
+  summary.punctuation+= res.summary.punctuation;
+  summary.formatting += res.summary.formatting;
+  summary[key]=(summary[key]||0)+res.summary.total;   // += : several header units fold into summary.headers
+  for(const r of res.rows) bodyRows.push(r);
+}
+function applyHFComparison(summary, rows, hfA, hfB, ignoreCase){
+  for(const key of HF_ORDER){
+    const a=hfA&&hfA.get(key), b=hfB&&hfB.get(key);
+    if(!a&&!b)continue;
+    const res=compareHF(hfStream(a), hfStream(b), ignoreCase);
+    const kind=key.split(':')[0];
+    mergeHFResults(summary, rows, res, kind==='header'?'headers':'footers');
+  }
+}
+
 /* ================= UI ================= */
 let fileA=null,fileB=null,lastRows=null,changeOrder=[],curIdx=-1,pageGeom=null,lastSummary=null,estPages=0;
 let resultsShown=false;
@@ -926,6 +962,7 @@ $('btnCompare').addEventListener('click',async()=>{
     const en=compareNotes('endnote',  enStreamA, enStreamB, $('optCase').checked);
     mergeNoteResults(summary, rows, fn, 'footnotes');
     mergeNoteResults(summary, rows, en, 'endnotes');
+    applyHFComparison(summary, rows, oa.headersFooters, ra.headersFooters, $('optCase').checked);
     lastRows=rows; renderAll(rows,summary);
     $('setup').style.display='none';$('results').style.display='block';$('navToolbar').style.display='flex';resultsShown=true;
   }catch(err){showErr(err.message||String(err));}
