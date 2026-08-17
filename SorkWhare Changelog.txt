@@ -17,6 +17,23 @@ assigned during development (numbering is not sequential/uniform by design).
 
 
 -------------------------------------------------------------------------------
+ v1.7.0  -  Header & Footer Comparison               (2026-08-16)
+-------------------------------------------------------------------------------
+ - Headers and footers are now compared, not just the main document body -
+   edits, insertions, and deletions inside them are detected.
+ - These changes count in the change total and are reachable with the Change X
+   of Y navigation, just like changes in the body text.
+ - On screen, labeled Header and Footer sections at the end of the document
+   show the full redline, each with the margin change bar beside changed
+   lines.
+ - In the exported PDF, headers and footers appear in a section at the end of
+   the document, after the endnotes, each with the margin change bar.
+ - Default, first-page, and even-page header/footer variants are distinguished
+   and compared separately.
+ - Documents with no header/footer changes produce exactly the same output as
+   before.
+
+-------------------------------------------------------------------------------
  v1.6.0  -  Footnote & Endnote Comparison            (2026-08-16)
 -------------------------------------------------------------------------------
  - Footnotes and endnotes are now compared, not just the main document body -
