@@ -58,7 +58,7 @@ the release that closed each.
 
 ## Tier 2 — Bigger coverage gains
 
-- [~] **5. Footnotes / headers / footers / comments comparison** (gap R2) — *Effort L · Value high for legal docs* — **FOOTNOTES + ENDNOTES SHIPPED in v1.6.0; headers/footers/comments remain**
+- [~] **5. Footnotes / headers / footers / comments comparison** (gap R2) — *Effort L · Value high for legal docs* — **FOOTNOTES + ENDNOTES SHIPPED in v1.6.0; HEADERS + FOOTERS SHIPPED in v1.7.0; comments remain**
   The reader only reads `word/document.xml`, so footnote and header/footer
   edits are invisible — a real hole for contracts.
   - Build: also read `footnotes.xml`, `endnotes.xml`, `header*.xml`,
@@ -68,8 +68,14 @@ the release that closed each.
     Screen: an end-of-document Footnotes band + Endnotes section with numbered reference
     superscripts. PDF: footnotes float to the bottom of their reference's page; endnotes
     as an end section; both with margin change bars. Note-free docs stay byte-identical.
-  - **Remaining (R2 part 2):** `header*.xml`, `footer*.xml`, `comments.xml` — a future
-    release.
+  - **v1.7.0 (R2 part 2):** `header*.xml`/`footer*.xml` now read via
+    `<w:headerReference>`/`<w:footerReference>` in the last `<w:sectPr>`, resolved
+    through `word/_rels/document.xml.rels`, diffed via the same second-paragraph-stream
+    pattern, COUNTED into the total + nav. Screen: labeled end-of-document Header/Footer
+    sections with margin change bars. PDF: rendered as an end section, after the
+    endnotes. Default/first/even variants are distinguished and compared separately.
+    hf-free docs stay byte-identical to v1.6.0.
+  - **Remaining (R2 part 3):** `comments.xml` — a future release.
 
 - [ ] **6. Split/merge as a distinct category** (gap C6) — *Effort M · Value medium*
   A split paragraph shows as change+insert with no linkage; Workshare flags

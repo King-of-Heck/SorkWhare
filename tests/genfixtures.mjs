@@ -161,4 +161,55 @@ writeFileSync(new URL('./fixtures/notes-B.docx',import.meta.url),makeDocx({
   'word/endnotes.xml':endnotesB,
 }));
 
+// --- hf-A/hf-B: a COMPLETE, openable .docx pair exercising header + footer
+// comparison end to end (v1.7.0). Same "full part set" approach as notes-A/B:
+// [Content_Types].xml overrides + root and word/-level rels, but this time the
+// word/_rels/document.xml.rels wiring is LOAD-BEARING (parseHFRefs resolves
+// r:id through it to find header1.xml/footer1.xml — unlike notes, which are
+// read by fixed part name and don't need rels at all).
+const hfContentTypes=
+'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'+
+'<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'+
+'<Default Extension="xml" ContentType="application/xml"/>'+
+'<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'+
+'<Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>'+
+'<Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>'+
+'</Types>';
+const hfRootRels=
+'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'+
+'</Relationships>';
+const hfDocRels=
+'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>'+
+'<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>'+
+'</Relationships>';
+const hfDoc=
+'<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body>'+
+'<w:p><w:r><w:t>Body clause one.</w:t></w:r></w:p>'+
+'<w:sectPr><w:headerReference w:type="default" r:id="rId1"/><w:footerReference w:type="default" r:id="rId2"/>'+
+'<w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr>'+
+'</w:body></w:document>';
+const hfHdr=t=>'<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:p><w:r><w:t>'+t+'</w:t></w:r></w:p></w:hdr>';
+const hfFtr=t=>'<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:p><w:r><w:t>'+t+'</w:t></w:r></w:p></w:ftr>';
+writeFileSync(new URL('./fixtures/hf-A.docx',import.meta.url),makeDocx({
+  '[Content_Types].xml':hfContentTypes,
+  '_rels/.rels':hfRootRels,
+  'word/document.xml':hfDoc,
+  'word/_rels/document.xml.rels':hfDocRels,
+  'word/header1.xml':hfHdr('CONFIDENTIAL'),
+  'word/footer1.xml':hfFtr('Draft 1 — Jan 2026'),
+}));
+writeFileSync(new URL('./fixtures/hf-B.docx',import.meta.url),makeDocx({
+  '[Content_Types].xml':hfContentTypes,
+  '_rels/.rels':hfRootRels,
+  'word/document.xml':hfDoc,
+  'word/_rels/document.xml.rels':hfDocRels,
+  'word/header1.xml':hfHdr('CONFIDENTIAL — PRIVILEGED'),
+  'word/footer1.xml':hfFtr('Draft 2 — Feb 2026'),
+}));
+
 console.log('fixtures written');
