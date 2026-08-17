@@ -509,6 +509,48 @@ function parseDocDefaults(xml){
   const dsM=pd.match(/<w:spacing\b([^>]*?)\/?>/); d.spacing=dsM?_spacingFrom(dsM[1]):null;
   return d;
 }
+/* ===== Header/footer extraction (v1.7.0) =====
+   Headers/footers are "just more paragraphs" (the v1.6.0 note pattern). Unlike
+   notes they are NOT referenced from body text, so no sentinel/superscript layer
+   is needed. References live in <w:sectPr> as <w:headerReference>/<w:footerReference>
+   (type default|first|even, r:id → word/_rels/document.xml.rels → part file). */
+function parseRels(xml){
+  const m=new Map(); if(!xml)return m;
+  const re=/<Relationship\b([^>]*?)\/?>/g; let x;
+  while((x=re.exec(xml))){const a=x[1];
+    const id=(a.match(/\bId="([^"]+)"/)||[])[1];
+    const tgt=(a.match(/\bTarget="([^"]+)"/)||[])[1];
+    if(id&&tgt)m.set(id,tgt.replace(/^\/?word\//,'').replace(/^\//,''));}
+  return m;
+}
+function parseHFRefs(docXml, relsMap){
+  const refs=new Map();                          // 'header:default' → target; last section wins
+  const sects=docXml.match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/g)||[];
+  for(const sect of sects){
+    const re=/<w:(header|footer)Reference\b([^>]*?)\/?>/g; let x;
+    while((x=re.exec(sect))){
+      const kind=x[1], a=x[2];
+      const type=(a.match(/w:type="([^"]+)"/)||[])[1]||'default';
+      const rid=(a.match(/r:id="([^"]+)"/)||[])[1];
+      const tgt=rid&&relsMap.get(rid);
+      if(tgt)refs.set(kind+':'+type,tgt);
+    }
+  }
+  return refs;
+}
+function parseHeadersFooters(refs, parts, styles, numbering, defaults){
+  const map=new Map();
+  for(const [key,target] of refs){
+    const xml=parts[target]; if(!xml)continue;
+    const inner=(xml.match(/<w:(?:hdr|ftr)\b[^>]*>([\s\S]*?)<\/w:(?:hdr|ftr)>/)||[])[1];
+    if(inner==null)continue;
+    const paras=extractStructured('<w:body>'+inner+'</w:body>',styles,numbering,defaults);
+    if(!paras.some(p=>(p.text||'').trim()))continue;   // skip empty/field-only parts → no spurious unit
+    const [kind,type]=key.split(':');
+    map.set(key,{kind,type,paras});
+  }
+  return map;
+}
 /* Parses word/footnotes.xml or word/endnotes.xml into a Map<id, {id, kind, paras}>.
    Separator/continuationSeparator entries (the note-reference-mark plumbing Word
    inserts into every notes part) are skipped — they aren't user content. Each
@@ -542,6 +584,11 @@ async function docxToParagraphs(file){
   const out=extractStructured(docXml,styles,numbering,dd);
   out.footnotes=parseNotes(await tryEntry(buf,'word/footnotes.xml'),'footnote',styles,numbering,dd);
   out.endnotes =parseNotes(await tryEntry(buf,'word/endnotes.xml'), 'endnote', styles,numbering,dd);
+  const relsMap=parseRels(await tryEntry(buf,'word/_rels/document.xml.rels'));
+  const hfRefs=parseHFRefs(docXml,relsMap);
+  const hfParts={};
+  for(const target of new Set(hfRefs.values())){ hfParts[target]=await tryEntry(buf,'word/'+target); }
+  out.headersFooters=parseHeadersFooters(hfRefs,hfParts,styles,numbering,dd);
   out.hasTrackedChanges=/<w:(?:ins|del)[ >]/.test(docXml);
   out.geometry=Object.assign({},parseSectionGeom(docXml),dd);
   return out;
