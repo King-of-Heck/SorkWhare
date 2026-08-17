@@ -1165,7 +1165,7 @@ function generateRedlinePdf(opts){
   // Note-free input: bodyRows has the SAME elements as allRows, enRows is empty,
   // so nothing new runs and the output stays byte-identical to v1.5.0.
   const allRows=opts.rows||lastRows||[];
-  const bodyRows=allRows.filter(r=>!(r.meta&&r.meta.note));
+  const bodyRows=allRows.filter(r=>!(r.meta&&(r.meta.note||r.meta.hf)));
   const enRows=allRows.filter(r=>r.meta&&r.meta.note&&r.meta.note.kind==='endnote');
   const g=opts.geom||pageGeom||{wIn:8.5,hIn:11,mt:1,mr:1,mb:1,ml:1,fontPt:11,font:'Times New Roman'};
   const summary=opts.summary||lastSummary;
@@ -1434,6 +1434,23 @@ function generateRedlinePdf(opts){
       emitParaRow(er,enVis[i-1],enVis[i+1],(dn!=null?dn+'. ':''));
     });
   }
+  // ---- Headers/Footers section (v1.7.0): titled blocks after the endnotes.
+  // Empty for a doc without headers/footers (no hf rows) → skipped → byte-identical
+  // output. Rows flow through emitParaRow → v1.4.0 margin bars for free. NOT rendered
+  // at page top/bottom (deferred; needs per-page chrome layout). ----
+  const hfEmit=kind=>{
+    const rws=allRows.filter(r=>r.meta&&r.meta.hf&&r.meta.hf.kind===kind).filter(_visible);
+    if(!rws.length)return;
+    const multi=new Set(rws.map(r=>r.meta.hf.type)).size>1;
+    for(const type of ['default','first','even']){
+      const unit=rws.filter(r=>r.meta.hf.type===type); if(!unit.length)continue;
+      const base=kind==='header'?'Header':'Footer';
+      const label=multi?(base+' — '+(type==='first'?'First Page':type==='even'?'Even Pages':'Default')):(base+'s');
+      emitParaRow({type:'equal',meta:{isBold:true,keepNext:true,spaceBeforePt:14,spaceAfterPt:6},html:label},null,null);
+      unit.forEach((r,i)=>emitParaRow(r,unit[i-1],unit[i+1]));
+    }
+  };
+  hfEmit('header'); hfEmit('footer');
   // ---- Pass 2: page planning (banner shortens page 1) ----
   const availH=Hpt-mtPt-mbPt;
   const BANNER_H=62; // 20+12+14+16 from the banner block above
