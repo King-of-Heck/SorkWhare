@@ -124,7 +124,7 @@
   /* Footnotes/endnotes (v1.6.0): a single end-of-document band/section, redlined
      like the body. Equal note paragraphs are plain .para elements so hide-unchanged
      (.hide-eq .para.equal{display:none}) already applies to them with no extra rule. */
-  #paper .fnband,#paper .endnotes{margin-top:18px;border-top:1px solid var(--line);padding-top:8px;font-size:12px;color:#333}
+  #paper .fnband,#paper .endnotes,#paper .hfband{margin-top:18px;border-top:1px solid var(--line);padding-top:8px;font-size:12px;color:#333}
   #paper .noteshdr{font-weight:700;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
   #paper .fnnum{color:var(--muted);margin-right:6px}
   .fnref{font-size:.7em;vertical-align:super;color:var(--nav)}
@@ -1788,6 +1788,35 @@ function notesSectionHtml(rows, kind){
   return '<div class="'+(kind==='endnote'?'endnotes':'fnband')+'"><div class="noteshdr">'+label+'</div>'+inner+'</div>';
 }
 
+/* ================= header/footer screen render (v1.7.0) =================
+   One labeled .hfband per present variant, redlined like the body. Equal rows are
+   plain .para.equal so hide-unchanged already applies. Changed rows carry the
+   .changed/.inserted/.deleted classes → the unified v1.4.0 ::before margin bar
+   fires for free. No sentinel resolution needed (headers aren't body-referenced). */
+function hfLabel(kind,type,multi){
+  const base=kind==='header'?'Header':'Footer';
+  if(!multi)return base+'s';
+  const v=type==='first'?'First Page':type==='even'?'Even Pages':'Default';
+  return base+' — '+v;
+}
+function hfSectionHtml(rows, kind){
+  const hfRows=rows.filter(r=>r.meta&&r.meta.hf&&r.meta.hf.kind===kind);
+  if(!hfRows.length)return '';
+  const multi=new Set(hfRows.map(r=>r.meta.hf.type)).size>1;
+  let out='';
+  for(const type of ['default','first','even']){
+    const unitRows=hfRows.filter(r=>r.meta.hf.type===type);
+    if(!unitRows.length)continue;
+    let inner='';
+    for(const r of unitRows){
+      inner+='<p class="para '+(r.type==='equal'?'equal':r.type)+'" data-cid="'+(r.cid||'')+'"'
+           +(r.cid?(' id="chg-'+r.cid+'"'):'')+'>'+r.html+'</p>';
+    }
+    out+='<div class="hfband"><div class="noteshdr">'+hfLabel(kind,type,multi)+'</div>'+inner+'</div>';
+  }
+  return out;
+}
+
 /* Style the on-screen "paper" to the ACTUAL Word page: real width, margins (as padding),
    default font & size. This makes the browser wrap lines — and therefore estimate page
    breaks — the same way it will when printing, so screen and PDF agree. 96 CSS px = 1in. */
@@ -1868,10 +1897,12 @@ function renderAll(rows,summary){
   $('cFmtInfo').textContent = summary.formatting ? ('Formatting changes: '+summary.formatting) : '';
   const now=new Date().toLocaleString();
   let html='<div class="docttl">Redline Comparison</div><div class="docmeta">Original: <b>'+esc(fileA.name)+'</b> &nbsp;→&nbsp; Revised: <b>'+esc(fileB.name)+'</b><br>Generated '+esc(now)+' &nbsp;•&nbsp; '+summary.total+' change'+(summary.total===1?'':'s')+'</div>';
-  const bodyRows=rows.filter(r=>!(r.meta && r.meta.note));
+  const bodyRows=rows.filter(r=>!(r.meta && (r.meta.note||r.meta.hf)));
   html+=bodyRowsHtml(bodyRows);
   html+=notesSectionHtml(rows,'footnote');
   html+=notesSectionHtml(rows,'endnote');
+  html+=hfSectionHtml(rows,'header');
+  html+=hfSectionHtml(rows,'footer');
   const dnMap=buildDispNumMap(rows);
   $('paper').innerHTML=noteSup(html, dnMap);
   const seen=new Set(); changeOrder=[]; let items='';
