@@ -2348,11 +2348,19 @@ function renderAll(rows,summary){
   applyPageGeometry();
   estPages=0;
   // Pages mode falls back to Continuous whenever layout declines or fails, so a
-  // document with no section geometry still renders — just not as sheets.
-  if(viewMode!=='pages'||!layoutPages())schedulePaginate();
+  // document with no section geometry still renders — just not as sheets. The measure
+  // is DEFERRED (setTimeout, not rAF so it still fires when the pane isn't compositing):
+  // a synchronous measure on the FIRST compare runs before the browser has committed the
+  // results-pane reveal and applied the document font to the new text, which mis-wraps
+  // paragraphs and under-counts pages. Continuous geometry is applied above, so the
+  // deferred layoutPages measures settled layout.
+  if(viewMode==='pages') setTimeout(()=>{ if(!layoutPages())schedulePaginate(); },0);
+  else schedulePaginate();
   curIdx=changeOrder.length?0:-1; applyFilters(); updateNavStatus();
-  // Estimate page breaks after layout settles (needs real rendered heights).
-  requestAnimationFrame(()=>requestAnimationFrame(paginate));
+  // Continuous mode only: estimate page breaks after layout settles (real rendered
+  // heights). In pages mode the deferred layoutPages owns the count, and paginate must
+  // not run on the continuous DOM in the deferral window (it would insert dotted dividers).
+  if(viewMode!=='pages') requestAnimationFrame(()=>requestAnimationFrame(paginate));
 }
 function applyFilters(){const r=$('results');r.classList.toggle('hide-ins',!$('fIns').checked);r.classList.toggle('hide-del',!$('fDel').checked);r.classList.toggle('hide-mov',!$('fMov').checked);r.classList.toggle('hide-eq',!$('fEq').checked);
   r.classList.toggle('hide-fmt',!$('fFmt').checked);
