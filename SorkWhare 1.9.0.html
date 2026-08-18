@@ -2004,6 +2004,31 @@ function commentsSectionHtml(rows){
   return '<div class="cmtband"><div class="noteshdr">Comments</div>'+inner+'</div>';
 }
 
+/* ---- Page-sheet measurement (v1.9.0) --------------------------------------
+   The browser's own line boxes are the closest offline proxy to Word's line
+   breaking, so page planning measures rendered rects rather than estimating
+   from font metrics. planBreaks works in POINTS; the DOM reports px. */
+var PX_PER_IN=96, PT_PER_IN=72;
+var LINE_TOP_TOL_PX=1;              // rects within 1px of each other are one line
+function pxToPt(px){return (px||0)*PT_PER_IN/PX_PER_IN;}
+// Collapse client rects into one entry per VISUAL LINE. Inline markup (<ins>, <b>,
+// a change badge) splits a single line into several rects that share a top; the
+// tallest rect in a line determines the line's height.
+function lineRowsFromRects(rects){
+  const out=[];
+  for(let i=0;i<((rects&&rects.length)||0);i++){
+    const r=rects[i]; if(!r||!(r.height>0))continue;
+    const last=out[out.length-1];
+    if(last&&Math.abs(r.top-last.top)<=LINE_TOP_TOL_PX){
+      if(r.height>last.height)last.height=r.height;
+    } else out.push({top:r.top,height:r.height});
+  }
+  return out;
+}
+function lineHeightsPtFromRects(rects){
+  return lineRowsFromRects(rects).map(r=>pxToPt(r.height));
+}
+
 /* Style the on-screen "paper" to the ACTUAL Word page: real width, margins (as padding),
    default font & size. This makes the browser wrap lines — and therefore estimate page
    breaks — the same way it will when printing, so screen and PDF agree. 96 CSS px = 1in. */
