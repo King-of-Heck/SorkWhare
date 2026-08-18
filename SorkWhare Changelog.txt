@@ -17,6 +17,20 @@ assigned during development (numbering is not sequential/uniform by design).
 
 
 -------------------------------------------------------------------------------
+ v1.8.0  -  Comment Comparison                       (2026-08-17)
+-------------------------------------------------------------------------------
+ - Comments (word/comments.xml) are now compared too - author, date, and
+   initials are shown for each comment, along with the anchored text it was
+   attached to.
+ - By default, comment changes are shown in an uncounted Comments section at
+   the end of the document and do not add to the change total.
+ - A new "Count comments in total" toggle folds comment changes into the
+   change total and the Change X of Y navigation, just like body text.
+ - Comments appear on screen and in the exported PDF, both with the margin
+   change bar beside changed lines.
+ - Documents with no comments produce exactly the same output as before.
+
+-------------------------------------------------------------------------------
  v1.7.0  -  Header & Footer Comparison               (2026-08-16)
 -------------------------------------------------------------------------------
  - Headers and footers are now compared, not just the main document body -
