@@ -2047,6 +2047,26 @@ function sheetsFromBreaks(breaks,blockCount){
   sheets.push(cur);
   return sheets;
 }
+// Binary-search the character offset at which visual line `lineIndex` begins.
+// countLinesUpTo(k) = how many lines the first k characters occupy; it is monotonic
+// non-decreasing, which is what makes the search valid. Kept free of the DOM so it
+// is testable in node — Task 6 passes a Range-backed counter.
+function findLineStartOffset(textLen,lineIndex,countLinesUpTo){
+  if(!(textLen>0))return -1;
+  if(lineIndex<=0)return 0;
+  if(countLinesUpTo(textLen)<=lineIndex)return -1;   // block has no such line
+  let lo=0,hi=textLen;
+  while(lo<hi){
+    const mid=(lo+hi)>>1;
+    if(countLinesUpTo(mid)<=lineIndex)lo=mid+1; else hi=mid;
+  }
+  return lo-1<0?0:lo-1;
+}
+var SHEET_OVERFLOW_TOL_PT=0.5;
+function sheetOverflowPt(contentPt,availPt){
+  const over=(contentPt||0)-(availPt||0);
+  return over>SHEET_OVERFLOW_TOL_PT?over:0;
+}
 
 /* Style the on-screen "paper" to the ACTUAL Word page: real width, margins (as padding),
    default font & size. This makes the browser wrap lines — and therefore estimate page
