@@ -108,7 +108,7 @@
   .para.contd{margin-top:0}
   /* Page sheets (v1.9.0). Width/height/padding come from the document's own
      geometry at render time; these rules carry only the chrome. */
-  #paper.sheets{background:transparent;border:none;box-shadow:none;padding:0;display:block}
+  #paper.sheets{background:transparent;border:none;box-shadow:none;padding:0;display:block;max-width:none}
   .sheet{background:#fff;border:1px solid var(--line);border-radius:8px;
          box-shadow:0 1px 4px rgba(0,0,0,.06);margin:0 auto 22px;position:relative;
          display:flex;flex-direction:column}
@@ -2182,6 +2182,7 @@ function splitBlockAtLine(el,lineIndex){
 function layoutPages(){
   try{
     const paper=$('paper'); if(!paper||!pageGeom)return false;
+    if(paper.classList.contains('sheets'))return false;   // never re-sheet already-sheeted DOM; the caller rebuilds #paper first
     const g=pageGeom, PX=PX_PER_IN;
     const availPt=(g.hIn-g.mt-g.mb)*PT_PER_IN;
     if(!(availPt>60))return false;
