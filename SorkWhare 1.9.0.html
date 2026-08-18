@@ -161,6 +161,11 @@
     .para::before{display:none}.para{padding-left:0}
     ins{background:transparent}del{background:transparent}.moved,.moved-src{background:transparent}
     .pgbreak-sep,.pgbreak-auto{display:none !important}
+    .sheet{break-after:page;page-break-after:always;box-shadow:none;border:none;
+           margin:0;min-height:0;width:auto;padding:0}
+    .sheet:last-child{break-after:auto;page-break-after:auto}
+    .pgnum{display:none}
+    #paper.sheets{display:block}
     .para.keepnext,.para.h1,.para.h2,.para.h3,.para.h4,.para.h5,.para.h6{break-after:avoid-page}
   }
 </style>
