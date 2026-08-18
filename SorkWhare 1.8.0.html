@@ -124,9 +124,12 @@
   /* Footnotes/endnotes (v1.6.0): a single end-of-document band/section, redlined
      like the body. Equal note paragraphs are plain .para elements so hide-unchanged
      (.hide-eq .para.equal{display:none}) already applies to them with no extra rule. */
-  #paper .fnband,#paper .endnotes,#paper .hfband{margin-top:18px;border-top:1px solid var(--line);padding-top:8px;font-size:12px;color:#333}
+  #paper .fnband,#paper .endnotes,#paper .hfband,#paper .cmtband{margin-top:18px;border-top:1px solid var(--line);padding-top:8px;font-size:12px;color:#333}
   #paper .noteshdr{font-weight:700;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
   #paper .fnnum{color:var(--muted);margin-right:6px}
+  #paper .cmtmeta{font-weight:600;color:var(--muted);margin-top:8px}
+  #paper .cmtanchor{font-style:italic;color:var(--muted);margin:0 0 4px}
+  .hide-eq #paper .cmtmeta.equal,.hide-eq #paper .cmtanchor.equal{display:none}
   .fnref{font-size:.7em;vertical-align:super;color:var(--nav)}
   ins .fnref{color:var(--ins)} del .fnref{color:var(--del)}
 
@@ -172,6 +175,7 @@
     </div>
     <div class="opts">
       <label><input type="checkbox" id="optCase"> Ignore case</label>
+      <label><input type="checkbox" id="optCountComments"> Count comments in total</label>
       <label>Move threshold (words): <input type="number" id="optMove" value="5" min="2" max="10"></label>
       <label>Rendering set: <select id="rsSet"></select></label>
       <button class="primary" id="btnCompare" disabled style="margin-left:auto">Compare ▶</button>
@@ -196,6 +200,7 @@
       </div>
       <div class="cats" id="catRow"></div>
       <div class="fmtinfo" id="cFmtInfo" style="font-size:11px;color:var(--muted)"></div>
+      <div class="fmtinfo" id="cCmtInfo" style="font-size:11px;color:var(--muted)"></div>
       <div class="filters">
         <strong style="font-size:11px;color:var(--muted);text-transform:uppercase">Show</strong>
         <label><input type="checkbox" id="fIns" checked> Insertions</label>
@@ -1047,6 +1052,9 @@ $('btnCompare').addEventListener('click',async()=>{
     mergeNoteResults(summary, rows, fn, 'footnotes');
     mergeNoteResults(summary, rows, en, 'endnotes');
     applyHFComparison(summary, rows, oa.headersFooters, ra.headersFooters, $('optCase').checked);
+    const cA=buildCommentStream(oa.comments||[]), cB=buildCommentStream(ra.comments||[]);
+    const cmp=compareComments(cA, cB, $('optCase').checked);
+    mergeCommentResults(summary, rows, cmp, $('optCountComments').checked);
     lastRows=rows; renderAll(rows,summary);
     $('setup').style.display='none';$('results').style.display='block';$('navToolbar').style.display='flex';resultsShown=true;
   }catch(err){showErr(err.message||String(err));}
@@ -1918,6 +1926,33 @@ function hfSectionHtml(rows, kind){
   return out;
 }
 
+/* ================= comment screen render (v1.8.0) =================
+   One labeled .cmtband appended after the header/footer sections. Each comment
+   shows a metadata line (author · date · initials) + an anchor line (when the
+   comment is range-anchored) + the redlined comment text. Comments are grouped by
+   the firstOfComment boundary so a fully-unchanged comment's header can follow the
+   comment under hide-unchanged (its meta/anchor get the .equal class). No sentinel
+   resolution (comments aren't body-referenced). */
+function commentsSectionHtml(rows){
+  const cRows=rows.filter(r=>r.meta&&r.meta.comment);
+  if(!cRows.length) return '';
+  let inner='', i=0;
+  while(i<cRows.length){
+    const c=cRows[i].meta.comment, group=[cRows[i]]; i++;
+    while(i<cRows.length && !(cRows[i].meta.comment && cRows[i].meta.comment.firstOfComment)){ group.push(cRows[i]); i++; }
+    const changed=group.some(r=>r.type!=='equal');
+    const eq=changed?'':' equal';
+    const meta=[c.author,c.date,c.initials].filter(Boolean).map(esc).join(' · ');
+    inner+='<div class="cmtmeta'+eq+'">'+meta+'</div>';
+    if(c.anchor) inner+='<div class="cmtanchor'+eq+'">re: “'+esc(c.anchor)+'”</div>';
+    for(const r of group){
+      inner+='<p class="para '+(r.type==='equal'?'equal':r.type)+'" data-cid="'+(r.cid||'')+'"'
+           +(r.cid?(' id="chg-'+r.cid+'"'):'')+'>'+r.html+'</p>';
+    }
+  }
+  return '<div class="cmtband"><div class="noteshdr">Comments</div>'+inner+'</div>';
+}
+
 /* Style the on-screen "paper" to the ACTUAL Word page: real width, margins (as padding),
    default font & size. This makes the browser wrap lines — and therefore estimate page
    breaks — the same way it will when printing, so screen and PDF agree. 96 CSS px = 1in. */
@@ -1996,19 +2031,22 @@ function renderAll(rows,summary){
   const cats=[];if(summary.amendments)cats.push(['Amendments',summary.amendments]);if(summary.content)cats.push(['Content',summary.content]);if(summary.punctuation)cats.push(['Punctuation',summary.punctuation]);if(summary.numbering)cats.push(['Numbering',summary.numbering]);if(summary.moves)cats.push(['Moves',summary.moves]);
   $('catRow').innerHTML=cats.map(([l,n])=>'<span class="cat">'+l+': '+n+'</span>').join('');
   $('cFmtInfo').textContent = summary.formatting ? ('Formatting changes: '+summary.formatting) : '';
+  $('cCmtInfo').textContent = summary.comments ? ('Comment changes: '+summary.comments) : '';
   const now=new Date().toLocaleString();
   let html='<div class="docttl">Redline Comparison</div><div class="docmeta">Original: <b>'+esc(fileA.name)+'</b> &nbsp;→&nbsp; Revised: <b>'+esc(fileB.name)+'</b><br>Generated '+esc(now)+' &nbsp;•&nbsp; '+summary.total+' change'+(summary.total===1?'':'s')+'</div>';
-  const bodyRows=rows.filter(r=>!(r.meta && (r.meta.note||r.meta.hf)));
+  const bodyRows=rows.filter(r=>!(r.meta && (r.meta.note||r.meta.hf||r.meta.comment)));
   html+=bodyRowsHtml(bodyRows);
   html+=notesSectionHtml(rows,'footnote');
   html+=notesSectionHtml(rows,'endnote');
   html+=hfSectionHtml(rows,'header');
   html+=hfSectionHtml(rows,'footer');
+  html+=commentsSectionHtml(rows);
   const dnMap=buildDispNumMap(rows);
   $('paper').innerHTML=noteSup(html, dnMap);
   const seen=new Set(); changeOrder=[]; let items='';
   for(const r of rows){
     if(r.type==='equal'||r.type==='moved-from')continue;
+    if(r.cid==null)continue;                       // uncounted comment rows: styled but not in nav
     if(r.cid&&seen.has(r.cid))continue; if(r.cid)seen.add(r.cid);
     changeOrder.push(r.cid);
     const cls=r.type.startsWith('moved')?'moved':r.type;
@@ -2027,6 +2065,7 @@ function applyFilters(){const r=$('results');r.classList.toggle('hide-ins',!$('f
   // Hiding/showing paragraphs changes the layout, so re-estimate page breaks.
   schedulePaginate();}
 ['fIns','fDel','fMov','fEq','fFmt'].forEach(id=>$(id).addEventListener('change',applyFilters));
+$('optCountComments').addEventListener('change',()=>{ if(resultsShown) $('btnCompare').click(); });
 
 /* ---- Rendering-set application (R6) --------------------------------------
    applyRenderSet is the single choke point for all three failure modes:
