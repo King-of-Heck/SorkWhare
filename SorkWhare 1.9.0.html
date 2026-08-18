@@ -1857,7 +1857,7 @@ function paraHtml(row,pageBreak,prevMeta,nextMeta){
   if(blockLeftPx>0.5)sp+='margin-left:'+blockLeftPx.toFixed(1)+'px;';
   const paraStyle=sp?(' style="'+sp+'"'):'';
   const bodyStyle=(align!=='left')?(' style="text-align:'+align+'"'):'';
-  return '<p class="'+cls.join(' ')+'"'+id+paraStyle+' data-cid="'+(row.cid||'')+'"'+(meta.keepLines?' data-keep-lines="1"':'')+'>'+markerHtml(meta,markerMinPx)+
+  return '<p class="'+cls.join(' ')+'"'+id+paraStyle+' data-cid="'+(row.cid||'')+'"'+((viewMode==='pages'&&meta.keepLines)?' data-keep-lines="1"':'')+'>'+markerHtml(meta,markerMinPx)+
          '<span class="body"'+bodyStyle+'>'+badge+row.html+anchor+'</span></p>';
 }
 function snippetHtml(row){
@@ -2187,6 +2187,7 @@ function splitBlockAtLine(el,lineIndex){
 function layoutPages(){
   try{
     const paper=$('paper'); if(!paper||!pageGeom)return false;
+    if(viewMode!=='pages')return false;                   // defensive: only paginate in Pages mode (guards a deferred call after a mode switch)
     if(paper.classList.contains('sheets'))return false;   // never re-sheet already-sheeted DOM; the caller rebuilds #paper first
     const g=pageGeom, PX=PX_PER_IN;
     const availPt=(g.hIn-g.mt-g.mb)*PT_PER_IN;
