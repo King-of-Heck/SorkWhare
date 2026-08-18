@@ -2240,6 +2240,7 @@ function layoutPages(){
    breaks — the same way it will when printing, so screen and PDF agree. 96 CSS px = 1in. */
 function applyPageGeometry(){
   const paper=$('paper'); if(!paper)return;
+  if(paper.classList.contains('sheets'))return;   // geometry lives on each .sheet
   if(!pageGeom){paper.removeAttribute('style');return;}
   const g=pageGeom, PX=96;
   paper.style.width=(g.wIn*PX)+'px';
@@ -2269,6 +2270,7 @@ function _estPages(items,pageContent){
 function paginate(){
   try{
     const paper=$('paper'); if(!paper||!pageGeom)return;
+    if(paper.classList.contains('sheets'))return;   // sheets carry their own exact count
     paper.querySelectorAll('.pgbreak-auto').forEach(e=>e.remove());
     const g=pageGeom, PX=96;
     const pageContent=(g.hIn-g.mt-g.mb)*PX;      // printable height per page, in px
@@ -2336,8 +2338,13 @@ function renderAll(rows,summary){
   }
   $('clist').innerHTML=items;
   $('clist').querySelectorAll('.citem').forEach(el=>el.addEventListener('click',()=>{const cid=+el.dataset.cid;const idx=changeOrder.indexOf(cid);if(idx>=0){curIdx=idx;goToCurrent();}}));
+  const paper=$('paper');
+  paper.classList.remove('sheets');
   applyPageGeometry();
   estPages=0;
+  // Pages mode falls back to Continuous whenever layout declines or fails, so a
+  // document with no section geometry still renders — just not as sheets.
+  if(viewMode!=='pages'||!layoutPages())schedulePaginate();
   curIdx=changeOrder.length?0:-1; applyFilters(); updateNavStatus();
   // Estimate page breaks after layout settles (needs real rendered heights).
   requestAnimationFrame(()=>requestAnimationFrame(paginate));
@@ -2383,7 +2390,14 @@ function applyViewMode(id,target,store){
 // immediately, so it can't precede the state it depends on. Placed here
 // (after the state block, before R6) rather than literally beside the
 // optCountComments listener, to avoid that ordering crash.
-function relayout(){}   // replaced in Task 8
+// Re-render the current comparison in the current view mode. Cheap enough to call on
+// a mode switch or a geometry change; NOT called on a filter toggle (filters are pure
+// CSS and must not move page numbers) and NOT on resize (sheet width comes from the
+// document's geometry, not the viewport).
+function relayout(){
+  if(!resultsShown||!lastRows)return;
+  renderAll(lastRows,lastSummary);
+}
 ['vwPages','vwCont'].forEach(id=>{const el=$(id); if(el)el.addEventListener('change',()=>{
   if(!el.checked)return; applyViewMode(el.value); relayout();
 });});
