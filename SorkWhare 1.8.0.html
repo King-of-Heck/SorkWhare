@@ -978,6 +978,39 @@ function applyHFComparison(summary, rows, hfA, hfB, ignoreCase){
   }
 }
 
+/* ============ Comment stream diff (v1.8.0) ============
+   Same shape as the note/hf stream diff, but merged as an uncounted layer by
+   default. Comments are NOT rendered inline in the body, so no sentinel machinery. */
+function buildCommentStream(comments){
+  const stream=[];
+  for(const c of (comments||[])){
+    c.paras.forEach((p,idx)=>stream.push(Object.assign({},p,{comment:{
+      id:c.id, author:c.author, date:c.date, initials:c.initials, anchor:c.anchor,
+      firstOfComment:idx===0}})));
+  }
+  return stream;
+}
+function compareComments(sideA, sideB, ignoreCase){
+  return compare(sideA, sideB, {ignoreCase:!!ignoreCase, moveMin:Infinity});
+}
+function mergeCommentResults(summary, bodyRows, res, counted){
+  summary.comments = res.summary.total;          // labeled layer count (same unit both modes)
+  if(counted){
+    const base=summary.total;
+    for(const r of res.rows) if(r.cid!=null) r.cid+=base;
+    summary.total      += res.summary.total;
+    summary.insertions += res.summary.insertions;
+    summary.deletions  += res.summary.deletions;
+    summary.amendments += res.summary.amendments;
+    summary.content    += res.summary.content;
+    summary.punctuation+= res.summary.punctuation;
+    summary.formatting += res.summary.formatting;
+  }else{
+    for(const r of res.rows) r.cid=null;          // keep styling, drop from total/nav
+  }
+  for(const r of res.rows) bodyRows.push(r);
+}
+
 /* ================= UI ================= */
 let fileA=null,fileB=null,lastRows=null,changeOrder=[],curIdx=-1,pageGeom=null,lastSummary=null,estPages=0;
 let resultsShown=false;
