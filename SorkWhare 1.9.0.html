@@ -106,6 +106,18 @@
      line, not per paragraph). */
   .para.contd .cbadge,.para.contd .marker{visibility:hidden}
   .para.contd{margin-top:0}
+  /* Page sheets (v1.9.0). Width/height/padding come from the document's own
+     geometry at render time; these rules carry only the chrome. */
+  #paper.sheets{background:transparent;border:none;box-shadow:none;padding:0;display:block}
+  .sheet{background:#fff;border:1px solid var(--line);border-radius:8px;
+         box-shadow:0 1px 4px rgba(0,0,0,.06);margin:0 auto 22px;position:relative;
+         display:flex;flex-direction:column}
+  .sheet .pgnum{position:absolute;left:0;right:0;bottom:-17px;text-align:center;
+                font-size:10px;font-weight:700;letter-spacing:.09em;color:var(--muted);
+                text-transform:uppercase}
+  /* A sheet whose content measured taller than the page grew to fit. A signal that
+     the estimate strained here, not an error. */
+  .sheet.overflowed{box-shadow:0 1px 4px rgba(0,0,0,.06),0 0 0 2px #e9b949}
 
   #paper b,.body b{font-weight:700}
   ins b,del b,.moved b,.moved-src b{font-weight:700}
@@ -2162,6 +2174,64 @@ function splitBlockAtLine(el,lineIndex){
     if(el.parentNode)el.parentNode.insertBefore(cont,el.nextSibling);
     return cont;
   }catch(_){ return null; }
+}
+
+/* Build discrete page sheets from the rendered redline. Returns false (leaving the
+   DOM continuous) when it cannot or should not run — no geometry, no blocks, or any
+   thrown error. Pagination is best-effort and must never block the redline. */
+function layoutPages(){
+  try{
+    const paper=$('paper'); if(!paper||!pageGeom)return false;
+    const g=pageGeom, PX=PX_PER_IN;
+    const availPt=(g.hIn-g.mt-g.mb)*PT_PER_IN;
+    if(!(availPt>60))return false;
+    const measured=withFiltersOff(paper,()=>collectPageBlocks(paper));
+    const els=measured.els, blocks=measured.blocks;
+    if(!els.length)return false;
+    // firstAvail EQUALS avail: unlike the PDF, page 1 carries no redline banner,
+    // because the banner is excluded from the block list.
+    const breaks=planBreaks(blocks,availPt,availPt);
+    const plan=sheetsFromBreaks(breaks,els.length);
+    const frag=document.createDocumentFragment();
+    for(let s=0;s<plan.length;s++){
+      const sheet=document.createElement('div');
+      sheet.className='sheet';
+      sheet.style.width=(g.wIn*PX)+'px';
+      sheet.style.minHeight=(g.hIn*PX)+'px';
+      sheet.style.padding=(g.mt*PX)+'px '+(g.mr*PX)+'px '+(g.mb*PX)+'px '+(g.ml*PX)+'px';
+      let contentPt=0;
+      for(const seg of plan[s]){
+        let el=els[seg.b];
+        if(seg.from>0){
+          // This block began on an earlier sheet; its continuation was produced there.
+          el=el&&el.__contd; if(!el)continue;
+        }
+        if(!el)continue;
+        if(seg.to!=null){
+          const cont=splitBlockAtLine(el,seg.to-seg.from);
+          if(cont)els[seg.b].__contd=cont;
+        }
+        contentPt+=pxToPt(el.offsetHeight||0);
+        sheet.appendChild(el);
+      }
+      const num=document.createElement('div');
+      num.className='pgnum'; num.setAttribute('aria-hidden','true');
+      num.textContent='Page '+(s+1)+' of '+plan.length;
+      sheet.appendChild(num);
+      if(sheetOverflowPt(contentPt,availPt)>0)sheet.classList.add('overflowed');
+      frag.appendChild(sheet);
+    }
+    const banner=[];
+    for(const k of Array.prototype.slice.call(paper.children))
+      if(k.classList.contains('docttl')||k.classList.contains('docmeta'))banner.push(k);
+    paper.innerHTML='';
+    for(const b of banner)paper.appendChild(b);
+    paper.appendChild(frag);
+    paper.classList.add('sheets');
+    paper.removeAttribute('style');          // geometry now lives on each sheet
+    estPages=plan.length; updateNavStatus();
+    return true;
+  }catch(_){ return false; }
 }
 
 /* Style the on-screen "paper" to the ACTUAL Word page: real width, margins (as padding),
