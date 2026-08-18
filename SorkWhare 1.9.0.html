@@ -101,6 +101,11 @@
   .pgbreak-auto{color:#9aa4ae}
   .pgbreak-sep span,.pgbreak-auto span{white-space:nowrap}
   .para.pgbreak{break-before:page;page-break-before:always}
+  /* A paragraph continued from the previous sheet: no repeated badge or list
+     marker, but it keeps its margin change bar (the PDF draws a bar per changed
+     line, not per paragraph). */
+  .para.contd .cbadge,.para.contd .marker{visibility:hidden}
+  .para.contd{margin-top:0}
 
   #paper b,.body b{font-weight:700}
   ins b,del b,.moved b,.moved-src b{font-weight:700}
@@ -2111,6 +2116,52 @@ function collectPageBlocks(paper){
     });
   }
   return {els,blocks};
+}
+
+// Total text length of a block, and the (node,offset) pair for a global character
+// offset — the two pieces a Range needs to address a position inside mixed inline
+// markup (<ins>/<del>/<b>, the change badge, the marker span).
+function blockTextLength(el){
+  let n=0; const w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT,null);
+  while(w.nextNode())n+=w.currentNode.nodeValue.length;
+  return n;
+}
+function pointAtOffset(el,k){
+  let seen=0; const w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT,null);
+  while(w.nextNode()){
+    const t=w.currentNode,len=t.nodeValue.length;
+    if(seen+len>=k)return {node:t,offset:Math.max(0,Math.min(len,k-seen))};
+    seen+=len;
+  }
+  return null;
+}
+// Split `el` so that visual line `lineIndex` onward moves into a continuation element.
+// Range.extractContents is what preserves well-formed markup: an <ins> or <b> open
+// across the split yields correctly closed halves on both sides. The continuation is
+// marked .contd so it drops the repeated change badge and list marker but KEEPS its
+// margin bar — matching the PDF, which draws a bar per changed LINE (v1.4.0).
+function splitBlockAtLine(el,lineIndex){
+  try{
+    const total=blockTextLength(el); if(!(total>0))return null;
+    const probe=document.createRange();
+    const countLinesUpTo=k=>{
+      const p=pointAtOffset(el,k); if(!p)return 0;
+      probe.setStart(el,0); probe.setEnd(p.node,p.offset);
+      return lineRowsFromRects(Array.prototype.slice.call(probe.getClientRects())).length;
+    };
+    const off=findLineStartOffset(total,lineIndex,countLinesUpTo);
+    if(off<=0)return null;
+    const p=pointAtOffset(el,off); if(!p)return null;
+    const tail=document.createRange();
+    tail.setStart(p.node,p.offset);
+    tail.setEndAfter(el.lastChild||el);
+    const frag=tail.extractContents();
+    const cont=el.cloneNode(false);          // same tag + classes + data-cid, no children
+    cont.classList.add('contd');
+    cont.appendChild(frag);
+    if(el.parentNode)el.parentNode.insertBefore(cont,el.nextSibling);
+    return cont;
+  }catch(_){ return null; }
 }
 
 /* Style the on-screen "paper" to the ACTUAL Word page: real width, margins (as padding),
