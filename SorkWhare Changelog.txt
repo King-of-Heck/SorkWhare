@@ -17,6 +17,20 @@ assigned during development (numbering is not sequential/uniform by design).
 
 
 -------------------------------------------------------------------------------
+ v1.8.1  -  Footnote Reference Fix                   (2026-08-18)
+-------------------------------------------------------------------------------
+ - Footnote and endnote reference marks now always appear as small superscript
+   numbers. Previously, if Word had renumbered a note internally between the two
+   documents, the mark could show up as raw "footnote:16" text in the body, in
+   the same size and font as the surrounding words.
+ - A footnote that Word merely renumbered is no longer reported as a change, so
+   it no longer inflates the change total or the Change X of Y navigation.
+ - In the exported PDF, footnotes now reliably appear at the bottom of the page
+   holding their reference, instead of being left unplaced.
+ - Documents with no footnotes or endnotes produce exactly the same output as
+   before.
+
+-------------------------------------------------------------------------------
  v1.8.0  -  Comment Comparison                       (2026-08-17)
 -------------------------------------------------------------------------------
  - Comments (word/comments.xml) are now compared too - author, date, and
