@@ -1835,7 +1835,7 @@ function paraHtml(row,pageBreak,prevMeta,nextMeta){
   if(blockLeftPx>0.5)sp+='margin-left:'+blockLeftPx.toFixed(1)+'px;';
   const paraStyle=sp?(' style="'+sp+'"'):'';
   const bodyStyle=(align!=='left')?(' style="text-align:'+align+'"'):'';
-  return '<p class="'+cls.join(' ')+'"'+id+paraStyle+' data-cid="'+(row.cid||'')+'">'+markerHtml(meta,markerMinPx)+
+  return '<p class="'+cls.join(' ')+'"'+id+paraStyle+' data-cid="'+(row.cid||'')+'"'+(meta.keepLines?' data-keep-lines="1"':'')+'>'+markerHtml(meta,markerMinPx)+
          '<span class="body"'+bodyStyle+'>'+badge+row.html+anchor+'</span></p>';
 }
 function snippetHtml(row){
@@ -2066,6 +2066,51 @@ var SHEET_OVERFLOW_TOL_PT=0.5;
 function sheetOverflowPt(contentPt,availPt){
   const over=(contentPt||0)-(availPt||0);
   return over>SHEET_OVERFLOW_TOL_PT?over:0;
+}
+// Measurement must see EVERY block, including ones a Show filter hides, so page
+// numbers describe the real document rather than the filtered view. The filter
+// classes live on the results root; drop them for the measure pass and restore.
+var FILTER_CLASSES=['hide-eq','hide-ins','hide-del','hide-mov','hide-fmt'];
+function withFiltersOff(paper,fn){
+  const root=(paper&&paper.closest)?paper.closest('#results'):null;
+  const had=[];
+  if(root&&root.classList){
+    for(const c of FILTER_CLASSES)if(root.classList.contains(c)){had.push(c);root.classList.remove(c);}
+  }
+  try{ return fn(); }
+  finally{ if(root&&root.classList)for(const c of had)root.classList.add(c); }
+}
+// One descriptor per top-level block, in document order. The redline banner is not
+// part of the Word document, so it is excluded — the same rule paginate() applies.
+function collectPageBlocks(paper){
+  const els=[],blocks=[];
+  const kids=Array.prototype.slice.call(paper.children);
+  for(const el of kids){
+    const cl=el.classList;
+    if(cl.contains('docttl')||cl.contains('docmeta'))continue;
+    if(cl.contains('pgbreak-sep')){
+      els.push(el);
+      blocks.push({lineHeights:[],keepNext:false,keepLines:false,pageBreakBefore:true,
+                   spaceBeforePt:0,spaceAfterPt:0});
+      continue;
+    }
+    let rects=[];
+    try{ const rg=document.createRange(); rg.selectNodeContents(el);
+         rects=Array.prototype.slice.call(rg.getClientRects()); }catch(_){}
+    let lh=lineHeightsPtFromRects(rects);
+    if(!lh.length)lh=[pxToPt(el.offsetHeight||0)];   // atomic block (table, band heading)
+    const cs=getComputedStyle(el);
+    els.push(el);
+    blocks.push({
+      lineHeights:lh,
+      keepNext:cl.contains('keepnext'),
+      keepLines:el.dataset.keepLines==='1',
+      pageBreakBefore:cl.contains('pgbreak'),
+      spaceBeforePt:pxToPt(parseFloat(cs.marginTop)||0),
+      spaceAfterPt:pxToPt(parseFloat(cs.marginBottom)||0),
+    });
+  }
+  return {els,blocks};
 }
 
 /* Style the on-screen "paper" to the ACTUAL Word page: real width, margins (as padding),
