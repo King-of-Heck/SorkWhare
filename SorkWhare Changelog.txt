@@ -17,6 +17,20 @@ assigned during development (numbering is not sequential/uniform by design).
 
 
 -------------------------------------------------------------------------------
+ v1.9.0  -  Page View                                (2026-08-18)
+-------------------------------------------------------------------------------
+ - The redline is now shown as separate, numbered pages instead of one long
+   sheet, using the document's own page size, margins and font.
+ - Page breaks follow Word's rules - a heading stays with the paragraph that
+   follows it, single lines are not stranded at the top or bottom of a page,
+   and a long paragraph continues onto the next page as it does in Word.
+ - A new View setting switches between Pages and the previous Continuous
+   layout, and remembers your choice.
+ - Hiding unchanged text no longer renumbers the pages: page 7 always means
+   page 7 of the real document.
+ - Printing produces one printed page per page shown on screen.
+
+-------------------------------------------------------------------------------
  v1.8.1  -  Footnote Reference Fix                   (2026-08-18)
 -------------------------------------------------------------------------------
  - Footnote and endnote reference marks now always appear as small superscript
