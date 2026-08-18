@@ -1257,7 +1257,7 @@ function generateRedlinePdf(opts){
   // Note-free input: bodyRows has the SAME elements as allRows, enRows is empty,
   // so nothing new runs and the output stays byte-identical to v1.5.0.
   const allRows=opts.rows||lastRows||[];
-  const bodyRows=allRows.filter(r=>!(r.meta&&(r.meta.note||r.meta.hf)));
+  const bodyRows=allRows.filter(r=>!(r.meta&&(r.meta.note||r.meta.hf||r.meta.comment)));
   const enRows=allRows.filter(r=>r.meta&&r.meta.note&&r.meta.note.kind==='endnote');
   const g=opts.geom||pageGeom||{wIn:8.5,hIn:11,mt:1,mr:1,mb:1,ml:1,fontPt:11,font:'Times New Roman'};
   const summary=opts.summary||lastSummary;
@@ -1543,6 +1543,25 @@ function generateRedlinePdf(opts){
     }
   };
   hfEmit('header'); hfEmit('footer');
+  // ---- Comments section (v1.8.0): a titled block after headers/footers. Empty for
+  // a comment-free doc (no .comment rows) → skipped → byte-identical output. Rows flow
+  // through emitParaRow → v1.4.0 margin bars for free. ASCII-safe punctuation (the PDF
+  // text encoder is Win-1252). NOT anchored on the page (deferred, page-sheet view). ----
+  const commentEmit=()=>{
+    const rws=allRows.filter(r=>r.meta&&r.meta.comment).filter(_visible);
+    if(!rws.length)return;
+    emitParaRow({type:'equal',meta:{isBold:true,keepNext:true,spaceBeforePt:14,spaceAfterPt:6},html:'Comments'},null,null);
+    let i=0;
+    while(i<rws.length){
+      const c=rws[i].meta.comment, group=[rws[i]]; i++;
+      while(i<rws.length && !(rws[i].meta.comment && rws[i].meta.comment.firstOfComment)){ group.push(rws[i]); i++; }
+      const meta=[c.author,c.date,c.initials].filter(Boolean).join(' - ');
+      emitParaRow({type:'equal',meta:{keepNext:true,spaceBeforePt:6},html:esc(meta)},null,null);
+      if(c.anchor) emitParaRow({type:'equal',meta:{keepNext:true},html:esc('re: "'+c.anchor+'"')},null,null);
+      group.forEach((r,k)=>emitParaRow(r,group[k-1],group[k+1]));
+    }
+  };
+  commentEmit();
   // ---- Pass 2: page planning (banner shortens page 1) ----
   const availH=Hpt-mtPt-mbPt;
   const BANNER_H=62; // 20+12+14+16 from the banner block above
