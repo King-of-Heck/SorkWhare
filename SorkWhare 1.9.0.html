@@ -2028,6 +2028,25 @@ function lineRowsFromRects(rects){
 function lineHeightsPtFromRects(rects){
   return lineRowsFromRects(rects).map(r=>pxToPt(r.height));
 }
+// Turn planBreaks' {b,l} break list into per-sheet segment lists. A segment names a
+// block and the half-open line range it contributes to that sheet; `to:null` means
+// "to the end of the block". A block appears in two segments when a break falls
+// inside it (Word splits long paragraphs across pages, so this is the common case,
+// not an edge case).
+function sheetsFromBreaks(breaks,blockCount){
+  const bl=breaks||[], sheets=[]; let cur=[];
+  let b=0, from=0;
+  for(let k=0;k<bl.length;k++){
+    const br=bl[k];
+    while(b<br.b){ cur.push({b,from,to:null}); b++; from=0; }
+    if(br.l>from) cur.push({b,from,to:br.l});
+    sheets.push(cur); cur=[];
+    from=br.l;
+  }
+  while(b<blockCount){ cur.push({b,from,to:null}); b++; from=0; }
+  sheets.push(cur);
+  return sheets;
+}
 
 /* Style the on-screen "paper" to the ACTUAL Word page: real width, margins (as padding),
    default font & size. This makes the browser wrap lines — and therefore estimate page
