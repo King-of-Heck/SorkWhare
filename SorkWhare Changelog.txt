@@ -17,6 +17,16 @@ assigned during development (numbering is not sequential/uniform by design).
 
 
 -------------------------------------------------------------------------------
+ v1.10.0  -  Per-Page Footnotes                      (2026-08-18)
+-------------------------------------------------------------------------------
+ - Pages view now floats each footnote to the bottom of the page that
+   contains its reference, matching the PDF (previously all footnotes
+   sat in one end-of-document band).
+ - Orphan footnotes (referenced from nowhere) collect in a trailing
+   Footnotes band on the last page.
+ - Continuous view and footnote-free documents are unchanged.
+
+-------------------------------------------------------------------------------
  v1.9.0  -  Page View                                (2026-08-18)
 -------------------------------------------------------------------------------
  - The redline is now shown as separate, numbered pages instead of one long
