@@ -151,6 +151,9 @@
   #paper .cmtmeta{font-weight:600;color:var(--muted);margin-top:8px}
   #paper .cmtanchor{font-style:italic;color:var(--muted);margin:0 0 4px}
   .hide-eq #paper .cmtmeta.equal,.hide-eq #paper .cmtanchor.equal{display:none}
+  /* v1.10.1 (M1): a fmt-only comment keeps its header while Formatting is shown */
+  .hide-eq #paper .cmtmeta.equal.fmtchanged,.hide-eq #paper .cmtanchor.equal.fmtchanged{display:block}
+  .hide-eq.hide-fmt #paper .cmtmeta.equal.fmtchanged,.hide-eq.hide-fmt #paper .cmtanchor.equal.fmtchanged{display:none}
   .fnref{font-size:.7em;vertical-align:super;color:var(--nav)}
   ins .fnref{color:var(--ins)} del .fnref{color:var(--del)}
 
@@ -1964,7 +1967,7 @@ function noteSup(html, dnMap){
 // from notesSectionHtml so the end band and the per-page float are byte-identical.
 function noteParaHtml(r){
   const n=r.meta.note.dispNum!=null ? (r.meta.note.dispNum+'. ') : '';
-  return '<p class="para '+(r.type==='equal'?'equal':r.type)+'" data-cid="'+(r.cid||'')+'"'
+  return '<p class="para '+(r.type==='equal'?'equal':r.type)+(r.fmtChanged?' fmtchanged':'')+'" data-cid="'+(r.cid||'')+'"'
        + (r.cid?(' id="chg-'+r.cid+'"'):'') + '><span class="fnnum">'+n+'</span>'+r.html+'</p>';
 }
 // Group footnote rows into one block per footnote, first-seen order. A footnote may span
@@ -2014,7 +2017,7 @@ function hfSectionHtml(rows, kind){
     if(!unitRows.length)continue;
     let inner='';
     for(const r of unitRows){
-      inner+='<p class="para '+(r.type==='equal'?'equal':r.type)+'" data-cid="'+(r.cid||'')+'"'
+      inner+='<p class="para '+(r.type==='equal'?'equal':r.type)+(r.fmtChanged?' fmtchanged':'')+'" data-cid="'+(r.cid||'')+'"'
            +(r.cid?(' id="chg-'+r.cid+'"'):'')+'>'+r.html+'</p>';
     }
     out+='<div class="hfband"><div class="noteshdr">'+hfLabel(kind,type,multi)+'</div>'+inner+'</div>';
@@ -2037,12 +2040,13 @@ function commentsSectionHtml(rows){
     const c=cRows[i].meta.comment, group=[cRows[i]]; i++;
     while(i<cRows.length && !(cRows[i].meta.comment && cRows[i].meta.comment.firstOfComment)){ group.push(cRows[i]); i++; }
     const changed=group.some(r=>r.type!=='equal');
-    const eq=changed?'':' equal';
+    const fmtOnly=!changed&&group.some(r=>r.fmtChanged);
+    const eq=changed?'':(' equal'+(fmtOnly?' fmtchanged':''));
     const meta=[c.author,c.date,c.initials].filter(Boolean).map(esc).join(' · ');
     inner+='<div class="cmtmeta'+eq+'">'+meta+'</div>';
     if(c.anchor) inner+='<div class="cmtanchor'+eq+'">re: “'+esc(c.anchor)+'”</div>';
     for(const r of group){
-      inner+='<p class="para '+(r.type==='equal'?'equal':r.type)+'" data-cid="'+(r.cid||'')+'"'
+      inner+='<p class="para '+(r.type==='equal'?'equal':r.type)+(r.fmtChanged?' fmtchanged':'')+'" data-cid="'+(r.cid||'')+'"'
            +(r.cid?(' id="chg-'+r.cid+'"'):'')+'>'+r.html+'</p>';
     }
   }
