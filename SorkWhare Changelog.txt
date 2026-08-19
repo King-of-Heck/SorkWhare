@@ -17,6 +17,18 @@ assigned during development (numbering is not sequential/uniform by design).
 
 
 -------------------------------------------------------------------------------
+ v1.10.1  -  Pages Hardening                         (2026-08-19)
+-------------------------------------------------------------------------------
+ - If building the page view fails partway, the app now falls back to the
+   continuous view with the complete document intact (previously text could
+   go missing until the next compare).
+ - A formatting-only change in a footnote, endnote, header, footer or comment
+   now stays visible when unchanged text is hidden, matching the PDF; turning
+   the Formatting toggle off still hides it.
+ - PDF: the Headers/Footers section keeps its per-variant label (for example
+   "Header - First Page") when unchanged text is hidden, matching the screen.
+
+-------------------------------------------------------------------------------
  v1.10.0  -  Per-Page Footnotes                      (2026-08-18)
 -------------------------------------------------------------------------------
  - Pages view now floats each footnote to the bottom of the page that
