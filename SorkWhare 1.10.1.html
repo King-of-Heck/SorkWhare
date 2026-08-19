@@ -2286,6 +2286,11 @@ function layoutPages(){
     const g=pageGeom, PX=PX_PER_IN;
     const availPt=(g.hIn-g.mt-g.mb)*PT_PER_IN;
     if(!(availPt>60))return false;
+    // v1.10.1 (F1): everything below mutates the live DOM (splitBlockAtLine tears
+    // paragraphs; sheet.appendChild moves nodes into a detached fragment), so a
+    // mid-layout throw must restore #paper or the Continuous fallback loses content.
+    // var ON PURPOSE: a try-scoped const would be invisible to the catch.
+    var snapHtml=paper.innerHTML, snapStyle=paper.getAttribute('style');
     const measured=withFiltersOff(paper,()=>collectPageBlocks(paper));
     const els=measured.els, blocks=measured.blocks;
     if(!els.length)return false;
@@ -2386,7 +2391,17 @@ function layoutPages(){
     paper.removeAttribute('style');          // geometry now lives on each sheet
     estPages=plan.length; updateNavStatus();
     return true;
-  }catch(_){ return false; }
+  }catch(_){
+    try{
+      const p=$('paper');
+      if(p && typeof snapHtml==='string'){
+        p.innerHTML=snapHtml;
+        if(snapStyle==null)p.removeAttribute('style'); else p.setAttribute('style',snapStyle);
+        p.classList.remove('sheets');
+      }
+    }catch(_2){}
+    return false;
+  }
 }
 
 /* Style the on-screen "paper" to the ACTUAL Word page: real width, margins (as padding),
