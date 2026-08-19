@@ -1954,6 +1954,27 @@ function noteSup(html, dnMap){
     return '<sup class="fnref">'+(n!=null?n:'*')+'</sup>';
   });
 }
+// One footnote/endnote paragraph as it renders in a band OR a floated block. Factored
+// from notesSectionHtml so the end band and the per-page float are byte-identical.
+function noteParaHtml(r){
+  const n=r.meta.note.dispNum!=null ? (r.meta.note.dispNum+'. ') : '';
+  return '<p class="para '+(r.type==='equal'?'equal':r.type)+'" data-cid="'+(r.cid||'')+'"'
+       + (r.cid?(' id="chg-'+r.cid+'"'):'') + '><span class="fnnum">'+n+'</span>'+r.html+'</p>';
+}
+// Group footnote rows into one block per footnote, first-seen order. A footnote may span
+// several paragraphs (all sharing one dispNum). Orphans (dispNum null, no body reference)
+// are KEPT — keyed by id — so the caller can drop them into the trailing end band.
+function groupFootnoteBlocks(rows){
+  const out=[], byKey=new Map();
+  for(const r of rows){
+    const nt=r.meta&&r.meta.note; if(!nt||nt.kind!=='footnote')continue;
+    const key=nt.dispNum!=null?('d'+nt.dispNum):('o'+nt.id);
+    let g=byKey.get(key);
+    if(!g){g={dispNum:nt.dispNum,id:nt.id,orphan:!!nt.orphan,html:''};byKey.set(key,g);out.push(g);}
+    g.html+=noteParaHtml(r);
+  }
+  return out;
+}
 // One labeled end-of-document section (Footnotes band / Endnotes section) built from the
 // note rows of the given kind, redlined the same way as body paragraphs. Empty string when
 // the document has no notes of that kind — the additive guarantee for note-free documents.
@@ -1962,11 +1983,7 @@ function notesSectionHtml(rows, kind){
   if(!noteRows.length) return '';
   const label = kind==='endnote' ? 'Endnotes' : 'Footnotes';
   let inner='';
-  for(const r of noteRows){
-    const n=r.meta.note.dispNum!=null ? (r.meta.note.dispNum+'. ') : '';
-    inner += '<p class="para '+(r.type==='equal'?'equal':r.type)+'" data-cid="'+(r.cid||'')+'"'
-           + (r.cid?(' id="chg-'+r.cid+'"'):'') + '><span class="fnnum">'+n+'</span>'+r.html+'</p>';
-  }
+  for(const r of noteRows) inner += noteParaHtml(r);
   return '<div class="'+(kind==='endnote'?'endnotes':'fnband')+'"><div class="noteshdr">'+label+'</div>'+inner+'</div>';
 }
 
