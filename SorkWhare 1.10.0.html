@@ -1956,7 +1956,8 @@ function buildDispNumMap(rows){
 function noteSup(html, dnMap){
   return html.replace(/\uE000(footnote|endnote):(-?\d+)\uE001/g, (_,kind,id)=>{
     const n=dnMap&&dnMap[kind+':'+id];
-    return '<sup class="fnref">'+(n!=null?n:'*')+'</sup>';
+    const en=kind==='endnote'?' data-en="1"':'';   // lets the footnote float harvest skip endnote refs (same class, kind-less otherwise)
+    return '<sup class="fnref"'+en+'>'+(n!=null?n:'*')+'</sup>';
   });
 }
 // One footnote/endnote paragraph as it renders in a band OR a floated block. Factored
@@ -2185,7 +2186,7 @@ function harvestFnRefsScreen(el){
   const cl=el.classList;
   if(cl.contains('fnband')||cl.contains('endnotes')||cl.contains('hfband')||cl.contains('cmtband'))return [];
   const out=[];
-  el.querySelectorAll('.fnref').forEach(s=>{const n=parseInt(s.textContent,10);if(!isNaN(n))out.push(n);});
+  el.querySelectorAll('.fnref:not([data-en])').forEach(s=>{const n=parseInt(s.textContent,10);if(!isNaN(n))out.push(n);});
   return out;
 }
 // One descriptor per top-level block, in document order. The redline banner is not
