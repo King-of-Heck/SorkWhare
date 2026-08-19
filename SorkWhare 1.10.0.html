@@ -2086,6 +2086,35 @@ function sheetsFromBreaks(breaks,blockCount){
   sheets.push(cur);
   return sheets;
 }
+// Block → the sheet index it STARTS on (first segment wins). Mirrors the PDF's
+// pageOfPara, which records a paragraph on the page of its first line even when it
+// splits across a break — a footnote floats to where its reference paragraph begins.
+function firstPageOfBlocks(plan,blockCount){
+  const out=new Array(blockCount);
+  for(let s=0;s<plan.length;s++)for(const seg of plan[s])if(out[seg.b]==null)out[seg.b]=s;
+  for(let b=0;b<blockCount;b++)if(out[b]==null)out[b]=0;   // defensive
+  return out;
+}
+// page → ordered unique dispNums referenced by that page's blocks, limited to footnotes
+// we actually built a block for. Pages with no surviving notes are omitted.
+function notesForScreenPages(refsByBlock,blockToPage,builtNums){
+  const m=new Map();
+  for(let b=0;b<refsByBlock.length;b++){
+    const refs=refsByBlock[b]; if(!refs||!refs.length)continue;
+    const pg=blockToPage[b]; let arr=m.get(pg); if(!arr){arr=[];m.set(pg,arr);}
+    for(const dn of refs)if(builtNums.has(dn)&&arr.indexOf(dn)<0)arr.push(dn);
+  }
+  for(const [pg,arr] of [...m])if(!arr.length)m.delete(pg);
+  return m;
+}
+// Reserved strip height (pt) for the footnotes floated on one page. Mirrors the PDF's
+// fnReserveFor: above-rule gap + below-rule gap + block heights + between-note gaps.
+function fnReserveScreenPt(dnList,heightByNum,gaps){
+  if(!dnList||!dnList.length)return 0;
+  let h=gaps.topGap+gaps.ruleGap;
+  dnList.forEach((dn,i)=>{h+=(heightByNum[dn]||0);if(i>0)h+=gaps.noteGap;});
+  return h;
+}
 // Binary-search the character offset at which visual line `lineIndex` begins.
 // countLinesUpTo(k) = how many lines the first k characters occupy; it is monotonic
 // non-decreasing, which is what makes the search valid. Kept free of the DOM so it
