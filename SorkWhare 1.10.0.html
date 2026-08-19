@@ -2115,6 +2115,30 @@ function fnReserveScreenPt(dnList,heightByNum,gaps){
   dnList.forEach((dn,i)=>{h+=(heightByNum[dn]||0);if(i>0)h+=gaps.noteGap;});
   return h;
 }
+// Convergent footnote-float pre-pass — the screen twin of the PDF's v1.6.0 loop.
+// Iterate up to 3×: plan breaks, learn which page each footnote's reference lands on,
+// reserve that page's footnote height (shrinking its body area), re-plan. Stop when the
+// page→notes assignment stops changing; otherwise accept the last (KNOWN LIMITATION,
+// same as the PDF). With no built footnotes it reduces to the plain scalar planBreaks.
+var FN_FLOOR_PT=40;   // reserve floor guard (mirrors the PDF's Math.max(40,…))
+function floatFootnotePlan(blocks,availPt,refsByBlock,builtNums,heightByNum,gaps){
+  if(!builtNums||!builtNums.size){
+    return {breaks:planBreaks(blocks,availPt,availPt),pageNotes:new Map()};
+  }
+  let availOf,prevKey=null,breaks=[],pageNotes=new Map();
+  for(let iter=0;iter<3;iter++){
+    breaks=planBreaks(blocks,availPt,availPt,availOf);   // iter 0: availOf undefined → scalar path
+    const plan=sheetsFromBreaks(breaks,blocks.length);
+    const b2p=firstPageOfBlocks(plan,blocks.length);
+    const nf=notesForScreenPages(refsByBlock,b2p,builtNums);
+    pageNotes=nf;
+    const key=JSON.stringify([...nf].map(([p,a])=>[p,a]).sort((x,y)=>x[0]-y[0]));
+    if(key===prevKey)break;
+    prevKey=key;
+    availOf=pg=>Math.max(FN_FLOOR_PT,availPt-fnReserveScreenPt(nf.get(pg),heightByNum,gaps));
+  }
+  return {breaks,pageNotes};
+}
 // Binary-search the character offset at which visual line `lineIndex` begins.
 // countLinesUpTo(k) = how many lines the first k characters occupy; it is monotonic
 // non-decreasing, which is what makes the search valid. Kept free of the DOM so it
