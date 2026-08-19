@@ -2295,10 +2295,11 @@ function layoutPages(){
       const built=groups.filter(g=>!g.orphan && g.dispNum!=null);
       const builtNums=new Set(), heightByNum={};
       for(const g of built){builtNums.add(g.dispNum); fnHtmlByNum[g.dispNum]=g.html;}
-      // Splice the one footnote end band out of the block list (and out of the DOM).
+      // Splice the one footnote end band out of the block list ONLY (NOT the DOM):
+      // on the success path paper.innerHTML='' below discards it; leaving it in the DOM
+      // keeps the Continuous fallback safe if any later step throws (no footnote loss).
       for(let i=els.length-1;i>=0;i--){
         if(els[i].classList.contains('fnband')){
-          if(els[i].parentNode)els[i].parentNode.removeChild(els[i]);
           els.splice(i,1); blocks.splice(i,1);
         }
       }
