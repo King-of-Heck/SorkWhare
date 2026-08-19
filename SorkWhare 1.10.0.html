@@ -142,6 +142,10 @@
      like the body. Equal note paragraphs are plain .para elements so hide-unchanged
      (.hide-eq .para.equal{display:none}) already applies to them with no extra rule. */
   #paper .fnband,#paper .endnotes,#paper .hfband,#paper .cmtband{margin-top:18px;border-top:1px solid var(--line);padding-top:8px;font-size:12px;color:#333}
+  /* Per-page floated footnotes (v1.10.0): pinned to the bottom of the sheet's flex
+     column, above the absolute .pgnum, with the same separator look as the end band. */
+  .sheet .sheetfn{margin-top:auto;border-top:1px solid var(--line);padding-top:8px;font-size:12px;color:#333}
+  .sheet .sheetfn .fnnum{color:var(--muted);margin-right:6px}
   #paper .noteshdr{font-weight:700;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
   #paper .fnnum{color:var(--muted);margin-right:6px}
   #paper .cmtmeta{font-weight:600;color:var(--muted);margin-top:8px}
@@ -1064,6 +1068,7 @@ function mergeCommentResults(summary, bodyRows, res, counted){
 
 /* ================= UI ================= */
 let fileA=null,fileB=null,lastRows=null,changeOrder=[],curIdx=-1,pageGeom=null,lastSummary=null,estPages=0;
+let pendingFloatFns=null;
 let resultsShown=false;
 const $=id=>document.getElementById(id);
 function wireDrop(dropId,nameId,which){const d=$(dropId),input=document.createElement('input');input.type='file';input.accept='.docx';input.style.display='none';d.appendChild(input);d.addEventListener('click',()=>input.click());input.addEventListener('change',e=>{if(e.target.files[0])setFile(e.target.files[0],which,d,nameId);});d.addEventListener('dragover',e=>{e.preventDefault();d.classList.add('dragover');});d.addEventListener('dragleave',()=>d.classList.remove('dragover'));d.addEventListener('drop',e=>{e.preventDefault();d.classList.remove('dragover');const f=e.dataTransfer.files[0];if(f)setFile(f,which,d,nameId);});}
@@ -2172,6 +2177,17 @@ function withFiltersOff(paper,fn){
   try{ return fn(); }
   finally{ if(root&&root.classList)for(const c of had)root.classList.add(c); }
 }
+// Footnote dispNums referenced inside one BODY block, read from the resolved
+// <sup class="fnref">N</sup> superscripts noteSup already produced (the screen DOM
+// carries no raw sentinel by layout time). Note/hf/comment band elements are skipped
+// so their internal refs don't re-float. '*' fallbacks (unknown id) are ignored.
+function harvestFnRefsScreen(el){
+  const cl=el.classList;
+  if(cl.contains('fnband')||cl.contains('endnotes')||cl.contains('hfband')||cl.contains('cmtband'))return [];
+  const out=[];
+  el.querySelectorAll('.fnref').forEach(s=>{const n=parseInt(s.textContent,10);if(!isNaN(n))out.push(n);});
+  return out;
+}
 // One descriptor per top-level block, in document order. The redline banner is not
 // part of the Word document, so it is excluded — the same rule paginate() applies.
 function collectPageBlocks(paper){
@@ -2265,9 +2281,46 @@ function layoutPages(){
     const measured=withFiltersOff(paper,()=>collectPageBlocks(paper));
     const els=measured.els, blocks=measured.blocks;
     if(!els.length)return false;
-    // firstAvail EQUALS avail: unlike the PDF, page 1 carries no redline banner,
-    // because the banner is excluded from the block list.
-    const breaks=planBreaks(blocks,availPt,availPt);
+    // ---- Footnote float (v1.10.0) --------------------------------------------
+    // Gated on there being footnotes to float; a footnote-free doc takes the exact
+    // v1.9.0 path (the else branch). The end band is still in the DOM here (renderAll
+    // emits it for fallback safety); on this success path we splice its single .fnband
+    // element out of the collected block list so it neither flows as a body block nor
+    // double-renders — the floats replace it. Indices stay aligned because els/blocks
+    // are spliced together.
+    const FN_GAPS={topGap:6,ruleGap:4,noteGap:3};
+    let breaks, pageNotes=new Map(), fnHtmlByNum={}, fnLeftover=[];
+    const groups=pendingFloatFns||[];
+    if(groups.length){
+      const built=groups.filter(g=>!g.orphan && g.dispNum!=null);
+      const builtNums=new Set(), heightByNum={};
+      for(const g of built){builtNums.add(g.dispNum); fnHtmlByNum[g.dispNum]=g.html;}
+      // Splice the one footnote end band out of the block list (and out of the DOM).
+      for(let i=els.length-1;i>=0;i--){
+        if(els[i].classList.contains('fnband')){
+          if(els[i].parentNode)els[i].parentNode.removeChild(els[i]);
+          els.splice(i,1); blocks.splice(i,1);
+        }
+      }
+      // Measure each footnote block once, at the sheet content width (paper still
+      // carries continuous geometry here: width = page width, padding = margins).
+      const meas=document.createElement('div');
+      meas.className='sheetfn'; meas.style.visibility='hidden';
+      paper.appendChild(meas);
+      for(const g of built){
+        const d=document.createElement('div'); d.innerHTML=g.html;
+        meas.appendChild(d); heightByNum[g.dispNum]=pxToPt(d.offsetHeight||0); meas.removeChild(d);
+      }
+      paper.removeChild(meas);
+      const refsByBlock=withFiltersOff(paper,()=>els.map(harvestFnRefsScreen));
+      const fp=floatFootnotePlan(blocks,availPt,refsByBlock,builtNums,heightByNum,FN_GAPS);
+      breaks=fp.breaks; pageNotes=fp.pageNotes;
+      // Orphans, and any built footnote that never landed on a page, go to the trailing band.
+      const placed=new Set(); for(const arr of pageNotes.values())for(const dn of arr)placed.add(dn);
+      fnLeftover=groups.filter(g=>g.orphan||g.dispNum==null||!placed.has(g.dispNum));
+    } else {
+      breaks=planBreaks(blocks,availPt,availPt);
+    }
     const plan=sheetsFromBreaks(breaks,els.length);
     const frag=document.createDocumentFragment();
     for(let s=0;s<plan.length;s++){
@@ -2291,6 +2344,14 @@ function layoutPages(){
         contentPt+=pxToPt(el.offsetHeight||0);
         sheet.appendChild(el);
       }
+      // Float this page's footnotes to the bottom of the sheet.
+      const dns=pageNotes.get(s);
+      if(dns&&dns.length){
+        const fnbox=document.createElement('div'); fnbox.className='sheetfn';
+        for(const dn of dns){const d=document.createElement('div'); d.innerHTML=fnHtmlByNum[dn];
+          while(d.firstChild)fnbox.appendChild(d.firstChild);}
+        sheet.appendChild(fnbox);
+      }
       const num=document.createElement('div');
       num.className='pgnum'; num.setAttribute('aria-hidden','true');
       num.textContent='Page '+(s+1)+' of '+plan.length;
@@ -2303,6 +2364,14 @@ function layoutPages(){
       if(k.classList.contains('docttl')||k.classList.contains('docmeta'))banner.push(k);
     paper.innerHTML='';
     for(const b of banner)paper.appendChild(b);
+    if(fnLeftover.length){
+      const last=frag.lastChild;   // the final .sheet
+      if(last){
+        const band=document.createElement('div'); band.className='fnband';
+        band.innerHTML='<div class="noteshdr">Footnotes</div>'+fnLeftover.map(g=>g.html).join('');
+        last.insertBefore(band, last.querySelector('.pgnum'));
+      }
+    }
     paper.appendChild(frag);
     paper.classList.add('sheets');
     paper.removeAttribute('style');          // geometry now lives on each sheet
@@ -2402,6 +2471,12 @@ function renderAll(rows,summary){
   html+=hfSectionHtml(rows,'footer');
   html+=commentsSectionHtml(rows);
   const dnMap=buildDispNumMap(rows);
+  // Pages mode: stash per-footnote blocks (noteSup-resolved, same content as the band)
+  // for layoutPages to float. Null in Continuous / footnote-free docs → additive path.
+  pendingFloatFns = (viewMode==='pages')
+    ? groupFootnoteBlocks(rows).map(g=>({...g, html:noteSup(g.html,dnMap)}))
+    : null;
+  if(pendingFloatFns && !pendingFloatFns.length) pendingFloatFns=null;
   $('paper').innerHTML=noteSup(html, dnMap);
   const seen=new Set(); changeOrder=[]; let items='';
   for(const r of rows){
