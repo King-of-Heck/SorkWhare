@@ -1585,9 +1585,12 @@ function generateRedlinePdf(opts){
   // output. Rows flow through emitParaRow → v1.4.0 margin bars for free. NOT rendered
   // at page top/bottom (deferred; needs per-page chrome layout). ----
   const hfEmit=kind=>{
-    const rws=allRows.filter(r=>r.meta&&r.meta.hf&&r.meta.hf.kind===kind).filter(_visible);
+    // v1.10.1 (M2): the variant label is decided by ALL rows of the kind, matching
+    // screen hfSectionHtml - hide-unchanged can't flip a qualified label to plural.
+    const all=allRows.filter(r=>r.meta&&r.meta.hf&&r.meta.hf.kind===kind);
+    const rws=all.filter(_visible);
     if(!rws.length)return;
-    const multi=new Set(rws.map(r=>r.meta.hf.type)).size>1;
+    const multi=new Set(all.map(r=>r.meta.hf.type)).size>1;
     for(const type of ['default','first','even']){
       const unit=rws.filter(r=>r.meta.hf.type===type); if(!unit.length)continue;
       const base=kind==='header'?'Header':'Footer';
