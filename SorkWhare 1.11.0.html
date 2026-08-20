@@ -2184,7 +2184,10 @@ function hfScreenPlan(chromeUnits,flags,gIn,hPtByKey){
   const effBotPt=pi=>{const h=hOf('footer',pi);return h>0?Math.max(mbPt,ftPt+h):mbPt;};
   let shrinks=false;
   for(let pi=0;pi<3;pi++)if(effTopPt(pi)>mtPt||effBotPt(pi)>mbPt)shrinks=true;
-  const availOf=shrinks?(pi=>gIn.hIn*PT_PER_IN-effTopPt(pi)-effBotPt(pi)):null;
+  // v1.11.0 fix: floor like the PDF (Math.max(40,…)) and footnotes (FN_FLOOR_PT) —
+  // a page-tall header/footer would otherwise drive avail <= 0 (planBreaks won't
+  // hang, but degrades to one line per sheet).
+  const availOf=shrinks?(pi=>Math.max(FN_FLOOR_PT,gIn.hIn*PT_PER_IN-effTopPt(pi)-effBotPt(pi))):null;
   return {present,displayed,residual,effTopPt,effBotPt,availOf};
 }
 
