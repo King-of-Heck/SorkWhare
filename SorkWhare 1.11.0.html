@@ -2453,6 +2453,9 @@ function layoutPages(){
     // rebuild as a residual band on the last sheet. Gated on pendingHFChrome, so
     // an hf-free doc takes the exact v1.10.1 path.
     let hfPlan=null,hfUnits=null;
+    const hfFont=d=>{d.style.fontSize=(g.fontPt||11)+'pt';
+      d.style.fontFamily=(g.font?('"'+g.font+'",'):'')+'"Times New Roman",Georgia,serif';
+      d.style.lineHeight='1.15';};
     if(pendingHFChrome&&pendingHFChrome.length){
       for(let i=els.length-1;i>=0;i--){
         if(els[i].classList.contains('hfband')){els.splice(i,1);blocks.splice(i,1);}
@@ -2467,7 +2470,7 @@ function layoutPages(){
         paper.appendChild(meas);
         for(const u of hfUnits){
           if(!displayed.has(u.type))continue;
-          const d=document.createElement('div');d.innerHTML=stripChgIds(u.html);
+          const d=document.createElement('div');d.style.display='flow-root';hfFont(d);d.innerHTML=stripChgIds(u.html);
           meas.appendChild(d);hPtByKey[u.kind+':'+u.type]=pxToPt(d.offsetHeight||0);meas.removeChild(d);
         }
         paper.removeChild(meas);
@@ -2554,6 +2557,7 @@ function layoutPages(){
           if(kind==='header')d.style.top=((g.hdrIn!=null?g.hdrIn:0.5)*PX)+'px';
           else d.style.bottom=((g.ftrIn!=null?g.ftrIn:0.5)*PX)+'px';
           d.style.left=(g.ml*PX)+'px';d.style.right=(g.mr*PX)+'px';
+          hfFont(d);
           d.innerHTML=stripChgIds(u.html);   // ids stripped: nav's data-cid fallback finds sheet 1
           sheet.appendChild(d);
         }
