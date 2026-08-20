@@ -2023,6 +2023,24 @@ function hfLabel(kind,type,multi){
   const v=type==='first'?'First Page':type==='even'?'Even Pages':'Default';
   return base+' — '+v;
 }
+
+/* ===== In-place header/footer chrome (v1.11.0) =====
+   Variant display is FLAGS-ONLY (spec §2): default always; first iff titlePg;
+   even iff evenAndOddHeaders. hfVariantFor can only ever return a displayed
+   type; a present-but-undisplayed variant is rendered as a residual end band. */
+function hfDisplayedTypes(flags){
+  const s=new Set(['default']);
+  if(flags&&flags.titlePg)s.add('first');
+  if(flags&&flags.evenAndOdd)s.add('even');
+  return s;
+}
+function hfVariantFor(kind,pageIdx,flags,present){
+  const has=t=>!!(present&&present.has(kind+':'+t));
+  if(flags&&flags.titlePg&&pageIdx===0)return has('first')?'first':null;   // blank, not default (Word)
+  if(flags&&flags.evenAndOdd&&((pageIdx+1)%2===0))return has('even')?'even':null;
+  return has('default')?'default':null;
+}
+
 function hfSectionHtml(rows, kind){
   const hfRows=rows.filter(r=>r.meta&&r.meta.hf&&r.meta.hf.kind===kind);
   if(!hfRows.length)return '';
