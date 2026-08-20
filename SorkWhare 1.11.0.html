@@ -1656,10 +1656,11 @@ function generateRedlinePdf(opts){
       emitParaRow(er,enVis[i-1],enVis[i+1],(dn!=null?dn+'. ':''));
     });
   }
-  // ---- Headers/Footers section (v1.7.0): titled blocks after the endnotes.
-  // Empty for a doc without headers/footers (no hf rows) → skipped → byte-identical
-  // output. Rows flow through emitParaRow → v1.4.0 margin bars for free. NOT rendered
-  // at page top/bottom (deferred; needs per-page chrome layout). ----
+  // ---- Headers/Footers section (v1.11.0): titled end-section blocks after the endnotes
+  // for non-displayed variants only. Displayed variants render in-place as per-page chrome
+  // via drawHfForPage, gated by hfDisp. Empty for a doc without headers/footers (no hf rows)
+  // → skipped → byte-identical output. Rows flow through emitParaRow → v1.4.0 margin bars
+  // for free. ----
   const hfEmit=kind=>{
     // v1.10.1 (M2): the variant label is decided by ALL rows of the kind, matching
     // screen hfSectionHtml - hide-unchanged can't flip a qualified label to plural.
