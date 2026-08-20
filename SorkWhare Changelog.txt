@@ -17,6 +17,24 @@ assigned during development (numbering is not sequential/uniform by design).
 
 
 -------------------------------------------------------------------------------
+ v1.11.0  -  In-Place Headers & Footers              (2026-08-19)
+-------------------------------------------------------------------------------
+ - Headers and footers now render right on the page - at the top and
+   bottom of every sheet - in both the page view and the printed PDF,
+   using the document's own font, instead of being collected into a
+   list at the end.
+ - Which header or footer shows on a given page now follows Word's own
+   rules: the "different first page" setting and the even/odd setting
+   decide what each page displays. If a variant is defined but Word
+   would never actually show it, it still appears in an end-of-document
+   section so any changes in it remain visible.
+ - A header taller than the top margin now pushes the body text down,
+   just like it does in Word, instead of overlapping it.
+ - The old end-of-document Headers/Footers section is gone from the
+   page view and the PDF for any variant that now renders in place;
+   the continuous view still shows it.
+
+-------------------------------------------------------------------------------
  v1.10.1  -  Pages Hardening                         (2026-08-19)
 -------------------------------------------------------------------------------
  - If building the page view fails partway, the app now falls back to the
