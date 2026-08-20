@@ -1389,9 +1389,16 @@ function generateRedlinePdf(opts){
     const drawn=[];
     rws.forEach(row=>{
       const meta=row.meta||{},base=pdfStyle(meta,'eq',bodyPt,false,set),atoms=[];
+      const bodyX=mlPt+(meta.indLeftPt||0);
+      const align=meta.align||'left';
+      // Chrome-scale marker handling: emitParaRow draws the marker in a separate
+      // hanging-indent column (markerX) so wrapped continuation lines don't repeat
+      // it. Header/footer content is normally 1-2 short lines, so we simplify to
+      // prefixing the marker inline as leading atoms on the first line instead.
+      if(meta.marker)atoms.push({text:meta.marker,st:base},{text:' ',st:base});
       for(const r of pdfParseRuns(stripSent(row.html),show.fmt)){const st=pdfStyle(meta,r.kind,bodyPt,r.bold,set);
         for(const tk of (r.text.match(/\S+|\s+/g)||[]))atoms.push({text:tk,st});}
-      const availW=contentRight-mlPt,lines=[];let cur=[],curW=0;
+      const availW=contentRight-bodyX,lines=[];let cur=[],curW=0;
       for(const a of atoms){const isSp=/^\s+$/.test(a.text),w=measure(a.text,a.st.size,a.st.bold,a.st.italic);
         if(!cur.length&&isSp)continue;
         if(curW+w>availW&&cur.length){lines.push(cur);cur=[];curW=0;if(isSp)continue;}
@@ -1400,7 +1407,7 @@ function generateRedlinePdf(opts){
       if(!lines.length)lines.push([{text:'',st:base}]);
       const isChange=row.type!=='equal'||!!(row.fmtChanged&&show.fmt);
       for(const line of lines){let ms=base.size;for(const a of line)if(a.st.size>ms)ms=a.st.size;
-        drawn.push({line,lh:ms*1.15,isChange});}
+        drawn.push({line,lh:ms*1.15,isChange,align,bodyX});}
     });
     return {drawn,h:drawn.reduce((s,d)=>s+d.lh,0)};
   };
@@ -1425,7 +1432,14 @@ function generateRedlinePdf(opts){
       let top=kind==='header'?(Hpt-hdrDistPt):(ftrDistPt+b.h);
       for(const d of b.drawn){
         let ms=0;for(const a of d.line)if(a.st&&a.st.size>ms)ms=a.st.size;if(!ms)ms=bodyPt;
-        const baseline=top-ms*0.8;let x=mlPt;
+        const baseline=top-ms*0.8;
+        let natural=0;for(const a of d.line)natural+=measure(a.text,a.st.size,a.st.bold,a.st.italic);
+        const lineAvail=contentRight-d.bodyX;
+        let x=d.bodyX;
+        if(d.align==='center')x+=Math.max(0,(lineAvail-natural)/2);
+        else if(d.align==='right')x+=Math.max(0,(lineAvail-natural));
+        // justify is skipped at chrome scale (short header/footer lines; not worth
+        // the extra-per-gap distribution emitParaRow does for body paragraphs).
         for(const a of d.line){seg(x,baseline,a.text,a.st);x+=measure(a.text,a.st.size,a.st.bold,a.st.italic);}
         if(d.isChange)curBar().push({top:top,bot:top-d.lh});
         top-=d.lh;
