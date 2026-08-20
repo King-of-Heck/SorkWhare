@@ -2165,13 +2165,17 @@ function fnReserveScreenPt(dnList,heightByNum,gaps){
 // page→notes assignment stops changing; otherwise accept the last (KNOWN LIMITATION,
 // same as the PDF). With no built footnotes it reduces to the plain scalar planBreaks.
 var FN_FLOOR_PT=40;   // reserve floor guard (mirrors the PDF's Math.max(40,…))
-function floatFootnotePlan(blocks,availPt,refsByBlock,builtNums,heightByNum,gaps){
+function floatFootnotePlan(blocks,availPt,refsByBlock,builtNums,heightByNum,gaps,baseAvailOf){
+  // baseAvailOf (v1.11.0, OPTIONAL): per-page body height BEFORE the footnote
+  // reserve — in-place header/footer chrome shrinks it. Omitted → the exact
+  // v1.10.0 scalar behaviour (pinned by test).
   if(!builtNums||!builtNums.size){
-    return {breaks:planBreaks(blocks,availPt,availPt),pageNotes:new Map()};
+    return {breaks:planBreaks(blocks,availPt,availPt,baseAvailOf),pageNotes:new Map()};
   }
-  let availOf,prevKey=null,breaks=[],pageNotes=new Map();
+  const base=pg=>baseAvailOf?baseAvailOf(pg):availPt;
+  let availOf=baseAvailOf,prevKey=null,breaks=[],pageNotes=new Map();
   for(let iter=0;iter<3;iter++){
-    breaks=planBreaks(blocks,availPt,availPt,availOf);   // iter 0: availOf undefined → scalar path
+    breaks=planBreaks(blocks,availPt,availPt,availOf);   // iter 0: base only (scalar when omitted)
     const plan=sheetsFromBreaks(breaks,blocks.length);
     const b2p=firstPageOfBlocks(plan,blocks.length);
     const nf=notesForScreenPages(refsByBlock,b2p,builtNums);
@@ -2179,7 +2183,7 @@ function floatFootnotePlan(blocks,availPt,refsByBlock,builtNums,heightByNum,gaps
     const key=JSON.stringify([...nf].map(([p,a])=>[p,a]).sort((x,y)=>x[0]-y[0]));
     if(key===prevKey)break;
     prevKey=key;
-    availOf=pg=>Math.max(FN_FLOOR_PT,availPt-fnReserveScreenPt(nf.get(pg),heightByNum,gaps));
+    availOf=pg=>Math.max(FN_FLOOR_PT,base(pg)-fnReserveScreenPt(nf.get(pg),heightByNum,gaps));
   }
   return {breaks,pageNotes};
 }
