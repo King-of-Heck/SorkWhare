@@ -1085,6 +1085,7 @@ function mergeCommentResults(summary, bodyRows, res, counted){
 /* ================= UI ================= */
 let fileA=null,fileB=null,lastRows=null,changeOrder=[],curIdx=-1,pageGeom=null,lastSummary=null,estPages=0;
 let pendingFloatFns=null;
+let pendingHFChrome=null;  // v1.11.0: hf chrome units for layoutPages (Pages mode only)
 let resultsShown=false;
 const $=id=>document.getElementById(id);
 function wireDrop(dropId,nameId,which){const d=$(dropId),input=document.createElement('input');input.type='file';input.accept='.docx';input.style.display='none';d.appendChild(input);d.addEventListener('click',()=>input.click());input.addEventListener('change',e=>{if(e.target.files[0])setFile(e.target.files[0],which,d,nameId);});d.addEventListener('dragover',e=>{e.preventDefault();d.classList.add('dragover');});d.addEventListener('dragleave',()=>d.classList.remove('dragover'));d.addEventListener('drop',e=>{e.preventDefault();d.classList.remove('dragover');const f=e.dataTransfer.files[0];if(f)setFile(f,which,d,nameId);});}
@@ -2041,6 +2042,13 @@ function hfVariantFor(kind,pageIdx,flags,present){
   return has('default')?'default':null;
 }
 
+// One header/footer paragraph as it renders in an end band OR in-place chrome.
+// Factored from hfSectionHtml so both are byte-identical (the v1.10.0 noteParaHtml
+// precedent).
+function hfParaHtml(r){
+  return '<p class="para '+(r.type==='equal'?'equal':r.type)+(r.fmtChanged?' fmtchanged':'')+'" data-cid="'+(r.cid||'')+'"'
+       +(r.cid?(' id="chg-'+r.cid+'"'):'')+'>'+r.html+'</p>';
+}
 function hfSectionHtml(rows, kind){
   const hfRows=rows.filter(r=>r.meta&&r.meta.hf&&r.meta.hf.kind===kind);
   if(!hfRows.length)return '';
@@ -2050,13 +2058,26 @@ function hfSectionHtml(rows, kind){
     const unitRows=hfRows.filter(r=>r.meta.hf.type===type);
     if(!unitRows.length)continue;
     let inner='';
-    for(const r of unitRows){
-      inner+='<p class="para '+(r.type==='equal'?'equal':r.type)+(r.fmtChanged?' fmtchanged':'')+'" data-cid="'+(r.cid||'')+'"'
-           +(r.cid?(' id="chg-'+r.cid+'"'):'')+'>'+r.html+'</p>';
-    }
+    for(const r of unitRows)inner+=hfParaHtml(r);
     out+='<div class="hfband"><div class="noteshdr">'+hfLabel(kind,type,multi)+'</div>'+inner+'</div>';
   }
   return out;
+}
+/* v1.11.0: per-variant chrome units for layoutPages. Same rows, same para markup,
+   same v1.10.1 [M2] all-rows label rule as hfSectionHtml. */
+function buildHFChromeUnits(rows){
+  const units=[];
+  for(const kind of ['header','footer']){
+    const kRows=rows.filter(r=>r.meta&&r.meta.hf&&r.meta.hf.kind===kind);
+    if(!kRows.length)continue;
+    const multi=new Set(kRows.map(r=>r.meta.hf.type)).size>1;
+    for(const type of ['default','first','even']){
+      const u=kRows.filter(r=>r.meta.hf.type===type); if(!u.length)continue;
+      let inner=''; for(const r of u)inner+=hfParaHtml(r);
+      units.push({kind,type,label:hfLabel(kind,type,multi),html:inner});
+    }
+  }
+  return units;
 }
 
 /* ================= comment screen render (v1.8.0) =================
@@ -2536,6 +2557,11 @@ function renderAll(rows,summary){
     ? groupFootnoteBlocks(rows).map(g=>({...g, html:noteSup(g.html,dnMap)}))
     : null;
   if(pendingFloatFns && !pendingFloatFns.length) pendingFloatFns=null;
+  // v1.11.0: stash hf units for in-place chrome. Null in Continuous / hf-free docs →
+  // additive path; renderAll's HTML output is untouched either way (bands still emitted
+  // for Continuous byte-identity AND Pages fallback safety).
+  pendingHFChrome=(viewMode==='pages')?buildHFChromeUnits(rows):null;
+  if(pendingHFChrome&&!pendingHFChrome.length)pendingHFChrome=null;
   $('paper').innerHTML=noteSup(html, dnMap);
   const seen=new Set(); changeOrder=[]; let items='';
   for(const r of rows){
