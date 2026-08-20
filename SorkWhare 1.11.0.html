@@ -1353,7 +1353,7 @@ function generateRedlinePdf(opts){
     if(ctx){ctx.font=(italic?'italic ':'')+(bold?'bold ':'')+(size*96/72)+'px '+famCss;return ctx.measureText(t).width*0.75;}
     return timesWidth(t,size,bold); };
   const pages=[],barSpans=[]; let ops=null,penY=0;
-  const newPage=()=>{ops=[];pages.push(ops);barSpans.push([]);penY=Hpt-mtPt;};
+  const newPage=()=>{ops=[];pages.push(ops);barSpans.push([]);penY=Hpt-effTopOf(pages.length-1);};
   const curBar=()=>barSpans[barSpans.length-1];
   const seg=(x,baseline,text,st)=>{ if(text==null||text==='')return;
     const fk=st.font||pdfFontKey(st.bold,st.italic);
@@ -1364,6 +1364,73 @@ function generateRedlinePdf(opts){
       const rule=y=>ops.push(st.color+' RG','0.6 w',fmt(x)+' '+fmt(y)+' m '+fmt(x+w)+' '+fmt(y)+' l S');
       if(st.strike)rule(baseline+st.size*0.26);
       if(st.underline){rule(baseline-1.3); if(st.doubleU)rule(baseline-2.9);}}
+  };
+  // Strip the PUA-delimited reference sentinel (Task 2) so no raw footnote:N text
+  // garbage is drawn in the body. Rendering the ref NUMBER as a superscript is deferred;
+  // stripping is the shipped behaviour. No-op (returns the same string) when absent.
+  // MOVED UP (v1.11.0): a dependency-free const arrow, needed by the hf-chrome block
+  // below, which must run before the first newPage() call. Byte-inert move.
+  const stripSent=h=>String(h==null?'':h).replace(/\uE000(footnote|endnote):(-?\d+)\uE001/g,'');
+  const _visible=row=>{const t=row.type;
+    if(t==='equal'){ if(show.eq) return true; return !!(row.fmtChanged && show.fmt); }
+    if(t==='inserted'&&!show.ins)return false;
+    if(t==='deleted'&&!show.del)return false;
+    if((t==='moved-to'||t==='moved-from')&&!show.mov)return false;
+    return true;};
+  // ---- In-place header/footer chrome (v1.11.0) --------------------------------
+  // Computed BEFORE the first newPage() so page 1's top margin already accounts
+  // for a tall page-1 header (the banner below draws penY-relative, so it shifts
+  // with it). Everything is gated on hasHfChrome -> hf-free docs byte-identical.
+  const hfRowsAll=allRows.filter(r=>r.meta&&r.meta.hf);
+  const hfFlags={titlePg:!!g.titlePg,evenAndOdd:!!g.evenAndOdd};
+  const hfPresent=new Set(hfRowsAll.map(r=>r.meta.hf.kind+':'+r.meta.hf.type));
+  const hfDisp=hfDisplayedTypes(hfFlags);
+  const buildHfBlock=rws=>{
+    const drawn=[];
+    rws.forEach(row=>{
+      const meta=row.meta||{},base=pdfStyle(meta,'eq',bodyPt,false,set),atoms=[];
+      for(const r of pdfParseRuns(stripSent(row.html),show.fmt)){const st=pdfStyle(meta,r.kind,bodyPt,r.bold,set);
+        for(const tk of (r.text.match(/\S+|\s+/g)||[]))atoms.push({text:tk,st});}
+      const availW=contentRight-mlPt,lines=[];let cur=[],curW=0;
+      for(const a of atoms){const isSp=/^\s+$/.test(a.text),w=measure(a.text,a.st.size,a.st.bold,a.st.italic);
+        if(!cur.length&&isSp)continue;
+        if(curW+w>availW&&cur.length){lines.push(cur);cur=[];curW=0;if(isSp)continue;}
+        cur.push(a);curW+=w;}
+      if(cur.length)lines.push(cur);
+      if(!lines.length)lines.push([{text:'',st:base}]);
+      const isChange=row.type!=='equal'||!!(row.fmtChanged&&show.fmt);
+      for(const line of lines){let ms=base.size;for(const a of line)if(a.st.size>ms)ms=a.st.size;
+        drawn.push({line,lh:ms*1.15,isChange});}
+    });
+    return {drawn,h:drawn.reduce((s,d)=>s+d.lh,0)};
+  };
+  const hfBlock={};
+  for(const kind of ['header','footer'])for(const type of ['default','first','even']){
+    if(!hfDisp.has(type))continue;
+    const rws=hfRowsAll.filter(r=>r.meta.hf.kind===kind&&r.meta.hf.type===type).filter(_visible);
+    if(rws.length)hfBlock[kind+':'+type]=buildHfBlock(rws);
+  }
+  const hasHfChrome=Object.keys(hfBlock).length>0;
+  const hdrDistPt=(g.hdrIn!=null?g.hdrIn:0.5)*PT, ftrDistPt=(g.ftrIn!=null?g.ftrIn:0.5)*PT;
+  const hfHPt=(kind,pg)=>{if(!hasHfChrome)return 0;
+    const v=hfVariantFor(kind,pg,hfFlags,hfPresent);
+    const b=v&&hfBlock[kind+':'+v];return b?b.h:0;};
+  const effTopOf=pg=>{const h=hfHPt('header',pg);return h>0?Math.max(mtPt,hdrDistPt+h):mtPt;};
+  const effBotOf=pg=>{const h=hfHPt('footer',pg);return h>0?Math.max(mbPt,ftrDistPt+h):mbPt;};
+  const drawHfForPage=P=>{
+    if(!hasHfChrome)return;
+    for(const kind of ['header','footer']){
+      const v=hfVariantFor(kind,P,hfFlags,hfPresent);
+      const b=v&&hfBlock[kind+':'+v]; if(!b)continue;
+      let top=kind==='header'?(Hpt-hdrDistPt):(ftrDistPt+b.h);
+      for(const d of b.drawn){
+        let ms=0;for(const a of d.line)if(a.st&&a.st.size>ms)ms=a.st.size;if(!ms)ms=bodyPt;
+        const baseline=top-ms*0.8;let x=mlPt;
+        for(const a of d.line){seg(x,baseline,a.text,a.st);x+=measure(a.text,a.st.size,a.st.bold,a.st.italic);}
+        if(d.isChange)curBar().push({top:top,bot:top-d.lh});
+        top-=d.lh;
+      }
+    }
   };
   newPage();
   // ---- Compact banner (identifies the comparison; only on page 1) ----
@@ -1378,10 +1445,6 @@ function generateRedlinePdf(opts){
   by-=16; penY=by;
   // ---- Pass 1: filter + wrap every row into positioned lines (no page decisions) ----
   const paras=[];
-  // Strip the PUA-delimited reference sentinel (Task 2) so no raw footnote:N text
-  // garbage is drawn in the body. Rendering the ref NUMBER as a superscript is deferred;
-  // stripping is the shipped behaviour. No-op (returns the same string) when absent.
-  const stripSent=h=>String(h==null?'':h).replace(/\uE000(footnote|endnote):(-?\d+)\uE001/g,'');
   /* ---- Footnote float (v1.6.0, Task 6) --------------------------------------
      Footnote rows float to the BOTTOM of the page that holds their reference.
      Every helper below is INERT when the document has no footnotes (fnRows empty
@@ -1428,12 +1491,6 @@ function generateRedlinePdf(opts){
   // Reserve height for the set of footnotes floated on one page (0 when empty).
   const fnReserveFor=dns=>{if(!dns||!dns.length)return 0;
     let h=FN_TOPGAP+FN_RULEGAP;dns.forEach((dn,i)=>{h+=fnBlockByNum[dn].h;if(i>0)h+=FN_NOTEGAP;});return h;};
-  const _visible=row=>{const t=row.type;
-    if(t==='equal'){ if(show.eq) return true; return !!(row.fmtChanged && show.fmt); }
-    if(t==='inserted'&&!show.ins)return false;
-    if(t==='deleted'&&!show.del)return false;
-    if((t==='moved-to'||t==='moved-from')&&!show.mov)return false;
-    return true;};
   // Wrap one cell paragraph's runs to a given width (used by the table branch).
   const _wrapCellPara=(row,availW)=>{
     const meta=row.meta||{},base=pdfStyle(meta,'eq',bodyPt,false,set),atoms=[];
@@ -1611,6 +1668,7 @@ function generateRedlinePdf(opts){
     if(!rws.length)return;
     const multi=new Set(all.map(r=>r.meta.hf.type)).size>1;
     for(const type of ['default','first','even']){
+      if(hfDisp.has(type))continue;   // v1.11.0: displayed in-place; end section = non-displayed only
       const unit=rws.filter(r=>r.meta.hf.type===type); if(!unit.length)continue;
       const base=kind==='header'?'Header':'Footer';
       const label=multi?(base+' — '+(type==='first'?'First Page':type==='even'?'Even Pages':'Default')):(base+'s');
@@ -1674,7 +1732,7 @@ function generateRedlinePdf(opts){
     // Float pre-pass: paginate, reserve per page, re-paginate up to 3x (footnote
     // height shortens its page's body area — a feedback loop). Accept the last
     // assignment if not converged (KNOWN LIMITATION).
-    let availOf; // iter 0: no reserve -> default (byte path)
+    let availOf=hasHfChrome?(pg=>Math.max(40,Hpt-effTopOf(pg)-effBotOf(pg)-(pg===0?BANNER_H:0))):undefined; // iter 0: no reserve -> default (byte path)
     let prevKey=null;
     for(let iter=0;iter<3;iter++){
       const bi=planBreaks(blocks,availH,availH-BANNER_H,availOf);
@@ -1684,11 +1742,12 @@ function generateRedlinePdf(opts){
       const key=JSON.stringify([...nf].map(([p,a])=>[p,a]).sort((x,y)=>x[0]-y[0]));
       if(key===prevKey)break;              // converged
       prevKey=key;
-      availOf=pg=>{const base=(pg===0?(availH-BANNER_H):availH)-fnReserveFor(nf.get(pg));
+      availOf=pg=>{const base=(hasHfChrome?(Hpt-effTopOf(pg)-effBotOf(pg)):availH)-(pg===0?BANNER_H:0)-fnReserveFor(nf.get(pg));
         return Math.max(40,base);};        // floor guards against a pathological oversized reserve
     }
   }else{
-    brks=planBreaks(blocks,availH,availH-BANNER_H); // byte-identical original call
+    brks=planBreaks(blocks,availH,availH-BANNER_H,
+      hasHfChrome?(pg=>Math.max(40,Hpt-effTopOf(pg)-effBotOf(pg)-(pg===0?BANNER_H:0))):undefined);
   }
   const brkSet=new Set(brks.map(x=>x.b+':'+x.l));
   // Draw one page's floated footnotes: a distinct-gray separator rule (NOT the
@@ -1697,9 +1756,9 @@ function generateRedlinePdf(opts){
   const drawFootnotesForPage=P=>{
     const dns=pageNotes.get(P);if(!dns||!dns.length)return;
     const resH=fnReserveFor(dns);
-    const ySep=mbPt+resH-FN_TOPGAP;
+    const ySep=effBotOf(P)+resH-FN_TOPGAP;
     ops.push('0.5 0.5 0.5 RG','0.5 w',fmt(mlPt)+' '+fmt(ySep)+' m '+fmt(mlPt+SEPW)+' '+fmt(ySep)+' l S');
-    let top=mbPt+resH-FN_TOPGAP-FN_RULEGAP;
+    let top=effBotOf(P)+resH-FN_TOPGAP-FN_RULEGAP;
     dns.forEach((dn,i)=>{if(i>0)top-=FN_NOTEGAP;
       for(const d of fnBlockByNum[dn].drawn){const line=d.line,lh=d.lh;
         let ms=0;for(const a of line)if(a.st&&a.st.size>ms)ms=a.st.size;if(!ms)ms=fnPt;
@@ -1713,14 +1772,14 @@ function generateRedlinePdf(opts){
   // Flush the finished page's footnotes, then start the next physical page.
   // Inert when there are no footnotes (drawFootnotesForPage returns immediately),
   // so replacing newPage() with nextPage() below is a no-op for note-free docs.
-  const nextPage=()=>{if(hasFootnotes)drawFootnotesForPage(curPageIndex);newPage();curPageIndex++;};
+  const nextPage=()=>{if(hasFootnotes)drawFootnotesForPage(curPageIndex);drawHfForPage(curPageIndex);newPage();curPageIndex++;};
   for(let pi=0;pi<paras.length;pi++){
     const p=paras[pi],meta=p.meta;
     if(!atTop&&!brkSet.has(pi+':0'))penY-=p.spaceBeforePt;
     if(p.isTableRow){
       // One visual table row: light grid + per-cell wrapped text.
       if(brkSet.has(pi+':0')){nextPage();atTop=true;}
-      if(penY-p.rowH<mbPt&&!atTop)nextPage();
+      if(penY-p.rowH<effBotOf(curPageIndex)&&!atTop)nextPage();
       const yTop=penY,xL=p.cx[0],xR=p.cx[p.cx.length-1]+p.colW[p.colW.length-1];
       ops.push('0.72 0.75 0.79 RG','0.7 w');
       ops.push(fmt(xL)+' '+fmt(yTop)+' m '+fmt(xR)+' '+fmt(yTop)+' l S');
@@ -1750,7 +1809,7 @@ function generateRedlinePdf(opts){
       const line=p.lines[li],lh=p.lineHeights[li];
       let maxSize=p.base.size; for(const a of line)if(a.st.size>maxSize)maxSize=a.st.size;
       const ascent=maxSize*0.8;
-      if(penY-lh<mbPt&&!atTop)nextPage();   // safety net; planBreaks should have caught it
+      if(penY-lh<effBotOf(curPageIndex)&&!atTop)nextPage();   // safety net; planBreaks should have caught it
       const baseline=penY-ascent;
       if(li===0&&p.markerText)seg(p.markerX,baseline,p.markerText,p.base);
       const lineStartX=p.bodyX+(li===0?p.indFLPt:0), lineAvail=contentRight-lineStartX;
@@ -1771,6 +1830,7 @@ function generateRedlinePdf(opts){
     penY-=p.spaceAfterPt;
   }
   if(hasFootnotes)drawFootnotesForPage(curPageIndex); // flush the final page's footnotes
+  drawHfForPage(curPageIndex); // v1.11.0: flush the final page's chrome (no-op when hf-free)
   // ---- Margin change bars: merge each page's changed-line intervals, stroke one bar per run ----
   const barX=mlPt-8;
   for(let bp=0;bp<barSpans.length;bp++){
