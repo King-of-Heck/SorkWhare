@@ -1424,6 +1424,13 @@ function generateRedlinePdf(opts){
     const b=v&&hfBlock[kind+':'+v];return b?b.h:0;};
   const effTopOf=pg=>{const h=hfHPt('header',pg);return h>0?Math.max(mtPt,hdrDistPt+h):mtPt;};
   const effBotOf=pg=>{const h=hfHPt('footer',pg);return h>0?Math.max(mbPt,ftrDistPt+h):mbPt;};
+  // v1.11.0 fix: chrome that fits inside the existing margins must keep the EXACT
+  // scalar planBreaks path (undefined availOf), not just any hf-doc. hasHfChrome
+  // alone flipped planBreaks' forced-progress guard onto a different (untested)
+  // branch even when effTopOf/effBotOf reduce to mtPt/mbPt. Variant choice is
+  // parity-periodic (default/first/even), so pages 0..2 cover every variant that
+  // could occur - mirrors hfScreenPlan's own shrink check.
+  const hfShrinks=hasHfChrome&&[0,1,2].some(pg=>effTopOf(pg)>mtPt||effBotOf(pg)>mbPt);
   const drawHfForPage=P=>{
     if(!hasHfChrome)return;
     for(const kind of ['header','footer']){
@@ -1747,7 +1754,7 @@ function generateRedlinePdf(opts){
     // Float pre-pass: paginate, reserve per page, re-paginate up to 3x (footnote
     // height shortens its page's body area — a feedback loop). Accept the last
     // assignment if not converged (KNOWN LIMITATION).
-    let availOf=hasHfChrome?(pg=>Math.max(40,Hpt-effTopOf(pg)-effBotOf(pg)-(pg===0?BANNER_H:0))):undefined; // iter 0: no reserve -> default (byte path)
+    let availOf=hfShrinks?(pg=>Math.max(40,Hpt-effTopOf(pg)-effBotOf(pg)-(pg===0?BANNER_H:0))):undefined; // iter 0: no reserve -> default (byte path)
     let prevKey=null;
     for(let iter=0;iter<3;iter++){
       const bi=planBreaks(blocks,availH,availH-BANNER_H,availOf);
@@ -1757,12 +1764,12 @@ function generateRedlinePdf(opts){
       const key=JSON.stringify([...nf].map(([p,a])=>[p,a]).sort((x,y)=>x[0]-y[0]));
       if(key===prevKey)break;              // converged
       prevKey=key;
-      availOf=pg=>{const base=(hasHfChrome?(Hpt-effTopOf(pg)-effBotOf(pg)):availH)-(pg===0?BANNER_H:0)-fnReserveFor(nf.get(pg));
+      availOf=pg=>{const base=(hfShrinks?(Hpt-effTopOf(pg)-effBotOf(pg)):availH)-(pg===0?BANNER_H:0)-fnReserveFor(nf.get(pg));
         return Math.max(40,base);};        // floor guards against a pathological oversized reserve
     }
   }else{
     brks=planBreaks(blocks,availH,availH-BANNER_H,
-      hasHfChrome?(pg=>Math.max(40,Hpt-effTopOf(pg)-effBotOf(pg)-(pg===0?BANNER_H:0))):undefined);
+      hfShrinks?(pg=>Math.max(40,Hpt-effTopOf(pg)-effBotOf(pg)-(pg===0?BANNER_H:0))):undefined);
   }
   const brkSet=new Set(brks.map(x=>x.b+':'+x.l));
   // Draw one page's floated footnotes: a distinct-gray separator rule (NOT the
