@@ -524,12 +524,24 @@ function extractStructured(docXml,styles,numbering,defaults){
    possible when we hand the layout to the browser for print/PDF. */
 function parseSectionGeom(docXml){
   const sect=(docXml.match(/<w:sectPr[\s\S]*?<\/w:sectPr>/g)||[]).pop()||'';
-  const g={wIn:8.5,hIn:11,mt:1,mr:1,mb:1,ml:1};
+  const g={wIn:8.5,hIn:11,mt:1,mr:1,mb:1,ml:1,hdrIn:0.5,ftrIn:0.5,titlePg:false};
   const sz=sect.match(/<w:pgSz\b[^>]*\/?>/);
   if(sz){const w=+(sz[0].match(/w:w="(\d+)"/)||[])[1]||12240,h=+(sz[0].match(/w:h="(\d+)"/)||[])[1]||15840;g.wIn=w/1440;g.hIn=h/1440;}
   const mar=sect.match(/<w:pgMar\b[^>]*\/?>/);
-  if(mar){const gv=(re,d)=>{const m=mar[0].match(re);return m?(+m[1])/1440:d;};g.mt=gv(/w:top="(-?\d+)"/,1);g.mb=gv(/w:bottom="(-?\d+)"/,1);g.ml=gv(/w:left="(\d+)"/,1);g.mr=gv(/w:right="(\d+)"/,1);}
+  if(mar){const gv=(re,d)=>{const m=mar[0].match(re);return m?(+m[1])/1440:d;};g.mt=gv(/w:top="(-?\d+)"/,1);g.mb=gv(/w:bottom="(-?\d+)"/,1);g.ml=gv(/w:left="(\d+)"/,1);g.mr=gv(/w:right="(\d+)"/,1);g.hdrIn=gv(/w:header="(-?\d+)"/,0.5);g.ftrIn=gv(/w:footer="(-?\d+)"/,0.5);}
+  // v1.11.0: "different first page" flag lives per-section; same last-sectPr rule.
+  const tp=sect.match(/<w:titlePg\b([^>]*?)\/?>/);
+  g.titlePg=!!tp&&!/w:val="(?:0|false|none|off)"/.test(tp[1]);
   return g;
+}
+/* v1.11.0: document-wide header/footer display flags from word/settings.xml.
+   evenAndOddHeaders gates whether Word shows the even-page variant at all. */
+function parseSettingsFlags(xml){
+  const f={evenAndOddHeaders:false};
+  if(!xml)return f;
+  const m=xml.match(/<w:evenAndOddHeaders\b([^>]*?)\/?>/);
+  f.evenAndOddHeaders=!!m&&!/w:val="(?:0|false|none|off)"/.test(m[1]);
+  return f;
 }
 /* Default body font size (half-points→pt) and family from styles.xml docDefaults,
    falling back to the Normal style. Font metrics drive where lines — and therefore
@@ -681,6 +693,7 @@ async function docxToParagraphs(file){
   out.comments=cmts;
   out.hasTrackedChanges=/<w:(?:ins|del)[ >]/.test(docXml);
   out.geometry=Object.assign({},parseSectionGeom(docXml),dd);
+  out.geometry.evenAndOdd=parseSettingsFlags(await tryEntry(buf,'word/settings.xml')).evenAndOddHeaders;
   return out;
 }
 
