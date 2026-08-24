@@ -17,6 +17,18 @@ assigned during development (numbering is not sequential/uniform by design).
 
 
 -------------------------------------------------------------------------------
+ v1.11.2  -  Cover Page Header Fix                   (2026-08-24)
+-------------------------------------------------------------------------------
+ - The header and footer set for a cover page appear on page one again.
+   Word stores the "different first page" setting on the section it
+   belongs to, so in any document with a cover page that setting sits in
+   an earlier section than the main body. It was being read from the body
+   section only, where it is absent, so the cover header and footer were
+   treated as unused and left out of the comparison entirely.
+ - Page size, margins and header/footer distances are still taken from the
+   main body section, exactly as before.
+
+-------------------------------------------------------------------------------
  v1.11.1  -  Header & Footer Fixes                   (2026-08-24)
 -------------------------------------------------------------------------------
  - Headers and footers that Word itself never shows are no longer
