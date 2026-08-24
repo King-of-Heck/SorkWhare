@@ -2508,9 +2508,7 @@ function layoutPages(){
     // rebuild as a residual band on the last sheet. Gated on pendingHFChrome, so
     // an hf-free doc takes the exact v1.10.1 path.
     let hfPlan=null,hfUnits=null;
-    const hfFont=d=>{d.style.fontSize=(g.fontPt||11)+'pt';
-      d.style.fontFamily=(g.font?('"'+g.font+'",'):'')+'"Times New Roman",Georgia,serif';
-      d.style.lineHeight='1.15';};
+    const hfFont=d=>applyDocFont(d,g);
     if(pendingHFChrome&&pendingHFChrome.length){
       for(let i=els.length-1;i>=0;i--){
         if(els[i].classList.contains('hfband')){els.splice(i,1);blocks.splice(i,1);}
@@ -2663,6 +2661,14 @@ function layoutPages(){
   }
 }
 
+/* Single source of the document font trio (v1.12.0). Values are byte-identical
+   to the former inline writes in applyPageGeometry — do not "tidy" them. */
+function applyDocFont(el,g){
+  el.style.fontSize=(g.fontPt||11)+'pt';
+  el.style.fontFamily=(g.font?('"'+g.font+'",'):'')+'"Times New Roman",Georgia,serif';
+  el.style.lineHeight='1.15';
+}
+
 /* Style the on-screen "paper" to the ACTUAL Word page: real width, margins (as padding),
    default font & size. This makes the browser wrap lines — and therefore estimate page
    breaks — the same way it will when printing, so screen and PDF agree. 96 CSS px = 1in. */
@@ -2674,9 +2680,7 @@ function applyPageGeometry(){
   paper.style.width=(g.wIn*PX)+'px';
   paper.style.maxWidth='none';
   paper.style.padding=(g.mt*PX)+'px '+(g.mr*PX)+'px '+(g.mb*PX)+'px '+(g.ml*PX)+'px';
-  paper.style.fontSize=(g.fontPt||11)+'pt';
-  paper.style.fontFamily=(g.font?('"'+g.font+'",'):'')+'"Times New Roman",Georgia,serif';
-  paper.style.lineHeight='1.15';
+  applyDocFont(paper,g);
 }
 /* Estimate Word's AUTOMATIC page breaks by filling each page top-to-bottom with the
    rendered blocks and marking where the next block would overflow the printable height.
