@@ -2205,7 +2205,7 @@ function applyHfAligns(d,aligns){
   if(!aligns)return;
   const kids=d.children||[];
   for(let i=0;i<kids.length&&i<aligns.length;i++)
-    if(aligns[i]&&aligns[i]!=='left')kids[i].style.textAlign=aligns[i];
+    if(aligns[i]&&aligns[i]!=='left'){kids[i].style.textAlign=aligns[i];kids[i].style.display='block';}
 }
 /* Pure layout math for in-place chrome. gIn = pageGeom (inches); hPtByKey =
    measured chrome heights in POINTS keyed 'kind:type'. availOf is null when
