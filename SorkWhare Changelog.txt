@@ -17,6 +17,21 @@ assigned during development (numbering is not sequential/uniform by design).
 
 
 -------------------------------------------------------------------------------
+ v1.11.1  -  Header & Footer Fixes                   (2026-08-24)
+-------------------------------------------------------------------------------
+ - Headers and footers that Word itself never shows are no longer
+   collected into a section at the end of the document. A file that
+   once had "different first page" (or odd/even headers) switched on
+   and later switched off keeps those left-over parts inside it; they
+   are now ignored completely, exactly as Word ignores them, instead
+   of being listed at the end where they looked like the header had
+   failed to render on the page.
+ - A header or footer that is identical in both documents now stays on
+   every page when unchanged text is hidden. Previously, hiding
+   unchanged text also stripped the running header and footer from the
+   whole document, on screen and in the PDF alike.
+
+-------------------------------------------------------------------------------
  v1.11.0  -  In-Place Headers & Footers              (2026-08-19)
 -------------------------------------------------------------------------------
  - Headers and footers now render right on the page - at the top and
