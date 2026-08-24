@@ -17,6 +17,15 @@ assigned during development (numbering is not sequential/uniform by design).
 
 
 -------------------------------------------------------------------------------
+ v1.12.0  -  Pages View Fidelity                     (2026-08-24)
+-------------------------------------------------------------------------------
+ - Page view now shows body text in the document's own font, matching the
+   printed output, instead of falling back to the app's interface font.
+ - Headers and footers on each page now honour their paragraph alignment,
+   so centred and right-aligned headers render as they do in the original
+   document.
+
+-------------------------------------------------------------------------------
  v1.11.2  -  Cover Page Header Fix                   (2026-08-24)
 -------------------------------------------------------------------------------
  - The header and footer set for a cover page appear on page one again.
