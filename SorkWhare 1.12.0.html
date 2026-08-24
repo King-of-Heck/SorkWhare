@@ -2192,12 +2192,21 @@ function buildHFChromeUnits(rows){
     for(const type of ['default','first','even']){
       const u=kRows.filter(r=>r.meta.hf.type===type); if(!u.length)continue;
       let inner=''; for(const r of u)inner+=hfParaHtml(r);
-      units.push({kind,type,label:hfLabel(kind,type,multi),html:inner});
+      units.push({kind,type,label:hfLabel(kind,type,multi),html:inner,
+        aligns:u.map(r=>(r.meta&&r.meta.align)||'left')});
     }
   }
   return units;
 }
 function stripChgIds(html){return String(html==null?'':html).replace(/ id="chg-\d+(?:-from)?"/g,'');}
+/* v1.12.0: chrome paragraphs honor r.meta.align. Children map 1:1 to the unit's
+   rows because hfParaHtml emits exactly one <p> per row (byte-pinned). */
+function applyHfAligns(d,aligns){
+  if(!aligns)return;
+  const kids=d.children||[];
+  for(let i=0;i<kids.length&&i<aligns.length;i++)
+    if(aligns[i]&&aligns[i]!=='left')kids[i].style.textAlign=aligns[i];
+}
 /* Pure layout math for in-place chrome. gIn = pageGeom (inches); hPtByKey =
    measured chrome heights in POINTS keyed 'kind:type'. availOf is null when
    every page's chrome fits inside the margins (callers then take the scalar
@@ -2523,7 +2532,7 @@ function layoutPages(){
         paper.appendChild(meas);
         for(const u of hfUnits){
           if(!displayed.has(u.type))continue;
-          const d=document.createElement('div');d.style.display='flow-root';hfFont(d);d.innerHTML=stripChgIds(u.html);
+          const d=document.createElement('div');d.style.display='flow-root';hfFont(d);d.innerHTML=stripChgIds(u.html);applyHfAligns(d,u.aligns);
           meas.appendChild(d);hPtByKey[u.kind+':'+u.type]=pxToPt(d.offsetHeight||0);meas.removeChild(d);
         }
         paper.removeChild(meas);
@@ -2610,7 +2619,7 @@ function layoutPages(){
           if(kind==='header')d.style.top=((g.hdrIn!=null?g.hdrIn:0.5)*PX)+'px';
           else d.style.bottom=((g.ftrIn!=null?g.ftrIn:0.5)*PX)+'px';
           d.style.left=(g.ml*PX)+'px';d.style.right=(g.mr*PX)+'px';
-          d.innerHTML=stripChgIds(u.html);   // ids stripped: nav's data-cid fallback finds sheet 1
+          d.innerHTML=stripChgIds(u.html);applyHfAligns(d,u.aligns);   // ids stripped: nav's data-cid fallback finds sheet 1
           sheet.appendChild(d);
         }
       }
