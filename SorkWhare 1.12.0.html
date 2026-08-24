@@ -2610,7 +2610,6 @@ function layoutPages(){
           if(kind==='header')d.style.top=((g.hdrIn!=null?g.hdrIn:0.5)*PX)+'px';
           else d.style.bottom=((g.ftrIn!=null?g.ftrIn:0.5)*PX)+'px';
           d.style.left=(g.ml*PX)+'px';d.style.right=(g.mr*PX)+'px';
-          hfFont(d);
           d.innerHTML=stripChgIds(u.html);   // ids stripped: nav's data-cid fallback finds sheet 1
           sheet.appendChild(d);
         }
@@ -2646,6 +2645,7 @@ function layoutPages(){
     paper.appendChild(frag);
     paper.classList.add('sheets');
     paper.removeAttribute('style');          // geometry now lives on each sheet
+    applyDocFont(paper,g);                   // doc font back on: sheets, floats and chrome inherit it
     estPages=plan.length; updateNavStatus();
     return true;
   }catch(_){
