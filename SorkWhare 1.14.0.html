@@ -479,6 +479,17 @@ function extractStructured(docXml,styles,numbering,defaults){
           marker=(lvl.txt||'%1.').replace(/%(\d+)/g,(_,d)=>{const li=+d-1,lv=abs[aid][li]||{},cv=counters[li]!=null?counters[li]:(lv.start||1);return fmtNum(cv,lv.fmt||'decimal');});
         }}}
 
+    // v1.14.0 (F4): paragraph bottom border (the Word header separator rule).
+    // Captured for every paragraph; rendered in hf sinks only this release.
+    let pBdrBottom=null;
+    const pbm=pPr.match(/<w:pBdr>[\s\S]*?<\/w:pBdr>/);
+    if(pbm){const bb=pbm[0].match(/<w:bottom\b([^>]*)\/?>/);
+      if(bb&&!/w:val="(?:none|nil)"/.test(bb[0])){const a=bb[1];
+        const sz=+((a.match(/w:sz="(\d+)"/)||[])[1]||4);      // eighths of a point
+        const space=+((a.match(/w:space="(\d+)"/)||[])[1]||0); // points
+        const bc=(a.match(/w:color="([0-9A-Fa-f]{6})"/)||[])[1]||null;
+        pBdrBottom={szPt:sz/8,spacePt:space,clr:bc?bc.toLowerCase():null};}}
+
     // ---- Alignment (w:jc): paragraph overrides numbering level, which overrides style.
     const pJc=(pPr.match(/<w:jc w:val="([^"]+)"/)||[])[1]||null;
     let align=pJc||(lvlObj&&lvlObj.jc)||(st&&st.jc)||null;
@@ -530,7 +541,7 @@ function extractStructured(docXml,styles,numbering,defaults){
     while((cmtM=cmtRe.exec(p))){ if(!commentRefs.has(cmtM[1])) commentRefs.set(cmtM[1], out.length); }
 
     out.push({text,heading,isNumbered,marker,ilvl,isBold,pageBreakBefore,align,indLeftPt,indHangingPt,indFirstLinePt,boldRuns,fmtSpans,
-      styleId,spaceBeforePt,spaceAfterPt,lineSpacing,lineExactPt,lineRule,keepNext,keepLines,contextualSpacing,
+      styleId,spaceBeforePt,spaceAfterPt,lineSpacing,lineExactPt,lineRule,keepNext,keepLines,contextualSpacing,pBdrBottom,
       tbl:tbl||null});
   }
   // Top-level walk in document order: tables become per-cell paragraph rows tagged
@@ -1552,6 +1563,9 @@ function generateRedlinePdf(opts){
       const isChange=row.type!=='equal'||!!(row.fmtChanged&&show.fmt);
       for(const line of lines){let ms=base.size;for(const a of line)if(a.st.size>ms)ms=a.st.size;
         drawn.push({line,lh:ms*1.15,isChange,align,bodyX});}
+      const bb=meta.pBdrBottom;                      // v1.14.0 (F4)
+      if(bb&&drawn.length){const dl=drawn[drawn.length-1];
+        dl.bdr=bb; dl.lh+=bb.spacePt+bb.szPt+1;}     // reserve includes the rule
     });
     return {drawn,h:drawn.reduce((s,d)=>s+d.lh,0)};
   };
@@ -1607,6 +1621,12 @@ function generateRedlinePdf(opts){
         // Post-flush: curBar() would always target the LAST page, so write directly
         // into this page's own barSpans bucket (P is closed over from drawHfForPage's arg).
         if(d.isChange)barSpans[P].push({top:top,bot:top-d.lh});
+        if(d.bdr){
+          const ry=top-(d.lh-(d.bdr.spacePt+d.bdr.szPt+1))-d.bdr.spacePt;
+          ops.push((d.bdr.clr?hexToPdfRgb('#'+d.bdr.clr):'0 0 0')+' RG',
+                   fmt(Math.max(0.4,d.bdr.szPt))+' w',
+                   fmt(d.bodyX)+' '+fmt(ry)+' m '+fmt(contentRight)+' '+fmt(ry)+' l S');
+        }
         top-=d.lh;
       }
     }
@@ -2386,6 +2406,9 @@ function hfParaHtml(r){
   if(ef.i)st.push('font-style:italic');
   if(ef.f)st.push('font-family:&quot;'+esc(ef.f).replace(/"/g,'&quot;')+'&quot;,&quot;Times New Roman&quot;,Georgia,serif');
   if(ef.clr)st.push('color:#'+ef.clr);
+  const bb=r.meta&&r.meta.pBdrBottom;   // v1.14.0 (F4)
+  if(bb){st.push('border-bottom:'+bb.szPt+'pt solid'+(bb.clr?(' #'+bb.clr):''));
+         st.push('padding-bottom:'+bb.spacePt+'pt');}
   return '<p class="para '+(r.type==='equal'?'equal':r.type)+(r.fmtChanged?' fmtchanged':'')+'"'
        +(st.length?(' style="'+st.join(';')+'"'):'')
        +' data-cid="'+(r.cid||'')+'"'+(r.cid?(' id="chg-'+r.cid+'"'):'')+'>'+r.html+'</p>';
