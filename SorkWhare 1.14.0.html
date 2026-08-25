@@ -2310,6 +2310,15 @@ function hfVariantFor(kind,pageIdx,flags,present){
   return has('default')?'default':null;
 }
 
+// v1.14.0 (F2): substitute the PAGE/NUMPAGES markers. Per-sheet chrome gets real
+// numbers (layoutPages / PDF drawHfForPage); page-less sinks (Continuous band,
+// nav snippets, residual bands/sections) get the Word-cached values.
+function hfFieldSub(html,vals){
+  return String(html==null?'':html).replace(/\uE002/g,vals.page).replace(/\uE003/g,vals.total);
+}
+function hfFcVals(fc){
+  return {page:(fc&&fc.page)||'1', total:(fc&&fc.numpages)||'1'};
+}
 // One header/footer paragraph as it renders in an end band OR in-place chrome.
 // Factored from hfSectionHtml so both are byte-identical (the v1.10.0 noteParaHtml
 // precedent).
@@ -2326,7 +2335,7 @@ function hfSectionHtml(rows, kind){
     const unitRows=hfRows.filter(r=>r.meta.hf.type===type);
     if(!unitRows.length)continue;
     let inner='';
-    for(const r of unitRows)inner+=hfParaHtml(r);
+    for(const r of unitRows)inner+=hfFieldSub(hfParaHtml(r),hfFcVals(r.meta.hf&&r.meta.hf.fc));
     out+='<div class="hfband"><div class="noteshdr">'+hfLabel(kind,type,multi)+'</div>'+inner+'</div>';
   }
   return out;
@@ -2343,7 +2352,8 @@ function buildHFChromeUnits(rows){
       const u=kRows.filter(r=>r.meta.hf.type===type); if(!u.length)continue;
       let inner=''; for(const r of u)inner+=hfParaHtml(r);
       units.push({kind,type,label:hfLabel(kind,type,multi),html:inner,
-        aligns:u.map(r=>(r.meta&&r.meta.align)||'left')});
+        aligns:u.map(r=>(r.meta&&r.meta.align)||'left'),
+        fc:(u[0].meta.hf&&u[0].meta.hf.fc)||null});
     }
   }
   return units;
@@ -2736,7 +2746,7 @@ function layoutPages(){
         paper.appendChild(meas);
         for(const u of hfUnits){
           if(!displayed.has(u.type))continue;
-          const d=document.createElement('div');d.style.display='flow-root';hfFont(d);d.innerHTML=stripChgIds(u.html);applyHfAligns(d,u.aligns);
+          const d=document.createElement('div');d.style.display='flow-root';hfFont(d);d.innerHTML=stripChgIds(hfFieldSub(u.html,{page:'88',total:'88'}));applyHfAligns(d,u.aligns);
           meas.appendChild(d);hPtByKey[u.kind+':'+u.type]=pxToPt(d.offsetHeight||0);meas.removeChild(d);
         }
         paper.removeChild(meas);
@@ -2823,7 +2833,7 @@ function layoutPages(){
           if(kind==='header')d.style.top=((g.hdrIn!=null?g.hdrIn:0.5)*PX)+'px';
           else d.style.bottom=((g.ftrIn!=null?g.ftrIn:0.5)*PX)+'px';
           d.style.left=(g.ml*PX)+'px';d.style.right=(g.mr*PX)+'px';
-          d.innerHTML=stripChgIds(u.html);applyHfAligns(d,u.aligns);   // ids stripped: nav's data-cid fallback finds sheet 1
+          d.innerHTML=stripChgIds(hfFieldSub(u.html,{page:String(s+1),total:String(plan.length)}));applyHfAligns(d,u.aligns);   // ids stripped: nav's data-cid fallback finds sheet 1
           sheet.appendChild(d);
         }
       }
@@ -2851,7 +2861,7 @@ function layoutPages(){
       const last=frag.lastChild;
       if(last){
         const band=document.createElement('div');band.className='hfband';
-        band.innerHTML=hfPlan.residual.map(u=>'<div class="noteshdr">'+u.label+'</div>'+u.html).join('');
+        band.innerHTML=hfPlan.residual.map(u=>'<div class="noteshdr">'+u.label+'</div>'+hfFieldSub(u.html,hfFcVals(u.fc))).join('');
         last.insertBefore(band,last.querySelector('.pgnum'));
       }
     }
@@ -3048,7 +3058,9 @@ function renderAll(rows,summary){
     if(r.cid&&seen.has(r.cid))continue; if(r.cid)seen.add(r.cid);
     changeOrder.push(r.cid);
     const cls=r.type.startsWith('moved')?'moved':r.type;
-    items+='<div class="citem '+cls+'" data-cid="'+r.cid+'"><span class="cid">'+r.cid+'</span><span class="tag">'+typeLabel(r.type)+'</span><span class="snip">'+noteSup(snippetHtml(r), dnMap)+'</span></div>';
+    let snip=noteSup(snippetHtml(r), dnMap);
+    if(r.meta&&r.meta.hf)snip=hfFieldSub(snip,hfFcVals(r.meta.hf.fc));
+    items+='<div class="citem '+cls+'" data-cid="'+r.cid+'"><span class="cid">'+r.cid+'</span><span class="tag">'+typeLabel(r.type)+'</span><span class="snip">'+snip+'</span></div>';
   }
   $('clist').innerHTML=items;
   $('clist').querySelectorAll('.citem').forEach(el=>el.addEventListener('click',()=>{const cid=+el.dataset.cid;const idx=changeOrder.indexOf(cid);if(idx>=0){curIdx=idx;goToCurrent();}}));
