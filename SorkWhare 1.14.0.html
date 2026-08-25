@@ -408,7 +408,7 @@ function extractStructured(docXml,styles,numbering,defaults){
       const font = fMatch ? fMatch[1] : (defaults && defaults.font) || null;
       const szMatch = rpr.match(/<w:sz\s+w:val="(\d+)"/);
       const size = szMatch ? (+szMatch[1])/2 : ((defaults && defaults.fontPt) || 11);
-      const cMatch = rpr.match(/<w:color w:val="([0-9A-Fa-f]{6})"\/?>/);
+      const cMatch = rpr.match(/<w:color\b[^>]*?w:val="([0-9A-Fa-f]{6})"/);
       const clr = cMatch ? cMatch[1].toLowerCase() : null;   // 'auto'/absent -> null
       const tRe=/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>|<w:tab\/>|<w:br\/>/g; let m;
       while((m=tRe.exec(run))!==null){
