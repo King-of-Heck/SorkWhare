@@ -67,7 +67,7 @@
   .citem .snip del{color:var(--del)}.citem .snip ins{color:var(--ins)}
 
   .docpane{overflow:auto;padding:34px 40px;background:var(--bg)}
-  #paper{background:#fff;border:1px solid var(--line);border-radius:8px;padding:44px 52px;max-width:900px;margin:0 auto;line-height:1.45;font-size:15px;box-shadow:0 1px 4px rgba(0,0,0,.06);display:flex;flex-direction:column}
+  #paper{background:#fff;position:relative;border:1px solid var(--line);border-radius:8px;padding:44px 52px;max-width:900px;margin:0 auto;line-height:1.45;font-size:15px;box-shadow:0 1px 4px rgba(0,0,0,.06);display:flex;flex-direction:column}
   #paper .docttl{text-align:center;font-size:16px;font-weight:700;margin-bottom:4px}
   #paper .docmeta{text-align:center;color:var(--muted);font-size:12px;margin-bottom:24px;border-bottom:1px solid var(--line);padding-bottom:12px}
 
@@ -143,6 +143,25 @@
      without !important; the PDF gets the same exemption by dropping its _visible filter. */
   .hide-eq .sheethdr .para.equal,.hide-eq .sheetftr .para.equal{display:flex}
 
+  /* Comment margin bubbles (v1.13.0). One global rail per document, absolutely
+     positioned INSIDE #paper (the Print seam copies paper.innerHTML — the rail
+     must ride along even though print hides it deliberately). */
+  #cmtRail{position:absolute;top:0;left:100%;margin-left:18px;width:280px}
+  .cbubble{position:absolute;left:0;width:260px;background:#fff;border:1px solid var(--line);
+           border-radius:6px;padding:8px 10px;font-size:12px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .cbubble::before{content:"";position:absolute;right:100%;top:12px;width:18px;border-top:1px dashed #9aa4ae}
+  #cmtRail .para::before{display:none}
+  #cmtRail .para{padding-left:0}
+  /* An all-equal comment's bubble follows hide-unchanged; a fmt-only one follows
+     the Formatting toggle (the v1.10.1 [M1] ladder, bubble-level). */
+  .hide-eq .cbubble.cunchanged{display:none}
+  .hide-eq .cbubble.cunchanged.cfmt{display:block}
+  .hide-eq.hide-fmt .cbubble.cunchanged.cfmt{display:none}
+  /* Room for the rail right of the page/sheets. Continuous #paper centers via
+     margin auto; the sheets container gets padding instead (it has no geometry). */
+  #paper.has-bubbles:not(.sheets){margin-right:314px}
+  #paper.sheets.has-bubbles{padding-right:314px}
+
   /* Footnotes/endnotes (v1.6.0): a single end-of-document band/section, redlined
      like the body. Equal note paragraphs are plain .para elements so hide-unchanged
      (.hide-eq .para.equal{display:none}) already applies to them with no extra rule. */
@@ -182,6 +201,8 @@
     .sheethdr{position:static !important;order:-1}
     .sheetftr{position:static !important;margin-top:auto}
     .pgnum{display:none}
+    #cmtRail{display:none !important}
+    #paper.has-bubbles{margin-right:0 !important;padding-right:0 !important}
     #paper.sheets{display:block}
     .para.keepnext,.para.h1,.para.h2,.para.h3,.para.h4,.para.h5,.para.h6{break-after:avoid-page}
   }
@@ -252,6 +273,7 @@
         <label><input type="checkbox" id="fMov" checked> Moves</label>
         <label><input type="checkbox" id="fEq" checked> Unchanged text</label>
         <label><input type="checkbox" id="fFmt" checked> Formatting</label>
+        <label><input type="checkbox" id="fCmt" checked> 💬 Comments</label>
       </div>
       <div class="clist" id="clist"></div>
     </aside>
@@ -2010,7 +2032,7 @@ function paraHtml(row,pageBreak,prevMeta,nextMeta){
   if(blockLeftPx>0.5)sp+='margin-left:'+blockLeftPx.toFixed(1)+'px;';
   const paraStyle=sp?(' style="'+sp+'"'):'';
   const bodyStyle=(align!=='left')?(' style="text-align:'+align+'"'):'';
-  return '<p class="'+cls.join(' ')+'"'+id+paraStyle+' data-cid="'+(row.cid||'')+'"'+((viewMode==='pages'&&meta.keepLines)?' data-keep-lines="1"':'')+'>'+markerHtml(meta,markerMinPx)+
+  return '<p class="'+cls.join(' ')+'"'+id+paraStyle+' data-cid="'+(row.cid||'')+'"'+(row._cmtAnchors?' data-cmtanchor="'+row._cmtAnchors.join(',')+'"':'')+((viewMode==='pages'&&meta.keepLines)?' data-keep-lines="1"':'')+'>'+markerHtml(meta,markerMinPx)+
          '<span class="body"'+bodyStyle+'>'+badge+row.html+anchor+'</span></p>';
 }
 function snippetHtml(row){
@@ -2270,17 +2292,15 @@ function stackBubbles(items, gap){
   return tops;
 }
 
-/* ================= comment screen render (v1.8.0) =================
-   One labeled .cmtband appended after the header/footer sections. Each comment
-   shows a metadata line (author · date · initials) + an anchor line (when the
-   comment is range-anchored) + the redlined comment text. Comments are grouped by
-   the firstOfComment boundary so a fully-unchanged comment's header can follow the
-   comment under hide-unchanged (its meta/anchor get the .equal class). No sentinel
-   resolution (comments aren't body-referenced). */
-function commentsSectionHtml(rows){
+/* Comment bubbles (v1.13.0): the v1.8.0 end-band builder, regrouped per comment.
+   Groups over UNFILTERED rows by the firstOfComment boundary (load-bearing —
+   grouping after visibility filtering misattributes rows, the v1.8.0 lesson).
+   Returns null for comment-free row sets (the additive path). */
+function buildCommentBubbles(rows){
   const cRows=rows.filter(r=>r.meta&&r.meta.comment);
-  if(!cRows.length) return '';
-  let inner='', i=0;
+  if(!cRows.length) return null;
+  const groups=[], rowGroups=[];
+  let i=0;
   while(i<cRows.length){
     const c=cRows[i].meta.comment, group=[cRows[i]]; i++;
     while(i<cRows.length && !(cRows[i].meta.comment && cRows[i].meta.comment.firstOfComment)){ group.push(cRows[i]); i++; }
@@ -2288,14 +2308,16 @@ function commentsSectionHtml(rows){
     const fmtOnly=!changed&&group.some(r=>r.fmtChanged);
     const eq=changed?'':(' equal'+(fmtOnly?' fmtchanged':''));
     const meta=[c.author,c.date,c.initials].filter(Boolean).map(esc).join(' · ');
-    inner+='<div class="cmtmeta'+eq+'">'+meta+'</div>';
+    let inner='<div class="cmtmeta'+eq+'">'+meta+'</div>';
     if(c.anchor) inner+='<div class="cmtanchor'+eq+'">re: “'+esc(c.anchor)+'”</div>';
     for(const r of group){
       inner+='<p class="para '+(r.type==='equal'?'equal':r.type)+(r.fmtChanged?' fmtchanged':'')+'" data-cid="'+(r.cid||'')+'"'
            +(r.cid?(' id="chg-'+r.cid+'"'):'')+'>'+r.html+'</p>';
     }
+    groups.push({html:inner, changed, fmtOnly});
+    rowGroups.push(group);
   }
-  return '<div class="cmtband"><div class="noteshdr">Comments</div>'+inner+'</div>';
+  return {groups, rowGroups};
 }
 
 /* ---- Page-sheet measurement (v1.9.0) --------------------------------------
@@ -2789,6 +2811,50 @@ let _pgTimer=null;
 function schedulePaginate(){ if(_pgTimer)clearTimeout(_pgTimer); _pgTimer=setTimeout(paginate,120); }
 window.addEventListener('resize',schedulePaginate);
 
+/* ---- Comment bubble rail (v1.13.0) ----------------------------------------
+   Built AFTER layout settles (both views). Toggle off / comment-free -> no rail,
+   no wrapper class: byte-identical layout to v1.12.0. */
+var pendingCmtGroups=null;
+function rebuildCommentRail(){
+  const paper=$('paper'); if(!paper)return;
+  const old=paper.querySelector('#cmtRail'); if(old)old.remove();
+  paper.classList.remove('has-bubbles');
+  const on = $('fCmt') && typeof $('fCmt').checked==='boolean' ? $('fCmt').checked : true;
+  if(!pendingCmtGroups||!pendingCmtGroups.length||!on)return;
+  const rail=document.createElement('div'); rail.id='cmtRail';
+  for(const g of pendingCmtGroups){
+    const b=document.createElement('div');
+    b.className='cbubble'+(g.changed?'':(' cunchanged'+(g.fmtOnly?' cfmt':'')));
+    b.innerHTML=g.html;
+    rail.appendChild(b);
+  }
+  paper.appendChild(rail);
+  paper.classList.add('has-bubbles');
+  positionCommentBubbles();
+}
+function positionCommentBubbles(){
+  const paper=$('paper'); if(!paper)return;
+  const rail=paper.querySelector('#cmtRail'); if(!rail)return;
+  const paperTop=paper.getBoundingClientRect().top;
+  const anchorEls=new Map();
+  paper.querySelectorAll('[data-cmtanchor]').forEach(el=>{
+    if(el.closest('#cmtRail'))return;
+    el.getAttribute('data-cmtanchor').split(',').forEach(s=>{ const gi=+s; if(!anchorEls.has(gi))anchorEls.set(gi,el); });
+  });
+  const bubbles=Array.prototype.slice.call(rail.children);
+  const items=bubbles.map((b,gi)=>{ const a=anchorEls.get(gi);
+    return {gi, h:b.offsetHeight, resolved:!!a,
+            anchorY:a?(a.getBoundingClientRect().top-paperTop):0}; });
+  const order=items.filter(x=>x.resolved).sort((a,b)=>a.anchorY-b.anchorY)
+              .concat(items.filter(x=>!x.resolved));
+  const tops=stackBubbles(order.map(x=>({anchorY:x.resolved?x.anchorY:0,h:x.h})),10);
+  order.forEach((x,k)=>{bubbles[x.gi].style.top=tops[k]+'px';});
+  // Rail x: Pages sheets are narrower than the transparent #paper container, so
+  // compute from the first sheet; Continuous keeps the CSS left:100% default.
+  const sheet=paper.querySelector('.sheet');
+  if(sheet)rail.style.left=(sheet.offsetLeft+sheet.offsetWidth+18)+'px';
+  else rail.style.left='';
+}
 function renderAll(rows,summary){
   lastSummary=summary;
   $('cTotal').textContent=summary.total;$('cIns').textContent=summary.insertions;$('cDel').textContent=summary.deletions;$('cMov').textContent=summary.moves;
@@ -2799,12 +2865,21 @@ function renderAll(rows,summary){
   const now=new Date().toLocaleString();
   let html='<div class="docttl">Redline Comparison</div><div class="docmeta">Original: <b>'+esc(fileA.name)+'</b> &nbsp;→&nbsp; Revised: <b>'+esc(fileB.name)+'</b><br>Generated '+esc(now)+' &nbsp;•&nbsp; '+summary.total+' change'+(summary.total===1?'':'s')+'</div>';
   const bodyRows=rows.filter(r=>!(r.meta && (r.meta.note||r.meta.hf||r.meta.comment)));
+  // v1.13.0: comments render as margin bubbles, not an end band. Stash the groups
+  // and mark anchor rows BEFORE html emission so paraHtml can stamp data-cmtanchor.
+  const cmtData=buildCommentBubbles(rows);
+  pendingCmtGroups=cmtData?cmtData.groups:null;
+  bodyRows.forEach(r=>{ if(r._cmtAnchors) delete r._cmtAnchors; });
+  if(cmtData){
+    resolveCommentAnchors(cmtData.rowGroups, bodyRows).forEach((ri,gi)=>{
+      if(ri>=0){ const r=bodyRows[ri]; (r._cmtAnchors=r._cmtAnchors||[]).push(gi); }
+    });
+  }
   html+=bodyRowsHtml(bodyRows);
   html+=notesSectionHtml(rows,'footnote');
   html+=notesSectionHtml(rows,'endnote');
   html+=hfSectionHtml(rows,'header');
   html+=hfSectionHtml(rows,'footer');
-  html+=commentsSectionHtml(rows);
   const dnMap=buildDispNumMap(rows);
   // Pages mode: stash per-footnote blocks (noteSup-resolved, same content as the band)
   // for layoutPages to float. Null in Continuous / footnote-free docs → additive path.
@@ -2840,8 +2915,8 @@ function renderAll(rows,summary){
   // results-pane reveal and applied the document font to the new text, which mis-wraps
   // paragraphs and under-counts pages. Continuous geometry is applied above, so the
   // deferred layoutPages measures settled layout.
-  if(viewMode==='pages') setTimeout(()=>{ if(!layoutPages())schedulePaginate(); },0);
-  else schedulePaginate();
+  if(viewMode==='pages') setTimeout(()=>{ if(!layoutPages())schedulePaginate(); rebuildCommentRail(); },0);
+  else { schedulePaginate(); requestAnimationFrame(rebuildCommentRail); }
   curIdx=changeOrder.length?0:-1; applyFilters(); updateNavStatus();
   // Continuous mode only: estimate page breaks after layout settles (real rendered
   // heights). In pages mode the deferred layoutPages owns the count, and paginate must
@@ -2851,8 +2926,13 @@ function renderAll(rows,summary){
 function applyFilters(){const r=$('results');r.classList.toggle('hide-ins',!$('fIns').checked);r.classList.toggle('hide-del',!$('fDel').checked);r.classList.toggle('hide-mov',!$('fMov').checked);r.classList.toggle('hide-eq',!$('fEq').checked);
   r.classList.toggle('hide-fmt',!$('fFmt').checked);
   // Hiding/showing paragraphs changes the layout, so re-estimate page breaks.
-  schedulePaginate();}
+  schedulePaginate();
+  positionCommentBubbles();}
 ['fIns','fDel','fMov','fEq','fFmt'].forEach(id=>$(id).addEventListener('change',applyFilters));
+$('fCmt').addEventListener('change',()=>{ try{localStorage.setItem('sw.showComments',$('fCmt').checked?'1':'0');}catch(_){}
+  rebuildCommentRail(); });
+try{ const v=localStorage.getItem('sw.showComments'); if(v!=null)$('fCmt').checked=v==='1'; }catch(_){}
+window.addEventListener('resize',()=>requestAnimationFrame(positionCommentBubbles));
 $('optCountComments').addEventListener('change',()=>{ if(resultsShown) $('btnCompare').click(); });
 
 /* ---- View mode (v1.9.0) ---------------------------------------------------
