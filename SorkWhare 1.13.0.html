@@ -2877,6 +2877,7 @@ function paginate(){
     }
     estPages=_estPages(items,pageContent); updateNavStatus();
   }catch(e){/* pagination is best-effort; never block the redline */}
+  finally{ positionCommentBubbles(); } // dividers just shifted content; re-align bubble tops (no-op when no rail)
 }
 let _pgTimer=null;
 function schedulePaginate(){ if(_pgTimer)clearTimeout(_pgTimer); _pgTimer=setTimeout(paginate,120); }
