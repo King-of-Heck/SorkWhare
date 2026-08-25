@@ -165,7 +165,10 @@
   /* Footnotes/endnotes (v1.6.0): a single end-of-document band/section, redlined
      like the body. Equal note paragraphs are plain .para elements so hide-unchanged
      (.hide-eq .para.equal{display:none}) already applies to them with no extra rule. */
-  #paper .fnband,#paper .endnotes,#paper .hfband,#paper .cmtband{margin-top:18px;border-top:1px solid var(--line);padding-top:8px;font-size:12px;color:#333}
+  #paper .fnband,#paper .hfband{margin-top:18px;border-top:1px solid var(--line);padding-top:8px;font-size:12px;color:#333}
+  /* Endnotes (v1.13.0): Word-style flow — separator + document font, no band. */
+  #paper .endnotes{margin-top:14px}
+  #paper .endnotes .notesep{width:150px;border-top:1px solid #888;margin:0 0 8px}
   /* Per-page floated footnotes (v1.10.0): pinned to the bottom of the sheet's flex
      column, above the absolute .pgnum, with the same separator look as the end band. */
   .sheet .sheetfn{margin-top:auto;border-top:1px solid var(--line);padding-top:8px;font-size:12px;color:#333}
@@ -2215,10 +2218,16 @@ function groupFootnoteBlocks(rows){
 function notesSectionHtml(rows, kind){
   const noteRows=rows.filter(r=>r.meta && r.meta.note && r.meta.note.kind===kind);
   if(!noteRows.length) return '';
-  const label = kind==='endnote' ? 'Endnotes' : 'Footnotes';
+  if(kind==='endnote'){
+    // v1.13.0: Word-style final-page flow — separator rule, doc font, no heading.
+    let inner='';
+    for(const r of noteRows) inner += noteParaHtml(r);
+    return '<div class="endnotes"><div class="notesep" aria-hidden="true"></div>'+inner+'</div>';
+  }
+  const label='Footnotes';
   let inner='';
   for(const r of noteRows) inner += noteParaHtml(r);
-  return '<div class="'+(kind==='endnote'?'endnotes':'fnband')+'"><div class="noteshdr">'+label+'</div>'+inner+'</div>';
+  return '<div class="fnband"><div class="noteshdr">'+label+'</div>'+inner+'</div>';
 }
 
 /* ================= header/footer screen render (v1.7.0) =================
@@ -2518,7 +2527,7 @@ function withFiltersOff(paper,fn){
 // so their internal refs don't re-float. '*' fallbacks (unknown id) are ignored.
 function harvestFnRefsScreen(el){
   const cl=el.classList;
-  if(cl.contains('fnband')||cl.contains('endnotes')||cl.contains('hfband')||cl.contains('cmtband'))return [];
+  if(cl.contains('fnband')||cl.contains('endnotes')||cl.contains('hfband'))return [];
   const out=[];
   el.querySelectorAll('.fnref:not([data-en])').forEach(s=>{const n=parseInt(s.textContent,10);if(!isNaN(n))out.push(n);});
   return out;
