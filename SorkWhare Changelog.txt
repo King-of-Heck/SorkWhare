@@ -17,6 +17,27 @@ assigned during development (numbering is not sequential/uniform by design).
 
 
 -------------------------------------------------------------------------------
+ v1.14.0  -  Page Chrome Fidelity & Pagination Fix   (2026-08-25)
+-------------------------------------------------------------------------------
+ - The Pages view now breaks pages the way the PDF and Word do. A measurement
+   fault made every paragraph count roughly double its real height, so pages
+   ran half empty and the page count ran high; both are fixed.
+ - Page numbers in headers and footers are live: a PAGE field shows each
+   page's own number (and NUMPAGES the real total) on screen and in the PDF,
+   instead of repeating the number saved in the document.
+ - Header and footer text now renders with its true formatting - size,
+   italics, font, and colour - on screen and in the PDF, so a small italic
+   confidentiality footer looks like it does in Word. Colour changes between
+   versions are also now reported as formatting changes.
+ - The separator line Word draws under a header (a paragraph bottom border)
+   is now shown, on screen and in the PDF.
+ - Known limitations: a header/footer paragraph mixing several formats takes
+   the opening run's look; formatting that comes only from a named paragraph
+   style (rather than the text itself) is not picked up; an empty paragraph
+   used purely to draw a border line is not shown; a table taller than a page
+   overflows its sheet in the Pages view.
+
+-------------------------------------------------------------------------------
  v1.13.0  -  In-Place Comments & Endnote Flow        (2026-08-25)
 -------------------------------------------------------------------------------
  - Comments now appear as margin bubbles alongside the paragraph they annotate,
