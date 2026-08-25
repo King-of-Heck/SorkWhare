@@ -408,17 +408,19 @@ function extractStructured(docXml,styles,numbering,defaults){
       const font = fMatch ? fMatch[1] : (defaults && defaults.font) || null;
       const szMatch = rpr.match(/<w:sz\s+w:val="(\d+)"/);
       const size = szMatch ? (+szMatch[1])/2 : ((defaults && defaults.fontPt) || 11);
+      const cMatch = rpr.match(/<w:color w:val="([0-9A-Fa-f]{6})"\/?>/);
+      const clr = cMatch ? cMatch[1].toLowerCase() : null;   // 'auto'/absent -> null
       const tRe=/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>|<w:tab\/>|<w:br\/>/g; let m;
       while((m=tRe.exec(run))!==null){
         let piece; if(m[1]!==undefined)piece=unxml(m[1]); else if(m[0].indexOf('tab')!==-1)piece='\t'; else piece=' ';
-        for(const ch of piece)chars.push({c:ch,b:bold,i:ital,u:under,f:font,z:size});
+        for(const ch of piece)chars.push({c:ch,b:bold,i:ital,u:under,f:font,z:size,clr});
       }
     }
     if(!chars.length){ const tRe=/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>|<w:tab\/>|<w:br\/>/g; let m;
-      while((m=tRe.exec(p))!==null){ let piece; if(m[1]!==undefined)piece=unxml(m[1]); else if(m[0].indexOf('tab')!==-1)piece='\t'; else piece=' '; for(const ch of piece)chars.push({c:ch,b:false,i:false,u:false,f:(defaults&&defaults.font)||null,z:(defaults&&defaults.fontPt)||11}); } }
+      while((m=tRe.exec(p))!==null){ let piece; if(m[1]!==undefined)piece=unxml(m[1]); else if(m[0].indexOf('tab')!==-1)piece='\t'; else piece=' '; for(const ch of piece)chars.push({c:ch,b:false,i:false,u:false,f:(defaults&&defaults.font)||null,z:(defaults&&defaults.fontPt)||11,clr:null}); } }
     // Normalize (whitespace -> single space, trim) while keeping all formatting aligned to chars.
-    const norm=chars.map(o=>({c:(/\s/.test(o.c)?' ':o.c),b:o.b,i:o.i,u:o.u,f:o.f,z:o.z}));
-    const coll=[]; for(const o of norm){ if(o.c===' '&&coll.length&&coll[coll.length-1].c===' '){coll[coll.length-1].b=coll[coll.length-1].b||o.b;continue;} coll.push({c:o.c,b:o.b,i:o.i,u:o.u,f:o.f,z:o.z}); }
+    const norm=chars.map(o=>({c:(/\s/.test(o.c)?' ':o.c),b:o.b,i:o.i,u:o.u,f:o.f,z:o.z,clr:o.clr}));
+    const coll=[]; for(const o of norm){ if(o.c===' '&&coll.length&&coll[coll.length-1].c===' '){coll[coll.length-1].b=coll[coll.length-1].b||o.b;continue;} coll.push({c:o.c,b:o.b,i:o.i,u:o.u,f:o.f,z:o.z,clr:o.clr}); }
     while(coll.length&&coll[0].c===' ')coll.shift();
     while(coll.length&&coll[coll.length-1].c===' ')coll.pop();
     let text=coll.map(o=>o.c).join('');
@@ -430,8 +432,8 @@ function extractStructured(docXml,styles,numbering,defaults){
     // index-aligned with boldRuns/text — feeds formatting-only change detection.
     const fmtSpans=[];
     for(let k=0;k<coll.length;k++){ const o=coll[k], last=fmtSpans[fmtSpans.length-1];
-      if(last && last.b===o.b && last.i===o.i && last.u===o.u && last.f===o.f && last.z===o.z){ last.e=k+1; }
-      else fmtSpans.push({s:k,e:k+1,b:o.b,i:o.i,u:o.u,f:o.f,z:o.z}); }
+      if(last && last.b===o.b && last.i===o.i && last.u===o.u && last.f===o.f && last.z===o.z && last.clr===o.clr){ last.e=k+1; }
+      else fmtSpans.push({s:k,e:k+1,b:o.b,i:o.i,u:o.u,f:o.f,z:o.z,clr:o.clr}); }
     // Whole-paragraph bold ratio (for headings/fully-bold clauses) from non-space chars.
     let boldChars=0,totalChars=0; for(const o of coll){ if(o.c===' ')continue; totalChars++; if(o.b)boldChars++; }
     if(!text){
@@ -885,10 +887,10 @@ function fmtWrap(text,spans,diff){
   const spanAt=pos=>{for(const sp of spans)if(pos>=sp.s&&pos<sp.e)return sp;return null;};
   let out='',i=0;
   while(i<text.length){
-    const sp=spanAt(i)||{b:false,i:false,u:false,f:null,z:null},d=inDiff(i);
+    const sp=spanAt(i)||{b:false,i:false,u:false,f:null,z:null,clr:null},d=inDiff(i);
     let j=i+1;
     while(j<text.length){const s2=spanAt(j)||sp,d2=inDiff(j);
-      if(s2.b!==sp.b||s2.i!==sp.i||s2.u!==sp.u||s2.f!==sp.f||s2.z!==sp.z)break;
+      if(s2.b!==sp.b||s2.i!==sp.i||s2.u!==sp.u||s2.f!==sp.f||s2.z!==sp.z||s2.clr!==sp.clr)break;
       if((d?d.desc:null)!==(d2?d2.desc:null))break; j++;}
     let inner=esc(text.slice(i,j));
     if(sp.b)inner='<b>'+inner+'</b>';
@@ -906,8 +908,9 @@ function _fmtDesc(a,b){const d=[];
   if(a.u!==b.u)d.push('underline '+(b.u?'added':'removed'));
   if(a.f!==b.f)d.push('font '+a.f+' → '+b.f);
   if(a.z!==b.z)d.push('size '+a.z+' → '+b.z);
+  if(a.clr!==b.clr)d.push('colour '+(a.clr?'#'+a.clr:'default')+' → '+(b.clr?'#'+b.clr:'default'));
   return d.join('; ');}
-function _fmtEq(a,b){return a&&b&&a.b===b.b&&a.i===b.i&&a.u===b.u&&a.f===b.f&&a.z===b.z;}
+function _fmtEq(a,b){return a&&b&&a.b===b.b&&a.i===b.i&&a.u===b.u&&a.f===b.f&&a.z===b.z&&a.clr===b.clr;}
 function fmtDiff(a,b){
   const end=Math.max(a.length?a[a.length-1].e:0,b.length?b[b.length-1].e:0);
   const out=[]; let run=null;
