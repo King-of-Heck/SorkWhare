@@ -37,7 +37,8 @@ assigned during development (numbering is not sequential/uniform by design).
    used purely to draw a border line is not shown; a table taller than a page
    overflows its sheet in the Pages view; a page-number field written in Word's
    simple form, or with no saved value, still shows no number; page numbers of
-   three or more digits may wrap a hair early in very long documents.
+   three or more digits may run a hair past the margin in very long
+   documents.
 
 -------------------------------------------------------------------------------
  v1.13.0  -  In-Place Comments & Endnote Flow        (2026-08-25)
