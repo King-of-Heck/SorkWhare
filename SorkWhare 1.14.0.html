@@ -641,16 +641,49 @@ function parseHFRefs(docXml, relsMap){
   }
   return refs;
 }
+// v1.14.0 (F2): swap PAGE/NUMPAGES field cached results for PUA markers so the
+// number can be substituted per page at render time. Runs on the RAW hf part XML
+// BEFORE extractStructured, so text/boldRuns/fmtSpans stay index-aligned for
+// free. Both documents get identical markers, so the diff sees equal text -- a
+// doc re-saved on a different page can never produce the v1.8.1 phantom-change
+// class. Fields with no cached result (no "separate") are left untouched.
+// Markers appear ONLY as \uE002/\uE003 escapes in source (house PUA rule).
+function hfFieldMarkers(xml){
+  const cache={};
+  const out=String(xml==null?'':xml).replace(
+    /<w:fldChar w:fldCharType="begin"\/?>[\s\S]*?<w:fldChar w:fldCharType="end"\/?>/g,
+    grp=>{
+      const instr=(grp.match(/<w:instrText[^>]*>([\s\S]*?)<\/w:instrText>/g)||[])
+        .map(m=>m.replace(/<[^>]+>/g,'')).join(' ');
+      let marker=null,key=null;
+      if(/\bNUMPAGES\b/.test(instr)){marker='\uE003';key='numpages';}
+      else if(/\bPAGE\b/.test(instr)){marker='\uE002';key='page';}
+      if(!marker)return grp;
+      const sep=grp.indexOf('w:fldCharType="separate"');
+      if(sep<0)return grp;                              // no cached result
+      const head=grp.slice(0,sep),tail=grp.slice(sep);
+      let first=true,cached='';
+      const newTail=tail.replace(/(<w:t(?:\s[^>]*)?>)([\s\S]*?)(<\/w:t>)/g,(m,o,txt,c)=>{
+        cached+=txt;
+        if(first){first=false;return o+marker+c;}
+        return o+c;                                      // extra result runs emptied
+      });
+      if(cache[key]==null&&cached)cache[key]=unxml(cached);
+      return head+newTail;
+    });
+  return {xml:out,cache};
+}
 function parseHeadersFooters(refs, parts, styles, numbering, defaults){
   const map=new Map();
   for(const [key,target] of refs){
-    const xml=parts[target]; if(!xml)continue;
-    const inner=(xml.match(/<w:(?:hdr|ftr)\b[^>]*>([\s\S]*?)<\/w:(?:hdr|ftr)>/)||[])[1];
+    const raw=parts[target]; if(!raw)continue;
+    const pre=hfFieldMarkers(raw);                      // v1.14.0 (F2)
+    const inner=(pre.xml.match(/<w:(?:hdr|ftr)\b[^>]*>([\s\S]*?)<\/w:(?:hdr|ftr)>/)||[])[1];
     if(inner==null)continue;
     const paras=extractStructured('<w:body>'+inner+'</w:body>',styles,numbering,defaults);
     if(!paras.some(p=>(p.text||'').trim()))continue;   // skip empty/field-only parts → no spurious unit
     const [kind,type]=key.split(':');
-    map.set(key,{kind,type,paras});
+    map.set(key,{kind,type,paras,fieldCache:pre.cache});
   }
   return map;
 }
@@ -1074,7 +1107,8 @@ function mergeNoteResults(summary, bodyRows, noteResult, key){
 var HF_ORDER=['header:default','header:first','header:even','footer:default','footer:first','footer:even'];
 function hfStream(unit){
   if(!unit)return [];
-  return unit.paras.map(p=>Object.assign({},p,{hf:{kind:unit.kind,type:unit.type}}));
+  const tag={kind:unit.kind,type:unit.type,fc:(unit&&unit.fieldCache)||null};
+  return unit.paras.map(p=>Object.assign({},p,{hf:tag}));
 }
 function compareHF(sideA, sideB, ignoreCase){
   return compare(sideA, sideB, {ignoreCase:!!ignoreCase, moveMin:Infinity});
