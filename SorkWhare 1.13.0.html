@@ -1911,7 +1911,11 @@ function generateRedlinePdf(opts){
   if(railOn){
     const railX=contentRight+CMT_RAIL_GAP, railW=CMT_RAIL_PT-CMT_RAIL_GAP, txtW=railW-2*CMT_PAD;
     const buildBubble=g=>{
-      const rows_=cmtData.rowGroups[g], c=rows_[0].meta.comment, atoms=[];
+      // Row-level gate (mirrors the old commentEmit per-row _visible filter and the
+      // screen's inner .para hide rules): the meta/anchor line always reads from the
+      // UNFILTERED group's first row, so a group whose first row is itself hidden
+      // still shows the right author — only the redlined body content is filtered.
+      const rows_=cmtData.rowGroups[g].filter(_visible), c=cmtData.rowGroups[g][0].meta.comment, atoms=[];
       const meta=[c.author,c.date,c.initials].filter(Boolean).join(' - ');
       const baseSt=pdfStyle({}, 'eq', CMT_PT, false, set);
       const boldSt=Object.assign({},baseSt,{bold:true});
@@ -1938,9 +1942,15 @@ function generateRedlinePdf(opts){
       const lh=CMT_PT*1.3;
       return {lines,lh,h:lines.length*lh+2*CMT_PAD};
     };
+    // Group-level gate (mirrors the screen CSS ladder .hide-eq .cbubble.cunchanged /
+    // .cfmt / .hide-fmt): a fully-equal group is drawn only under Show Equal, unless
+    // it's a formatting-only change shown via the Formatting toggle. Filtered BEFORE
+    // placement so a skipped group never occupies rail space.
+    const cmtVisGrp=gi=>{const g=cmtData.groups[gi];return g.changed||show.eq||(g.fmtOnly&&show.fmt);};
     const placed=Object.keys(cmtAnchorPos).map(k=>({gi:+k,pos:cmtAnchorPos[k]}))
+      .filter(({gi})=>cmtVisGrp(gi))
       .sort((a,b)=>a.pos.page-b.pos.page||b.pos.y-a.pos.y);
-    const unplaced=cmtData.groups.map((_,gi)=>gi).filter(gi=>!(gi in cmtAnchorPos));
+    const unplaced=cmtData.groups.map((_,gi)=>gi).filter(gi=>!(gi in cmtAnchorPos)&&cmtVisGrp(gi));
     const queue=placed.concat(unplaced.map(gi=>({gi,pos:null})));
     let pg=0, cursorTop=Hpt-effTopOf(0);
     for(const q of queue){
