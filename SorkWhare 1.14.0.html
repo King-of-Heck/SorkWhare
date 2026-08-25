@@ -650,9 +650,23 @@ function parseHFRefs(docXml, relsMap){
 // Markers appear ONLY as \uE002/\uE003 escapes in source (house PUA rule).
 function hfFieldMarkers(xml){
   const cache={};
+  // The outer match itself must not cross a nested begin: an unbalanced field
+  // (missing its own end fldChar) would otherwise let the plain lazy [\s\S]*?
+  // swallow all the way through to the NEXT field's end, deleting real static
+  // text (and that next field's own cached result) between them. The negative
+  // lookahead stops the match from extending past a nested begin, so a broken
+  // field simply fails to match here at all (left as raw XML, untouched) and
+  // the regex naturally finds its next match starting at that nested begin —
+  // i.e. the following well-formed field is still recognized on its own.
   const out=String(xml==null?'':xml).replace(
-    /<w:fldChar w:fldCharType="begin"\/?>[\s\S]*?<w:fldChar w:fldCharType="end"\/?>/g,
+    /<w:fldChar w:fldCharType="begin"\/?>(?:(?!<w:fldChar w:fldCharType="begin")[\s\S])*?<w:fldChar w:fldCharType="end"\/?>/g,
     grp=>{
+      // Defense in depth: a legitimate single PAGE/NUMPAGES field never
+      // contains a nested begin, so this should be unreachable given the
+      // lookahead above — kept as a belt-and-suspenders bail, mirroring the
+      // existing no-separate skip below.
+      const firstBegin=grp.indexOf('w:fldCharType="begin"');
+      if(grp.indexOf('w:fldCharType="begin"',firstBegin+1)>=0)return grp;
       const instr=(grp.match(/<w:instrText[^>]*>([\s\S]*?)<\/w:instrText>/g)||[])
         .map(m=>m.replace(/<[^>]+>/g,'')).join(' ');
       let marker=null,key=null;
