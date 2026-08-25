@@ -1749,11 +1749,12 @@ function generateRedlinePdf(opts){
   // v1.4.0 margin change bars for free via their isChange flag in Pass 3. ----
   const enVis=enRows.filter(_visible);
   if(enVis.length){
-    // Bold heading; keepNext ties it to the first endnote so it never dangles.
-    emitParaRow({type:'equal',meta:{isBold:true,keepNext:true,spaceBeforePt:14,spaceAfterPt:6},html:'Endnotes'},null,null);
     enVis.forEach((er,i)=>{
       const dn=er.meta&&er.meta.note&&er.meta.note.dispNum;
       emitParaRow(er,enVis[i-1],enVis[i+1],(dn!=null?dn+'. ':''));
+      if(i===0){ const p0=paras[paras.length-1];
+        p0.enSep=true;                                  // Pass 3 draws the separator rule
+        p0.spaceBeforePt=Math.max(p0.spaceBeforePt||0,16); }
     });
   }
   // ---- Headers/Footers section (v1.11.0): titled end-section blocks after the endnotes
@@ -1886,6 +1887,8 @@ function generateRedlinePdf(opts){
       const ascent=maxSize*0.8;
       if(penY-lh<effBotOf(curPageIndex)&&!atTop)nextPage();   // safety net; planBreaks should have caught it
       const baseline=penY-ascent;
+      if(li===0&&p.enSep)
+        ops.push('0.5 0.5 0.5 RG','0.5 w',fmt(mlPt)+' '+fmt(penY+4)+' m '+fmt(mlPt+SEPW)+' '+fmt(penY+4)+' l S');
       if(li===0&&p.markerText)seg(p.markerX,baseline,p.markerText,p.base);
       const lineStartX=p.bodyX+(li===0?p.indFLPt:0), lineAvail=contentRight-lineStartX;
       let natural=0,gaps=0;
