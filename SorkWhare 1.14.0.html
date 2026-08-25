@@ -1491,7 +1491,14 @@ function generateRedlinePdf(opts){
   // stripping is the shipped behaviour. No-op (returns the same string) when absent.
   // MOVED UP (v1.11.0): a dependency-free const arrow, needed by the hf-chrome block
   // below, which must run before the first newPage() call. Byte-inert move.
-  const stripSent=h=>String(h==null?'':h).replace(/\uE000(footnote|endnote):(-?\d+)\uE001/g,'');
+  // v1.14.0 (F2): also strips a raw PAGE/NUMPAGES marker as a safety net for every
+  // BODY-scale call site (emitParaRow, buildFnBlock, _wrapCellPara, comment bubbles)
+  // so no unresolved \uE002/\uE003 can ever reach the drawn stream from there.
+  const stripSent=h=>String(h==null?'':h).replace(/\uE000(footnote|endnote):(-?\d+)\uE001/g,'').replace(/[\uE002\uE003]/g,'');
+  // Narrower sibling used ONLY by chrome (buildHfBlock): strips the note sentinel but
+  // KEEPS the PAGE/NUMPAGES marker alive through tokenizing \u2014 drawHfForPage substitutes
+  // the real per-page number later, right before measuring/drawing each line.
+  const stripHfSent=h=>String(h==null?'':h).replace(/\uE000(footnote|endnote):(-?\d+)\uE001/g,'');
   const _visible=row=>{const t=row.type;
     if(t==='equal'){ if(show.eq) return true; return !!(row.fmtChanged && show.fmt); }
     if(t==='inserted'&&!show.ins)return false;
@@ -1517,8 +1524,14 @@ function generateRedlinePdf(opts){
       // it. Header/footer content is normally 1-2 short lines, so we simplify to
       // prefixing the marker inline as leading atoms on the first line instead.
       if(meta.marker)atoms.push({text:meta.marker,st:base},{text:' ',st:base});
-      for(const r of pdfParseRuns(stripSent(row.html),show.fmt)){const st=pdfStyle(meta,r.kind,bodyPt,r.bold,set);
-        for(const tk of (r.text.match(/\S+|\s+/g)||[]))atoms.push({text:tk,st});}
+      for(const r of pdfParseRuns(stripHfSent(row.html),show.fmt)){const st=pdfStyle(meta,r.kind,bodyPt,r.bold,set);
+        for(const tk of (r.text.match(/\S+|\s+/g)||[])){
+          // v1.14.0 (F2): a token holding a PAGE/NUMPAGES marker wraps at "88"
+          // width (2-digit conservative); drawHfForPage substitutes the real
+          // number from the template and re-measures per page.
+          const fld=tk.indexOf('\uE002')>=0||tk.indexOf('\uE003')>=0;
+          atoms.push(fld?{text:tk.replace(/[\uE002\uE003]/g,'88'),tpl:tk,st}:{text:tk,st});
+        }}
       const availW=contentRight-bodyX,lines=[];let cur=[],curW=0;
       for(const a of atoms){const isSp=/^\s+$/.test(a.text),w=measure(a.text,a.st.size,a.st.bold,a.st.italic);
         if(!cur.length&&isSp)continue;
@@ -1566,15 +1579,24 @@ function generateRedlinePdf(opts){
       for(const d of b.drawn){
         let ms=0;for(const a of d.line)if(a.st&&a.st.size>ms)ms=a.st.size;if(!ms)ms=bodyPt;
         const baseline=top-ms*0.8;
-        let natural=0;for(const a of d.line)natural+=measure(a.text,a.st.size,a.st.bold,a.st.italic);
+        // v1.14.0 (F2): substitute the real per-page PAGE/NUMPAGES value from each
+        // atom's template BEFORE measuring, so alignment/wrap reflect the true digit
+        // count (post-flush P is the 0-based page index; pages.length is the real total).
+        const lineTxt=d.line.map(a=>a.tpl
+          ?a.tpl.replace(/\uE002/g,String(P+1)).replace(/\uE003/g,String(pages.length))
+          :a.text);
+        let natural=0;for(let k=0;k<d.line.length;k++)natural+=measure(lineTxt[k],d.line[k].st.size,d.line[k].st.bold,d.line[k].st.italic);
         const lineAvail=contentRight-d.bodyX;
         let x=d.bodyX;
         if(d.align==='center')x+=Math.max(0,(lineAvail-natural)/2);
         else if(d.align==='right')x+=Math.max(0,(lineAvail-natural));
         // justify is skipped at chrome scale (short header/footer lines; not worth
         // the extra-per-gap distribution emitParaRow does for body paragraphs).
-        for(const a of d.line){seg(x,baseline,a.text,a.st);x+=measure(a.text,a.st.size,a.st.bold,a.st.italic);}
-        if(d.isChange)curBar().push({top:top,bot:top-d.lh});
+        for(let k=0;k<d.line.length;k++){const a=d.line[k];
+          seg(x,baseline,lineTxt[k],a.st);x+=measure(lineTxt[k],a.st.size,a.st.bold,a.st.italic);}
+        // Post-flush: curBar() would always target the LAST page, so write directly
+        // into this page's own barSpans bucket (P is closed over from drawHfForPage's arg).
+        if(d.isChange)barSpans[P].push({top:top,bot:top-d.lh});
         top-=d.lh;
       }
     }
@@ -1823,7 +1845,11 @@ function generateRedlinePdf(opts){
       const base=kind==='header'?'Header':'Footer';
       const label=multi?(base+' — '+(type==='first'?'First Page':type==='even'?'Even Pages':'Default')):(base+'s');
       emitParaRow({type:'equal',meta:{isBold:true,keepNext:true,spaceBeforePt:14,spaceAfterPt:6},html:label},null,null);
-      unit.forEach((r,i)=>emitParaRow(r,unit[i-1],unit[i+1]));
+      // v1.14.0 (F2): a residual (non-displayed-variant) section has no per-page
+      // context, so show the Word-cached field values from parse time rather than
+      // a raw marker; a shallow copy keeps `r` itself untouched for prevRaw/nextRaw
+      // styleId comparisons on neighbouring rows.
+      unit.forEach((r,i)=>emitParaRow(Object.assign({},r,{html:hfFieldSub(r.html,hfFcVals(r.meta.hf&&r.meta.hf.fc))}),unit[i-1],unit[i+1]));
     }
   };
   hfEmit('header'); hfEmit('footer');
@@ -1896,7 +1922,10 @@ function generateRedlinePdf(opts){
   // Flush the finished page's footnotes, then start the next physical page.
   // Inert when there are no footnotes (drawFootnotesForPage returns immediately),
   // so replacing newPage() with nextPage() below is a no-op for note-free docs.
-  const nextPage=()=>{if(hasFootnotes)drawFootnotesForPage(curPageIndex);drawHfForPage(curPageIndex);newPage();curPageIndex++;};
+  // v1.14.0 (F2): the per-page chrome draw moved OUT of nextPage/the final flush and
+  // now runs once, post-flush, over the finished pages[] (see below) — so NUMPAGES
+  // can know the real total page count. drawHfForPage is no longer called here.
+  const nextPage=()=>{if(hasFootnotes)drawFootnotesForPage(curPageIndex);newPage();curPageIndex++;};
   for(let pi=0;pi<paras.length;pi++){
     const p=paras[pi],meta=p.meta;
     if(!atTop&&!brkSet.has(pi+':0'))penY-=p.spaceBeforePt;
@@ -1957,7 +1986,13 @@ function generateRedlinePdf(opts){
     penY-=p.spaceAfterPt;
   }
   if(hasFootnotes)drawFootnotesForPage(curPageIndex); // flush the final page's footnotes
-  drawHfForPage(curPageIndex); // v1.11.0: flush the final page's chrome (no-op when hf-free)
+  // v1.14.0 (F2): chrome draws once per page AFTER the final flush so NUMPAGES can
+  // know the real total page count (the v1.13.0 bubble save/restore precedent —
+  // reassign ops into the target page's bucket, draw, restore). MUST run before the
+  // barSpans merge/stroke loop further below or a changed-chrome bar push would be
+  // dropped. Placed before the comment-bubble block too, for no particular reason —
+  // either order works since bubbles also address pages[] directly by index.
+  if(hasHfChrome)for(let P=0;P<pages.length;P++){const _save=ops;ops=pages[P];drawHfForPage(P);ops=_save;}
   // ---- Comment bubbles (v1.13.0): boxed comments in the reserved right rail.
   // Atomic per bubble (the footnote-atomicity posture): a bubble that cannot fit
   // above the bottom margin moves whole to the next page's rail; past the last
