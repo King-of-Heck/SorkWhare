@@ -2241,6 +2241,35 @@ function hfScreenPlan(chromeUnits,flags,gIn,hPtByKey){
   return {present,displayed,residual,effTopPt,effBotPt,availOf};
 }
 
+/* ---- Comment bubbles (v1.13.0): pure geometry/resolution helpers ----------
+   resolveCommentAnchors: one body-row index per comment group (-1 unresolved).
+   A group present in B anchors by ni (its anchorPara indexes B's kept paras);
+   an A-only group by oi. `deleted` rows carry orig meta, everything else rev. */
+function resolveCommentAnchors(rowGroups, bodyRows){
+  return rowGroups.map(g=>{
+    let side=null, ap=null;
+    for(const r of g){
+      const c=r.meta&&r.meta.comment; if(!c||c.anchorPara==null)continue;
+      if(r.type!=='deleted'){side='B';ap=c.anchorPara;break;}
+      if(side===null){side='A';ap=c.anchorPara;}
+    }
+    if(ap==null)return -1;
+    for(let i=0;i<bodyRows.length;i++){
+      const r=bodyRows[i];
+      if(side==='B' ? r.ni===ap : r.oi===ap) return i;
+    }
+    return -1;
+  });
+}
+// Greedy top-down stack: each bubble at its anchor unless the previous bubble
+// (plus gap) pushes it lower. Items arrive pre-sorted by anchorY, unresolved last.
+function stackBubbles(items, gap){
+  gap = gap==null ? 10 : gap;
+  let bottom=-Infinity; const tops=[];
+  for(const it of items){ const top=Math.max(it.anchorY, bottom+gap); tops.push(top); bottom=top+it.h; }
+  return tops;
+}
+
 /* ================= comment screen render (v1.8.0) =================
    One labeled .cmtband appended after the header/footer sections. Each comment
    shows a metadata line (author · date · initials) + an anchor line (when the
