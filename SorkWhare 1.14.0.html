@@ -672,12 +672,14 @@ function hfFieldMarkers(xml){
   // the regex naturally finds its next match starting at that nested begin —
   // i.e. the following well-formed field is still recognized on its own.
   const out=String(xml==null?'':xml).replace(
-    /<w:fldChar w:fldCharType="begin"\/?>(?:(?!<w:fldChar w:fldCharType="begin")[\s\S])*?<w:fldChar w:fldCharType="end"\/?>/g,
+    /<w:fldChar[^>]*\bw:fldCharType="begin"[^>]*>(?:(?!<w:fldChar[^>]*\bw:fldCharType="begin")[\s\S])*?<w:fldChar[^>]*\bw:fldCharType="end"[^>]*>/g,
     grp=>{
-      // Defense in depth: a legitimate single PAGE/NUMPAGES field never
-      // contains a nested begin, so this should be unreachable given the
-      // lookahead above — kept as a belt-and-suspenders bail, mirroring the
-      // existing no-separate skip below.
+      // Defense in depth: with the outer match itself tolerant of extra
+      // attributes (w:dirty, w:fldLock, etc.) on the begin/end tags, a
+      // legitimate single PAGE/NUMPAGES field can never contain a nested
+      // begin inside its own match — this bail is genuinely unreachable now,
+      // kept as a belt-and-suspenders check mirroring the no-separate skip
+      // below.
       const firstBegin=grp.indexOf('w:fldCharType="begin"');
       if(grp.indexOf('w:fldCharType="begin"',firstBegin+1)>=0)return grp;
       const instr=(grp.match(/<w:instrText[^>]*>([\s\S]*?)<\/w:instrText>/g)||[])
