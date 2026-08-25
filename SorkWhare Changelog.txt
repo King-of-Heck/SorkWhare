@@ -17,6 +17,29 @@ assigned during development (numbering is not sequential/uniform by design).
 
 
 -------------------------------------------------------------------------------
+ v1.13.0  -  In-Place Comments & Endnote Flow        (2026-08-25)
+-------------------------------------------------------------------------------
+ - Comments now appear as margin bubbles alongside the paragraph they annotate,
+   in both the Pages and Continuous views and in the downloaded PDF, which
+   reserves a right-hand markup column, much like Word's print-with-markup.
+   Each bubble shows the author, the date, the anchored text, and the redlined
+   comment itself.
+ - A new "Comments" checkbox in the Show panel (on by default, and remembered
+   between sessions) hides comments entirely when turned off. This replaces the
+   old end-of-document Comments section.
+ - Comment bubbles follow the other Show filters: an unchanged comment's bubble
+   hides along with unchanged text, and comment text obeys the insertion and
+   deletion filters, on screen and in the PDF alike.
+ - Endnotes now flow after the last paragraph the way Word itself displays them
+   - a short separator line and the document's own font - instead of appearing
+   in a labeled section, on screen and in the PDF.
+ - Known limitations: a bubble points at the paragraph holding the anchor, not
+   the exact anchored words; comments anchored inside a table collect at the
+   end of the bubble rail; printing (as opposed to the PDF) omits the bubbles -
+   use the PDF for a markup copy; endnote numbers are always shown as plain
+   numerals regardless of the document's own numbering format.
+
+-------------------------------------------------------------------------------
  v1.12.0  -  Pages View Fidelity                     (2026-08-24)
 -------------------------------------------------------------------------------
  - Page view now shows body text in the document's own font, matching the
