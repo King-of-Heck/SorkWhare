@@ -341,6 +341,10 @@ function extractStructured(docXml,styles,numbering,defaults){
   // Footnote/endnote body references in document reading order, with per-kind
   // display ordinals. Populated in processPara; attached to the return array below.
   const noteRefs=[]; let fnN=0, enN=0;
+  // Comment anchors (v1.13.0): id -> KEPT-paragraph index of the first paragraph
+  // containing that id's commentRangeStart or commentReference. Captured inside
+  // the walk — the only authoritative source of the kept/dropped rule.
+  const commentRefs=new Map();
   // tbl: {ti,ri,ci,cols,gw} when this paragraph lives in a table cell, else null.
   function processPara(p,tbl){
     // Tracked paragraph-property changes (<w:pPrChange>) carry the PRE-revision
@@ -495,6 +499,9 @@ function extractStructured(docXml,styles,numbering,defaults){
       text += '\uE000'+kind+':'+id+'\uE001';
     }
 
+    const cmtRe=/<w:comment(?:RangeStart|Reference)\b[^>]*\bw:id="([^"]+)"/g; let cmtM;
+    while((cmtM=cmtRe.exec(p))){ if(!commentRefs.has(cmtM[1])) commentRefs.set(cmtM[1], out.length); }
+
     out.push({text,heading,isNumbered,marker,ilvl,isBold,pageBreakBefore,align,indLeftPt,indHangingPt,indFirstLinePt,boldRuns,fmtSpans,
       styleId,spaceBeforePt,spaceAfterPt,lineSpacing,lineExactPt,lineRule,keepNext,keepLines,contextualSpacing,
       tbl:tbl||null});
@@ -527,6 +534,7 @@ function extractStructured(docXml,styles,numbering,defaults){
     } else processPara(blk,null);
   }
   out.noteRefs=noteRefs;
+  out.commentRefs=commentRefs;
   return out;
 }
 /* Page geometry from the LAST <w:sectPr> (the document/body section). Twips→inches
@@ -709,6 +717,7 @@ async function docxToParagraphs(file){
   const cmts=parseComments(await tryEntry(buf,'word/comments.xml'),styles,numbering,dd);
   const canchors=commentAnchors(docXml);
   for(const c of cmts) c.anchor=snippet(canchors.get(c.id)||'');
+  for(const c of cmts) c.anchorPara = out.commentRefs.has(c.id) ? out.commentRefs.get(c.id) : null;
   out.comments=cmts;
   out.hasTrackedChanges=/<w:(?:ins|del)[ >]/.test(docXml);
   out.geometry=Object.assign({},parseSectionGeom(docXml),dd);
@@ -1085,6 +1094,7 @@ function buildCommentStream(comments){
   for(const c of (comments||[])){
     c.paras.forEach((p,idx)=>stream.push(Object.assign({},p,{comment:{
       id:c.id, author:c.author, date:c.date, initials:c.initials, anchor:c.anchor,
+      anchorPara:(c.anchorPara!=null?c.anchorPara:null),
       firstOfComment:idx===0}})));
   }
   return stream;
