@@ -1520,6 +1520,10 @@ function generateRedlinePdf(opts){
     const drawn=[];
     rws.forEach(row=>{
       const meta=row.meta||{},base=pdfStyle(meta,'eq',bodyPt,false,set),atoms=[];
+      const ef=hfEffFmt(meta);                      // v1.14.0 (F3)
+      if(ef.z!=null)base.size=ef.z;
+      if(ef.i)base.italic=true;
+      if(ef.clr)base.color=hexToPdfRgb('#'+ef.clr);
       const bodyX=mlPt+(meta.indLeftPt||0);
       const align=meta.align||'left';
       // Chrome-scale marker handling: emitParaRow draws the marker in a separate
@@ -1527,7 +1531,10 @@ function generateRedlinePdf(opts){
       // it. Header/footer content is normally 1-2 short lines, so we simplify to
       // prefixing the marker inline as leading atoms on the first line instead.
       if(meta.marker)atoms.push({text:meta.marker,st:base},{text:' ',st:base});
-      for(const r of pdfParseRuns(stripHfSent(row.html),show.fmt)){const st=pdfStyle(meta,r.kind,bodyPt,r.bold,set);
+      for(const r of pdfParseRuns(stripHfSent(row.html),show.fmt)){
+        const st0=pdfStyle(meta,r.kind,bodyPt,r.bold,set);
+        const st=Object.assign({},st0,{size:(ef.z!=null?ef.z:st0.size),italic:st0.italic||ef.i});
+        if(r.kind==='eq'&&ef.clr)st.color=base.color;   // run colour only where no redline colour applies
         for(const tk of (r.text.match(/\S+|\s+/g)||[])){
           // v1.14.0 (F2): a token holding a PAGE/NUMPAGES marker wraps at "88"
           // width (2-digit conservative); drawHfForPage substitutes the real
@@ -2357,12 +2364,31 @@ function hfFieldSub(html,vals){
 function hfFcVals(fc){
   return {page:(fc&&fc.page)||'1', total:(fc&&fc.numpages)||'1'};
 }
+// v1.14.0 (F3): paragraph-level effective hf format — the FIRST span's italic/
+// size/font/colour. Real header/footer paragraphs are near-always uniformly
+// formatted (every para in the regression pair is), so first-span == uniform;
+// a mixed para takes its opening format (documented limitation). Bold is NOT
+// here — it stays on the existing per-run <b> path through the diff.
+function hfEffFmt(meta){
+  const sp=(meta&&meta.fmtSpans)||[]; const s0=sp[0];
+  if(!s0)return {i:false,z:null,f:null,clr:null};
+  return {i:!!s0.i, z:(s0.z!=null?s0.z:null), f:s0.f||null, clr:s0.clr||null};
+}
 // One header/footer paragraph as it renders in an end band OR in-place chrome.
 // Factored from hfSectionHtml so both are byte-identical (the v1.10.0 noteParaHtml
 // precedent).
 function hfParaHtml(r){
-  return '<p class="para '+(r.type==='equal'?'equal':r.type)+(r.fmtChanged?' fmtchanged':'')+'" data-cid="'+(r.cid||'')+'"'
-       +(r.cid?(' id="chg-'+r.cid+'"'):'')+'>'+r.html+'</p>';
+  // v1.14.0 (F3): inline effective format so every hf sink (band, chrome,
+  // measurement, Print copy) renders AND measures identically. Ins/del/fmtchg
+  // colours still win — their rules target the inner elements.
+  const ef=hfEffFmt(r.meta), st=[];
+  if(ef.z!=null)st.push('font-size:'+ef.z+'pt');
+  if(ef.i)st.push('font-style:italic');
+  if(ef.f)st.push('font-family:&quot;'+esc(ef.f).replace(/"/g,'&quot;')+'&quot;,&quot;Times New Roman&quot;,Georgia,serif');
+  if(ef.clr)st.push('color:#'+ef.clr);
+  return '<p class="para '+(r.type==='equal'?'equal':r.type)+(r.fmtChanged?' fmtchanged':'')+'"'
+       +(st.length?(' style="'+st.join(';')+'"'):'')
+       +' data-cid="'+(r.cid||'')+'"'+(r.cid?(' id="chg-'+r.cid+'"'):'')+'>'+r.html+'</p>';
 }
 function hfSectionHtml(rows, kind){
   const hfRows=rows.filter(r=>r.meta&&r.meta.hf&&r.meta.hf.kind===kind);
