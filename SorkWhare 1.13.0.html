@@ -1395,9 +1395,21 @@ function generateRedlinePdf(opts){
   const faName=opts.fileAName!=null?opts.fileAName:((fileA&&fileA.name)||'');
   const fbName=opts.fileBName!=null?opts.fileBName:((fileB&&fileB.name)||'');
   const Wpt=g.wIn*PT,Hpt=g.hIn*PT,mlPt=g.ml*PT,mrPt=g.mr*PT,mtPt=g.mt*PT,mbPt=g.mb*PT;
-  const contentRight=Wpt-mrPt, bodyPt=g.fontPt||11;
-  const show=opts.show||{ins:$('fIns').checked,del:$('fDel').checked,mov:$('fMov').checked,eq:$('fEq').checked,fmt:$('fFmt')?$('fFmt').checked:true};
+  const bodyPt=g.fontPt||11;
+  const show=opts.show||{ins:$('fIns').checked,del:$('fDel').checked,mov:$('fMov').checked,eq:$('fEq').checked,fmt:$('fFmt')?$('fFmt').checked:true,cmt:($('fCmt')&&typeof $('fCmt').checked==='boolean')?$('fCmt').checked:true};
   const set=opts.set||activeSet||RENDER_SETS[0];
+  // v1.13.0 comment rail: gated on toggle + comments present. When active the
+  // body column narrows by CMT_RAIL_PT (Word print-with-markup behaviour) —
+  // contentRight feeds every wrap/align path, so the shrink is uniform.
+  const cmtRows=allRows.filter(r=>r.meta&&r.meta.comment);
+  const cmtData=cmtRows.length?buildCommentBubbles(allRows):null;
+  const railOn=!!(cmtData&&show.cmt!==false);
+  const railPt=railOn?CMT_RAIL_PT:0;
+  const contentRight=Wpt-mrPt-railPt;
+  const cmtAnchorIdx=railOn?resolveCommentAnchors(cmtData.rowGroups,bodyRows):[];
+  const cmtGroupsByRow=new Map();
+  cmtAnchorIdx.forEach((ri,gi)=>{ if(ri>=0){ const r=bodyRows[ri];
+    if(!cmtGroupsByRow.has(r))cmtGroupsByRow.set(r,[]); cmtGroupsByRow.get(r).push(gi); } });
   let ctx=null; try{ctx=document.createElement('canvas').getContext('2d');}catch(_){}
   // Use the document's real font when we can both MEASURE it (Canvas) and expect the
   // viewer to render it (installed locally). Otherwise: v1.1.5 base-14 Times path.
@@ -1705,6 +1717,7 @@ function generateRedlinePdf(opts){
       // property there — never read unless hasFootnotes.
       fnRefs:harvestFnRefs(row.html),
       pageBreakBefore:!!meta.pageBreakBefore&&paras.length>0});
+    if(cmtGroupsByRow.has(row)) paras[paras.length-1].cmtGroups=cmtGroupsByRow.get(row);
   };
   let _ri=0;
   while(_ri<bodyRows.length){
@@ -1762,33 +1775,6 @@ function generateRedlinePdf(opts){
     }
   };
   hfEmit('header'); hfEmit('footer');
-  // ---- Comments section (v1.8.0): a titled block after headers/footers. Empty for
-  // a comment-free doc (no .comment rows) → skipped → byte-identical output. Group by
-  // the firstOfComment boundary over the UNFILTERED rows (so the boundary survives),
-  // then apply visibility per group and skip all-hidden groups — matching the screen
-  // renderer commentsSectionHtml. Rows flow through emitParaRow → v1.4.0 margin bars
-  // for free. ASCII-safe punctuation (the PDF text encoder is Win-1252). NOT anchored
-  // on the page (deferred; page-sheet view). ----
-  const commentEmit=()=>{
-    const all=allRows.filter(r=>r.meta&&r.meta.comment);
-    if(!all.length)return;
-    const groups=[]; let i=0;
-    while(i<all.length){
-      const g=[all[i]]; i++;
-      while(i<all.length && !(all[i].meta.comment && all[i].meta.comment.firstOfComment)){ g.push(all[i]); i++; }
-      groups.push(g);
-    }
-    const emit=groups.map(g=>({c:g[0].meta.comment, vis:g.filter(_visible)})).filter(x=>x.vis.length);
-    if(!emit.length)return;
-    emitParaRow({type:'equal',meta:{isBold:true,keepNext:true,spaceBeforePt:14,spaceAfterPt:6},html:'Comments'},null,null);
-    for(const {c,vis} of emit){
-      const meta=[c.author,c.date,c.initials].filter(Boolean).join(' - ');
-      emitParaRow({type:'equal',meta:{keepNext:true,spaceBeforePt:6},html:esc(meta)},null,null);
-      if(c.anchor) emitParaRow({type:'equal',meta:{keepNext:true},html:esc('re: "'+c.anchor+'"')},null,null);
-      vis.forEach((r,k)=>emitParaRow(r,vis[k-1],vis[k+1]));
-    }
-  };
-  commentEmit();
   // ---- Pass 2: page planning (banner shortens page 1) ----
   const availH=Hpt-mtPt-mbPt;
   const BANNER_H=62; // 20+12+14+16 from the banner block above
@@ -1854,6 +1840,7 @@ function generateRedlinePdf(opts){
   };
   // ---- Pass 3: render ----
   let atTop=true, curPageIndex=0;
+  const cmtAnchorPos={};   // groupIdx -> {page,y} recorded at the anchor's first drawn line
   // Flush the finished page's footnotes, then start the next physical page.
   // Inert when there are no footnotes (drawFootnotesForPage returns immediately),
   // so replacing newPage() with nextPage() below is a no-op for note-free docs.
@@ -1909,6 +1896,7 @@ function generateRedlinePdf(opts){
       for(let k=0;k<line.length;k++){const a=line[k];seg(x,baseline,a.text,a.st);
         x+=measure(a.text,a.st.size,a.st.bold,a.st.italic);
         if(extraPerGap&&/^\s+$/.test(a.text)&&k!==line.length-1)x+=extraPerGap;}
+      if(li===0&&p.cmtGroups)for(const gi of p.cmtGroups)cmtAnchorPos[gi]={page:curPageIndex,y:penY};
       if(p.isChange)curBar().push({top:penY,bot:penY-lh});
       penY-=lh; atTop=false;
     }
@@ -1916,6 +1904,66 @@ function generateRedlinePdf(opts){
   }
   if(hasFootnotes)drawFootnotesForPage(curPageIndex); // flush the final page's footnotes
   drawHfForPage(curPageIndex); // v1.11.0: flush the final page's chrome (no-op when hf-free)
+  // ---- Comment bubbles (v1.13.0): boxed comments in the reserved right rail.
+  // Atomic per bubble (the footnote-atomicity posture): a bubble that cannot fit
+  // above the bottom margin moves whole to the next page's rail; past the last
+  // page it draws on the last page and may overflow (KNOWN LIMITATION).
+  if(railOn){
+    const railX=contentRight+CMT_RAIL_GAP, railW=CMT_RAIL_PT-CMT_RAIL_GAP, txtW=railW-2*CMT_PAD;
+    const buildBubble=g=>{
+      const rows_=cmtData.rowGroups[g], c=rows_[0].meta.comment, atoms=[];
+      const meta=[c.author,c.date,c.initials].filter(Boolean).join(' - ');
+      const baseSt=pdfStyle({}, 'eq', CMT_PT, false, set);
+      const boldSt=Object.assign({},baseSt,{bold:true});
+      for(const tk of (meta.match(/\S+|\s+/g)||[]))atoms.push({text:tk,st:boldSt,nl:false});
+      atoms.push({br:true});
+      if(c.anchor)for(const tk of (('re: "'+c.anchor+'"').match(/\S+|\s+/g)||[]))atoms.push({text:tk,st:baseSt});
+      if(c.anchor)atoms.push({br:true});
+      for(const r of rows_){
+        for(const run of pdfParseRuns(stripSent(r.html),show.fmt)){
+          const st=pdfStyle(r.meta||{},run.kind,CMT_PT,run.bold,set);
+          for(const tk of (run.text.match(/\S+|\s+/g)||[]))atoms.push({text:tk,st});
+        }
+        atoms.push({br:true});
+      }
+      const lines=[];let cur=[],curW=0;
+      for(const a of atoms){
+        if(a.br){if(cur.length){lines.push(cur);cur=[];curW=0;}continue;}
+        const isSp=/^\s+$/.test(a.text),w=measure(a.text,a.st.size,a.st.bold,a.st.italic);
+        if(!cur.length&&isSp)continue;
+        if(curW+w>txtW&&cur.length){lines.push(cur);cur=[];curW=0;if(isSp)continue;}
+        cur.push(a);curW+=w;
+      }
+      if(cur.length)lines.push(cur);
+      const lh=CMT_PT*1.3;
+      return {lines,lh,h:lines.length*lh+2*CMT_PAD};
+    };
+    const placed=Object.keys(cmtAnchorPos).map(k=>({gi:+k,pos:cmtAnchorPos[k]}))
+      .sort((a,b)=>a.pos.page-b.pos.page||b.pos.y-a.pos.y);
+    const unplaced=cmtData.groups.map((_,gi)=>gi).filter(gi=>!(gi in cmtAnchorPos));
+    const queue=placed.concat(unplaced.map(gi=>({gi,pos:null})));
+    let pg=0, cursorTop=Hpt-effTopOf(0);
+    for(const q of queue){
+      const b=buildBubble(q.gi);
+      let top=q.pos?Math.min(q.pos.y,cursorTop):cursorTop;
+      let page=q.pos?Math.max(q.pos.page,pg):pg;
+      if(page>pg){pg=page;cursorTop=Hpt-effTopOf(pg);top=Math.min(q.pos?q.pos.y:cursorTop,cursorTop);}
+      if(top-b.h<mbPt&&pg<pages.length-1){pg++;cursorTop=Hpt-effTopOf(pg);top=cursorTop;page=pg;}
+      const tgt=pages[Math.min(page,pages.length-1)];
+      const saveOps=ops; ops=tgt;
+      ops.push('0.72 0.75 0.79 RG','0.7 w',fmt(railX)+' '+fmt(top-b.h)+' '+fmt(railW)+' '+fmt(b.h)+' re S');
+      if(q.pos&&q.pos.page===page)
+        ops.push('0.6 0.6 0.6 RG','0.5 w',fmt(contentRight+2)+' '+fmt(q.pos.y-3)+' m '+fmt(railX)+' '+fmt(top-3)+' l S');
+      let y=top-CMT_PAD;
+      for(const line of b.lines){
+        const baseline=y-CMT_PT*0.8; let x=railX+CMT_PAD;
+        for(const a of line){seg(x,baseline,a.text,a.st);x+=measure(a.text,a.st.size,a.st.bold,a.st.italic);}
+        y-=b.lh;
+      }
+      ops=saveOps;
+      pg=page; cursorTop=top-b.h-CMT_GAP;
+    }
+  }
   // ---- Margin change bars: merge each page's changed-line intervals, stroke one bar per run ----
   const barX=mlPt-8;
   for(let bp=0;bp<barSpans.length;bp++){
@@ -2398,6 +2446,7 @@ function fnReserveScreenPt(dnList,heightByNum,gaps){
 // page→notes assignment stops changing; otherwise accept the last (KNOWN LIMITATION,
 // same as the PDF). With no built footnotes it reduces to the plain scalar planBreaks.
 var FN_FLOOR_PT=40;   // reserve floor guard (mirrors the PDF's Math.max(40,…))
+var CMT_RAIL_PT=150, CMT_RAIL_GAP=10, CMT_PT=8, CMT_PAD=5, CMT_GAP=8;
 function floatFootnotePlan(blocks,availPt,refsByBlock,builtNums,heightByNum,gaps,baseAvailOf){
   // baseAvailOf (v1.11.0, OPTIONAL): per-page body height BEFORE the footnote
   // reserve — in-place header/footer chrome shrinks it. Omitted → the exact
