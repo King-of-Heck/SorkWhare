@@ -1967,7 +1967,7 @@ function generateRedlinePdf(opts){
       if(top-b.h<mbPt&&pg<pages.length-1){pg++;cursorTop=Hpt-effTopOf(pg);top=cursorTop;page=pg;}
       const tgt=pages[Math.min(page,pages.length-1)];
       const saveOps=ops; ops=tgt;
-      ops.push('0.72 0.75 0.79 RG','0.7 w',fmt(railX)+' '+fmt(top-b.h)+' '+fmt(railW)+' '+fmt(b.h)+' re S');
+      ops.push('0.72 0.75 0.78 RG','0.7 w',fmt(railX)+' '+fmt(top-b.h)+' '+fmt(railW)+' '+fmt(b.h)+' re S');
       if(q.pos&&q.pos.page===page)
         ops.push('0.6 0.6 0.6 RG','0.5 w',fmt(contentRight+2)+' '+fmt(q.pos.y-3)+' m '+fmt(railX)+' '+fmt(top-3)+' l S');
       let y=top-CMT_PAD;
@@ -2914,9 +2914,13 @@ function positionCommentBubbles(){
     el.getAttribute('data-cmtanchor').split(',').forEach(s=>{ const gi=+s; if(!anchorEls.has(gi))anchorEls.set(gi,el); });
   });
   const bubbles=Array.prototype.slice.call(rail.children);
+  // A Show-filter-hidden anchor (display:none) reports a zero rect — treat it as
+  // unresolved so it falls to the tail instead of sorting to a scroll-dependent
+  // garbage anchorY (mirrors the PDF's unplaced-tail behavior for the same case).
   const items=bubbles.map((b,gi)=>{ const a=anchorEls.get(gi);
-    return {gi, h:b.offsetHeight, resolved:!!a,
-            anchorY:a?(a.getBoundingClientRect().top-paperTop):0}; });
+    const rc=a?a.getBoundingClientRect():null;
+    const vis=!!(rc&&(rc.width||rc.height));
+    return {gi, h:b.offsetHeight, resolved:vis, anchorY:vis?(rc.top-paperTop):0}; });
   const order=items.filter(x=>x.resolved).sort((a,b)=>a.anchorY-b.anchorY)
               .concat(items.filter(x=>!x.resolved));
   const tops=stackBubbles(order.map(x=>({anchorY:x.resolved?x.anchorY:0,h:x.h})),10);
