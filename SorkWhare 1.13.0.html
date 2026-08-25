@@ -2987,7 +2987,9 @@ function renderAll(rows,summary){
   // paragraphs and under-counts pages. Continuous geometry is applied above, so the
   // deferred layoutPages measures settled layout.
   if(viewMode==='pages') setTimeout(()=>{ if(!layoutPages())schedulePaginate(); rebuildCommentRail(); },0);
-  else { schedulePaginate(); requestAnimationFrame(rebuildCommentRail); }
+  // DEFERRED via setTimeout — NOT rAF, which doesn't fire when the pane isn't
+  // compositing (the v1.9.0 lesson); the rail must still build in that case.
+  else { schedulePaginate(); setTimeout(rebuildCommentRail,0); }
   curIdx=changeOrder.length?0:-1; applyFilters(); updateNavStatus();
   // Continuous mode only: estimate page breaks after layout settles (real rendered
   // heights). In pages mode the deferred layoutPages owns the count, and paginate must
