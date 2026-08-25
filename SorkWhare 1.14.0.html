@@ -2414,6 +2414,26 @@ function lineRowsFromRects(rects){
 function lineHeightsPtFromRects(rects){
   return lineRowsFromRects(rects).map(r=>pxToPt(r.height));
 }
+// v1.14.0 (F1): line rects from TEXT NODES only. Range.selectNodeContents(el)
+// also returns the border-boxes of contained BLOCK elements (the .para's .body
+// wrapper), whose top matches line 1 within LINE_TOP_TOL_PX — lineRowsFromRects
+// then absorbs the whole-paragraph box into row 1 and every block measures ~2x
+// its real height (17 sheets vs 10 PDF pages on the regression pair; masked
+// before v1.12.0 by the UI-font render bug this exposed). Walking text nodes
+// keeps element boxes out of the list entirely. endNode/endOffset bound the
+// walk for splitBlockAtLine's line counter (endNode null = whole element).
+function textLineRects(el,endNode,endOffset){
+  const rects=[]; const w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT,null);
+  while(w.nextNode()){
+    const t=w.currentNode;
+    const rg=document.createRange();
+    if(t===endNode){ rg.setStart(t,0); rg.setEnd(t,endOffset); }
+    else rg.selectNodeContents(t);
+    for(const r of rg.getClientRects())rects.push(r);
+    if(t===endNode)break;
+  }
+  return rects;
+}
 // Turn planBreaks' {b,l} break list into per-sheet segment lists. A segment names a
 // block and the half-open line range it contributes to that sheet; `to:null` means
 // "to the end of the block". A block appears in two segments when a break falls
@@ -2550,8 +2570,14 @@ function collectPageBlocks(paper){
       continue;
     }
     let rects=[];
-    try{ const rg=document.createRange(); rg.selectNodeContents(el);
-         rects=Array.prototype.slice.call(rg.getClientRects()); }catch(_){}
+    // Tables measure ATOMICALLY (offsetHeight fallback below): their range-rects
+    // were both inflated and splittable, and a mid-table split would send
+    // splitBlockAtLine's extractContents through table DOM. Matches the v1.3.1
+    // tables-are-atomic-in-the-DOM precedent; a page-tall table overflows its
+    // sheet (documented limitation).
+    if(!cl.contains('ctable')){
+      try{ rects=textLineRects(el,null,0); }catch(_){}
+    }
     let lh=lineHeightsPtFromRects(rects);
     if(!lh.length)lh=[pxToPt(el.offsetHeight||0)];   // atomic block (table, band heading)
     const cs=getComputedStyle(el);
@@ -2593,11 +2619,9 @@ function pointAtOffset(el,k){
 function splitBlockAtLine(el,lineIndex){
   try{
     const total=blockTextLength(el); if(!(total>0))return null;
-    const probe=document.createRange();
     const countLinesUpTo=k=>{
       const p=pointAtOffset(el,k); if(!p)return 0;
-      probe.setStart(el,0); probe.setEnd(p.node,p.offset);
-      return lineRowsFromRects(Array.prototype.slice.call(probe.getClientRects())).length;
+      return lineRowsFromRects(textLineRects(el,p.node,p.offset)).length;
     };
     const off=findLineStartOffset(total,lineIndex,countLinesUpTo);
     if(off<=0)return null;
