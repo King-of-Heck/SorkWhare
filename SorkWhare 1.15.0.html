@@ -1827,7 +1827,7 @@ function generateRedlinePdf(opts){
     const meta=row.meta||{};
     const indLeftPt=meta.indLeftPt||0, indHangPt=meta.indHangingPt||0, indFLPt=meta.indFirstLinePt||0;
     const bodyX=mlPt+indLeftPt;
-    const markerText=meta.marker||'';
+    let markerText=meta.marker||'';
     const markerX=mlPt+indLeftPt-(indHangPt||0);
     const base=pdfStyle(meta,'eq',bodyPt,false,set);
     const align=meta.align||'left';
@@ -1849,6 +1849,7 @@ function generateRedlinePdf(opts){
         for(const s of markerSegs)atoms.push(s);
         atoms.push({text:' ',st:base});
         markerSegs=null;
+        markerText='';
       }
     }
     if(prefix){for(const tk of (prefix.match(/\S+|\s+/g)||[]))atoms.push({text:tk,st:base});}
