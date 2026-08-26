@@ -1735,7 +1735,7 @@ function generateRedlinePdf(opts){
         cur.push(a);curW+=w;}
       if(cur.length)lines.push(cur);
       if(!lines.length)lines.push([{text:'',st:base}]);
-      const isChange=row.type!=='equal'||!!(row.fmtChanged&&show.fmt);
+      const isChange=row.type!=='equal'||!!(row.fmtChanged&&show.fmt)||!!row.numChanged;
       for(const line of lines){let ms=base.size;for(const a of line)if(a.st.size>ms)ms=a.st.size;
         drawn.push({line,lh:ms*1.15,isChange});}
     });
@@ -1802,7 +1802,7 @@ function generateRedlinePdf(opts){
           const w=_wrapCellPara(r,Math.max(40,contentRight-mlPt));
           paras.push({meta:r.meta||{},lines:w.lines,lineHeights:w.lineHeights,bodyX:mlPt,
             markerText:'',markerX:mlPt,base:pdfStyle(r.meta||{},'eq',bodyPt,false,set),align:'left',indFLPt:0,
-            isChange:r.type!=='equal'||!!(r.fmtChanged&&show.fmt),
+            isChange:r.type!=='equal'||!!(r.fmtChanged&&show.fmt)||!!r.numChanged,
             fnRefs:harvestFnRefs(r.html),
             spaceBeforePt:0,spaceAfterPt:2,keepNext:false,keepLines:false,pageBreakBefore:false});
         }
@@ -1834,6 +1834,7 @@ function generateRedlinePdf(opts){
     // v1.15.0 (R3): struck-old + inserted-new marker in the gutter. Left-shift so the
     // combined string never runs into the body — it may intrude into the left margin,
     // floored 6pt right of the change-bar x (mlPt-8).
+    const atoms=[];
     let markerSegs=null,markerSegsX=0;
     if(row.numChanged){
       markerSegs=[];
@@ -1842,8 +1843,14 @@ function generateRedlinePdf(opts){
       if(markerText)markerSegs.push({text:markerText,st:pdfStyle(meta,'ins',bodyPt,false,set)});
       let mw=0;for(const s of markerSegs)mw+=measure(s.text,s.st.size,s.st.bold,s.st.italic);
       markerSegsX=(markerX+mw>bodyX-2)?Math.max(mlPt-2,bodyX-2-mw):markerX;
+      if(markerSegsX+mw>bodyX-2){
+        // No gutter room at all (e.g. numbered->plain: no hanging indent survives).
+        // Fall back to inline leading atoms so the struck marker can't overprint the body.
+        for(const s of markerSegs)atoms.push(s);
+        atoms.push({text:' ',st:base});
+        markerSegs=null;
+      }
     }
-    const atoms=[];
     if(prefix){for(const tk of (prefix.match(/\S+|\s+/g)||[]))atoms.push({text:tk,st:base});}
     for(const r of pdfParseRuns(stripSent(row.html),show.fmt)){const st=pdfStyle(meta,r.kind,bodyPt,r.bold,set);
       const toks=r.text.match(/\S+|\s+/g)||[];
@@ -2399,7 +2406,7 @@ function noteSup(html, dnMap){
 // from notesSectionHtml so the end band and the per-page float are byte-identical.
 function noteParaHtml(r){
   const n=r.meta.note.dispNum!=null ? (r.meta.note.dispNum+'. ') : '';
-  return '<p class="para '+(r.type==='equal'?'equal':r.type)+(r.fmtChanged?' fmtchanged':'')+'" data-cid="'+(r.cid||'')+'"'
+  return '<p class="para '+(r.type==='equal'?'equal':r.type)+(r.fmtChanged?' fmtchanged':'')+(r.numChanged?' numchanged':'')+'" data-cid="'+(r.cid||'')+'"'
        + (r.cid?(' id="chg-'+r.cid+'"'):'') + '><span class="fnnum">'+n+'</span>'+r.html+'</p>';
 }
 // Group footnote rows into one block per footnote, first-seen order. A footnote may span
@@ -2509,7 +2516,7 @@ function hfParaHtml(r,mergeBdr){
   const bb=!mergeBdr&&r.meta&&r.meta.pBdrBottom;   // v1.14.0 (F4)
   if(bb){st.push('border-bottom:'+bb.szPt+'pt solid'+(bb.clr?(' #'+bb.clr):''));
          st.push('padding-bottom:'+bb.spacePt+'pt');}
-  return '<p class="para '+(r.type==='equal'?'equal':r.type)+(r.fmtChanged?' fmtchanged':'')+'"'
+  return '<p class="para '+(r.type==='equal'?'equal':r.type)+(r.fmtChanged?' fmtchanged':'')+(r.numChanged?' numchanged':'')+'"'
        +(st.length?(' style="'+st.join(';')+'"'):'')
        +' data-cid="'+(r.cid||'')+'"'+(r.cid?(' id="chg-'+r.cid+'"'):'')+'>'+r.html+'</p>';
 }
