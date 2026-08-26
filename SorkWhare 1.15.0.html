@@ -1157,8 +1157,8 @@ function buildNoteStream(kind, noteRefs, notesMap){
   }
   return stream;
 }
-function compareNotes(kind, sideA, sideB, ignoreCase){
-  return compare(sideA, sideB, {ignoreCase:!!ignoreCase, moveMin:Infinity});
+function compareNotes(kind, sideA, sideB, ignoreCase, countNumbering){
+  return compare(sideA, sideB, {ignoreCase:!!ignoreCase, moveMin:Infinity, countNumbering:countNumbering});
 }
 function mergeNoteResults(summary, bodyRows, noteResult, key){
   let base=summary.total;                       // current max cid
@@ -1172,6 +1172,7 @@ function mergeNoteResults(summary, bodyRows, noteResult, key){
   summary.content    += noteResult.summary.content;
   summary.punctuation+= noteResult.summary.punctuation;
   summary.formatting += noteResult.summary.formatting;
+  summary.numbering  += noteResult.summary.numbering;
   summary[key] = noteResult.summary.total;      // new sub-tally: summary.footnotes / summary.endnotes
   for(const r of noteResult.rows) bodyRows.push(r);
 }
@@ -1187,8 +1188,8 @@ function hfStream(unit){
   const tag={kind:unit.kind,type:unit.type,fc:(unit&&unit.fieldCache)||null};
   return unit.paras.map(p=>Object.assign({},p,{hf:tag}));
 }
-function compareHF(sideA, sideB, ignoreCase){
-  return compare(sideA, sideB, {ignoreCase:!!ignoreCase, moveMin:Infinity});
+function compareHF(sideA, sideB, ignoreCase, countNumbering){
+  return compare(sideA, sideB, {ignoreCase:!!ignoreCase, moveMin:Infinity, countNumbering:countNumbering});
 }
 function mergeHFResults(summary, bodyRows, res, key){
   const base=summary.total;
@@ -1200,6 +1201,7 @@ function mergeHFResults(summary, bodyRows, res, key){
   summary.content    += res.summary.content;
   summary.punctuation+= res.summary.punctuation;
   summary.formatting += res.summary.formatting;
+  summary.numbering  += res.summary.numbering;
   summary[key]=(summary[key]||0)+res.summary.total;   // += : several header units fold into summary.headers
   for(const r of res.rows) bodyRows.push(r);
 }
@@ -1210,13 +1212,13 @@ function mergeHFResults(summary, bodyRows, res, key){
    in one move, instead of patching four render sinks (and leaving nav entries that
    point at nothing). Omitting `flags` displays every variant — the pre-v1.11.1
    behavior, which the existing 5-argument callers and tests rely on. */
-function applyHFComparison(summary, rows, hfA, hfB, ignoreCase, flags){
+function applyHFComparison(summary, rows, hfA, hfB, ignoreCase, flags, countNumbering){
   const disp=flags?hfDisplayedTypes(flags):null;
   for(const key of HF_ORDER){
     if(disp&&!disp.has(key.split(':')[1]))continue;
     const a=hfA&&hfA.get(key), b=hfB&&hfB.get(key);
     if(!a&&!b)continue;
-    const res=compareHF(hfStream(a), hfStream(b), ignoreCase);
+    const res=compareHF(hfStream(a), hfStream(b), ignoreCase, countNumbering);
     const kind=key.split(':')[0];
     mergeHFResults(summary, rows, res, kind==='header'?'headers':'footers');
   }
@@ -1235,8 +1237,8 @@ function buildCommentStream(comments){
   }
   return stream;
 }
-function compareComments(sideA, sideB, ignoreCase){
-  return compare(sideA, sideB, {ignoreCase:!!ignoreCase, moveMin:Infinity});
+function compareComments(sideA, sideB, ignoreCase, countNumbering){
+  return compare(sideA, sideB, {ignoreCase:!!ignoreCase, moveMin:Infinity, countNumbering:countNumbering});
 }
 function mergeCommentResults(summary, bodyRows, res, counted){
   summary.comments = res.summary.total;          // labeled layer count (same unit both modes)
@@ -1250,6 +1252,7 @@ function mergeCommentResults(summary, bodyRows, res, counted){
     summary.content    += res.summary.content;
     summary.punctuation+= res.summary.punctuation;
     summary.formatting += res.summary.formatting;
+    summary.numbering  += res.summary.numbering;
   }else{
     for(const r of res.rows) r.cid=null;          // keep styling, drop from total/nav
   }
