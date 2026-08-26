@@ -28,6 +28,9 @@ assigned during development (numbering is not sequential/uniform by design).
    chain when the text itself doesn't set them. A document-ID footer line
    whose 8pt size lives in its "DocID" style now renders at 8pt instead of
    the body default. Closes a v1.14.0 known limitation.
+ - The Pages view no longer shows a "Page break" divider inside a page:
+   the page boundary itself is the break. The divider still appears in the
+   Continuous view, where there are no page boundaries to show it.
  - Known limitations: bold set only in a named style is still not applied
    (bold drives change-marking and needs its own release); character styles
    (a style named on a run) are not resolved; italics, underline, or colour

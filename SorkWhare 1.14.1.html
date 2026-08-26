@@ -100,6 +100,12 @@
   .pgbreak-auto::before,.pgbreak-auto::after{content:"";flex:1;border-top:1px dotted #cbd3db}
   .pgbreak-auto{color:#9aa4ae}
   .pgbreak-sep span,.pgbreak-auto span{white-space:nowrap}
+  /* v1.14.1 (B3): in the Pages view the sheet boundary IS the page break — the
+     labeled divider is Continuous-only furniture. Hiding it also removes the
+     ~40px the planner counts as zero-height (collectPageBlocks gives the divider
+     block no lineHeights). Measurement is unaffected: it runs before the .sheets
+     wrapper exists. Print already hides these; the PDF never draws a label. */
+  .sheets .pgbreak-sep{display:none}
   .para.pgbreak{break-before:page;page-break-before:always}
   /* A paragraph continued from the previous sheet: no repeated badge or list
      marker, but it keeps its margin change bar (the PDF draws a bar per changed
