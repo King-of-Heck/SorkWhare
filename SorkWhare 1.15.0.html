@@ -1086,8 +1086,13 @@ function compare(orig,rev,opts){
     const seg=segs[s];
     if(seg.tag==='equal'){for(const[i,j]of seg.items){
       const diff=fmtDiff(orig[i].fmtSpans||[],rev[j].fmtSpans||[]);
-      if(diff.length){rows.push({type:'equal',oi:i,ni:j,meta:rev[j],fmtChanged:true,fmtDescs:diff.map(d=>d.desc),html:fmtWrap(rev[j].text,rev[j].fmtSpans||[],diff)});}
-      else{rows.push({type:'equal',oi:i,ni:j,meta:rev[j],html:boldWrap(rev[j].text,rev[j].boldRuns)});}
+      let row;
+      if(diff.length){row={type:'equal',oi:i,ni:j,meta:rev[j],fmtChanged:true,fmtDescs:diff.map(d=>d.desc),html:fmtWrap(rev[j].text,rev[j].fmtSpans||[],diff)};}
+      else{row={type:'equal',oi:i,ni:j,meta:rev[j],html:boldWrap(rev[j].text,rev[j].boldRuns)};}
+      // v1.15.0 (R3): effective list-number change on a text-equal pair. Fields are
+      // set ONLY when the markers differ, so marker-equal docs are byte-identical.
+      if((orig[i].marker||'')!==(rev[j].marker||'')){row.numChanged=true;row.oldMarker=orig[i].marker||'';}
+      rows.push(row);
     }continue;}
     let dels=[],ins=[];
     if(seg.tag==='delete'){dels=seg.items.map(([i])=>i);if(segs[s+1]&&segs[s+1].tag==='insert'){ins=segs[s+1].items.map(([,j])=>j);s++;}}
@@ -1099,7 +1104,9 @@ function compare(orig,rev,opts){
       if(best>=0&&bs>=0.5){used.add(best);paired.push([di,best]);}else paired.push([di,-1]);}
     const done=new Set();
     for(const[di,ji]of paired){
-      if(ji>=0){rows.push({type:'changed',oi:di,ni:ji,meta:rev[ji],html:safeInline(orig[di].text,rev[ji].text,orig[di].boldRuns,rev[ji].boldRuns),cat:categorize(oT[di],rT[ji])});done.add(ji);}
+      if(ji>=0){const cr={type:'changed',oi:di,ni:ji,meta:rev[ji],html:safeInline(orig[di].text,rev[ji].text,orig[di].boldRuns,rev[ji].boldRuns),cat:categorize(oT[di],rT[ji])};
+        if((orig[di].marker||'')!==(rev[ji].marker||'')){cr.numChanged=true;cr.oldMarker=orig[di].marker||'';}
+        rows.push(cr);done.add(ji);}
       else{const r={type:'deleted',oi:di,meta:orig[di],html:'<del>'+boldWrap(orig[di].text,orig[di].boldRuns)+'</del>'};rows.push(r);pureDel.push(r);}
     }
     for(const ji of ins)if(!done.has(ji)){const r={type:'inserted',ni:ji,meta:rev[ji],html:'<ins>'+boldWrap(rev[ji].text,rev[ji].boldRuns)+'</ins>'};rows.push(r);pureIns.push(r);}
@@ -1118,14 +1125,17 @@ function compare(orig,rev,opts){
     }
   }
   const summary={insertions:0,deletions:0,moves:0,amendments:0,content:0,numbering:0,punctuation:0,total:0,formatting:0};
+  const countNum=opts.countNumbering!==false;   // v1.15.0 (R3): counted unless explicitly off
   let n=0;
   for(const r of rows){
-    if(r.type==='equal'){ if(r.fmtChanged)summary.formatting++; continue; }
+    if(r.type==='equal'){ if(r.fmtChanged)summary.formatting++;
+      if(r.numChanged){summary.numbering++; if(countNum)r.cid=++n;}
+      continue; }
     if(r.type==='moved-from'||r.type==='moved-to'){ if(r.partner&&r.partner.cid){r.cid=r.partner.cid;} else {r.cid=++n;summary.moves++;} continue; }
     r.cid=++n;
     if(r.type==='inserted'){summary.insertions++;summary.content++;}
     else if(r.type==='deleted'){summary.deletions++;summary.content++;}
-    else if(r.type==='changed'){ summary.amendments++; if(r.cat==='punctuation')summary.punctuation++; else summary.content++; summary.insertions++;summary.deletions++; }
+    else if(r.type==='changed'){ summary.amendments++; if(r.cat==='punctuation')summary.punctuation++; else summary.content++; summary.insertions++;summary.deletions++; if(r.numChanged)summary.numbering++; }
   }
   summary.total=n; // unique numbered changes — matches "Change X of Y" navigation
   return {rows,summary};
