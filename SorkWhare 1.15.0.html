@@ -245,6 +245,7 @@
     <div class="opts">
       <label><input type="checkbox" id="optCase"> Ignore case</label>
       <label><input type="checkbox" id="optCountComments"> Count comments in total</label>
+      <label><input type="checkbox" id="optCountNumbering" checked> Count renumbering in total</label>
       <label>Move threshold (words): <input type="number" id="optMove" value="5" min="2" max="10"></label>
       <label>Rendering set: <select id="rsSet"></select></label>
       <button class="primary" id="btnCompare" disabled style="margin-left:auto">Compare ▶</button>
@@ -1287,21 +1288,21 @@ $('btnCompare').addEventListener('click',async()=>{
       +esc(tc.join(' and '))+' contain'+(tc.length===1?'s':'')+' unaccepted tracked changes — compared as if all changes were accepted.';
       notice.style.display='block';}
     else notice.style.display='none';
-    const {rows,summary}=compare(oa,ra,{ignoreCase:$('optCase').checked,moveMin:+$('optMove').value||5});
+    const {rows,summary}=compare(oa,ra,{ignoreCase:$('optCase').checked,moveMin:+$('optMove').value||5,countNumbering:$('optCountNumbering').checked});
     const fnStreamA=buildNoteStream('footnote', oa.noteRefs||[], oa.footnotes||new Map());
     const fnStreamB=buildNoteStream('footnote', ra.noteRefs||[], ra.footnotes||new Map());
     const enStreamA=buildNoteStream('endnote',  oa.noteRefs||[], oa.endnotes ||new Map());
     const enStreamB=buildNoteStream('endnote',  ra.noteRefs||[], ra.endnotes ||new Map());
-    const fn=compareNotes('footnote', fnStreamA, fnStreamB, $('optCase').checked);
-    const en=compareNotes('endnote',  enStreamA, enStreamB, $('optCase').checked);
+    const fn=compareNotes('footnote', fnStreamA, fnStreamB, $('optCase').checked, $('optCountNumbering').checked);
+    const en=compareNotes('endnote',  enStreamA, enStreamB, $('optCase').checked, $('optCountNumbering').checked);
     mergeNoteResults(summary, rows, fn, 'footnotes');
     mergeNoteResults(summary, rows, en, 'endnotes');
     // v1.11.1: pass the display flags so undisplayed (orphaned) variants never enter the
     // rows at all. Same "prefer the revised document's geometry" rule as pageGeom above.
     applyHFComparison(summary, rows, oa.headersFooters, ra.headersFooters, $('optCase').checked,
-      {titlePg:!!(pageGeom&&pageGeom.titlePg), evenAndOdd:!!(pageGeom&&pageGeom.evenAndOdd)});
+      {titlePg:!!(pageGeom&&pageGeom.titlePg), evenAndOdd:!!(pageGeom&&pageGeom.evenAndOdd)}, $('optCountNumbering').checked);
     const cA=buildCommentStream(oa.comments||[]), cB=buildCommentStream(ra.comments||[]);
-    const cmp=compareComments(cA, cB, $('optCase').checked);
+    const cmp=compareComments(cA, cB, $('optCase').checked, $('optCountNumbering').checked);
     mergeCommentResults(summary, rows, cmp, $('optCountComments').checked);
     lastRows=rows; renderAll(rows,summary);
     $('setup').style.display='none';$('results').style.display='block';$('navToolbar').style.display='flex';resultsShown=true;
@@ -3250,6 +3251,7 @@ $('fCmt').addEventListener('change',()=>{ try{localStorage.setItem('sw.showComme
 try{ const v=localStorage.getItem('sw.showComments'); if(v!=null)$('fCmt').checked=v==='1'; }catch(_){}
 window.addEventListener('resize',()=>requestAnimationFrame(positionCommentBubbles));
 $('optCountComments').addEventListener('change',()=>{ if(resultsShown) $('btnCompare').click(); });
+$('optCountNumbering').addEventListener('change',()=>{ if(resultsShown) $('btnCompare').click(); });
 
 /* ---- View mode (v1.9.0) ---------------------------------------------------
    'pages' renders the redline as discrete page sheets; 'continuous' is the
