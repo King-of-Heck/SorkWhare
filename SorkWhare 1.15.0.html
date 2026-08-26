@@ -60,7 +60,7 @@
   .citem:hover{background:#f6f8fa}
   .citem.active{background:var(--hi);border-color:#e0c14a}
   .citem.inserted{border-left-color:var(--ins)}.citem.deleted{border-left-color:var(--del)}
-  .citem.changed{border-left-color:#e0a72e}.citem.moved{border-left-color:var(--mov)}
+  .citem.changed{border-left-color:#e0a72e}.citem.moved{border-left-color:var(--mov)}.citem.numchanged{border-left-color:#333}
   .citem .cid{font-weight:700;margin-right:6px}
   .citem .tag{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
   .citem .snip{display:block;margin-top:3px;color:#333}
@@ -73,7 +73,7 @@
 
   .para{margin:0 0 11px;position:relative;padding-left:16px;display:flex;align-items:flex-start;gap:10px;orphans:2;widows:2}
   .para::before{content:"";position:absolute;left:-26px;top:3px;bottom:3px;width:3px;border-radius:2px;background:transparent}
-  .para.changed::before,.para.inserted::before,.para.deleted::before,.para[class*="moved"]::before,.para.fmtchanged::before{background:#333}
+  .para.changed::before,.para.inserted::before,.para.deleted::before,.para[class*="moved"]::before,.para.fmtchanged::before,.para.numchanged::before{background:#333}
   .hide-fmt .para.fmtchanged::before{background:transparent}
   .marker{flex:0 0 auto;min-width:26px;color:#111;font-variant-numeric:tabular-nums;white-space:nowrap}
   .body{flex:1 1 auto;min-width:0}
@@ -143,6 +143,8 @@
   /* a formatting-only change lives on an equal paragraph: keep it visible under hide-eq while formatting is shown */
   .hide-eq .para.equal.fmtchanged{display:flex}
   .hide-eq.hide-fmt .para.equal.fmtchanged{display:none}
+  .hide-eq .para.equal.numchanged{display:flex}
+  .hide-eq.hide-fmt .para.equal.numchanged{display:flex}
   /* v1.11.1: in-place header/footer chrome is page furniture, not a diff row. Hiding
      unchanged BODY text must not blank the running header, so chrome paragraphs opt out
      of the rule above. Four classes beats .hide-eq .para.equal (three), so this wins
@@ -2225,10 +2227,20 @@ document.addEventListener('keydown',e=>{
   }
 });
 
-function markerHtml(meta,minW){return '<span class="marker" style="min-width:'+minW.toFixed(1)+'px">'+esc((meta&&meta.marker)||'')+'</span>';}
+function markerHtml(row,meta,minW){
+  let inner;
+  if(row&&row.numChanged){
+    const parts=[];
+    if(row.oldMarker)parts.push('<del>'+esc(row.oldMarker)+'</del>');
+    if(meta&&meta.marker)parts.push('<ins>'+esc(meta.marker)+'</ins>');
+    inner=parts.join(' ');
+  }else inner=esc((meta&&meta.marker)||'');
+  return '<span class="marker" style="min-width:'+minW.toFixed(1)+'px">'+inner+'</span>';
+}
 function paraHtml(row,pageBreak,prevMeta,nextMeta){
   const meta=row.meta||{},cls=['para',row.type];
   if(row.fmtChanged)cls.push('fmtchanged');
+  if(row.numChanged)cls.push('numchanged');
   if(meta.heading)cls.push('h'+meta.heading);
   if(meta.isBold)cls.push('bold');
   if(meta.keepNext||meta.heading)cls.push('keepnext');
@@ -2264,7 +2276,7 @@ function paraHtml(row,pageBreak,prevMeta,nextMeta){
   if(blockLeftPx>0.5)sp+='margin-left:'+blockLeftPx.toFixed(1)+'px;';
   const paraStyle=sp?(' style="'+sp+'"'):'';
   const bodyStyle=(align!=='left')?(' style="text-align:'+align+'"'):'';
-  return '<p class="'+cls.join(' ')+'"'+id+paraStyle+' data-cid="'+(row.cid||'')+'"'+(row._cmtAnchors?' data-cmtanchor="'+row._cmtAnchors.join(',')+'"':'')+((viewMode==='pages'&&meta.keepLines)?' data-keep-lines="1"':'')+'>'+markerHtml(meta,markerMinPx)+
+  return '<p class="'+cls.join(' ')+'"'+id+paraStyle+' data-cid="'+(row.cid||'')+'"'+(row._cmtAnchors?' data-cmtanchor="'+row._cmtAnchors.join(',')+'"':'')+((viewMode==='pages'&&meta.keepLines)?' data-keep-lines="1"':'')+'>'+markerHtml(row,meta,markerMinPx)+
          '<span class="body"'+bodyStyle+'>'+badge+row.html+anchor+'</span></p>';
 }
 function snippetHtml(row){
@@ -2289,6 +2301,7 @@ function typeLabel(t){return t==='inserted'?'Insertion':t==='deleted'?'Deletion'
 // the cell provides the box.
 function cellHtml(row){
   const meta=row.meta||{},cls=['para','tcell',row.type];
+  if(row.numChanged)cls.push('numchanged');
   if(meta.heading)cls.push('h'+meta.heading);
   if(meta.isBold)cls.push('bold');
   let anchor='';
@@ -2296,7 +2309,11 @@ function cellHtml(row){
   if(row.type==='moved-from')anchor='<span class="anchor" title="Moved to later">▼ moved</span>';
   const badge=row.cid?('<span class="cbadge">'+row.cid+'</span>'):'';
   const id=row.cid?(' id="chg-'+row.cid+(row.type==='moved-from'?'-from':'')+'"'):'';
-  const marker=meta.marker?esc(meta.marker)+' ':'';
+  let marker='';
+  if(row.numChanged){
+    if(row.oldMarker)marker+='<del>'+esc(row.oldMarker)+'</del> ';
+    if(meta.marker)marker+='<ins>'+esc(meta.marker)+'</ins> ';
+  }else marker=meta.marker?esc(meta.marker)+' ':'';
   return '<div class="'+cls.join(' ')+'"'+id+' data-cid="'+(row.cid||'')+'"><span class="body">'+badge+marker+row.html+anchor+'</span></div>';
 }
 // Visual-row key: side-aware so a DELETED source row (orig-side indices) forms its
@@ -3208,14 +3225,15 @@ function renderAll(rows,summary){
   $('paper').innerHTML=noteSup(html, dnMap);
   const seen=new Set(); changeOrder=[]; let items='';
   for(const r of rows){
-    if(r.type==='equal'||r.type==='moved-from')continue;
-    if(r.cid==null)continue;                       // uncounted comment rows: styled but not in nav
+    if(r.type==='moved-from'||r.cid==null)continue; // uncounted rows (comments, renumber w/ toggle off) styled but not in nav; counted equal renumber rows pass
     if(r.cid&&seen.has(r.cid))continue; if(r.cid)seen.add(r.cid);
     changeOrder.push(r.cid);
-    const cls=r.type.startsWith('moved')?'moved':r.type;
+    const cls=r.type.startsWith('moved')?'moved':(r.type==='equal'?'numchanged':r.type);
     let snip=noteSup(snippetHtml(r), dnMap);
     if(r.meta&&r.meta.hf)snip=hfFieldSub(snip,hfFcVals(r.meta.hf.fc));
-    items+='<div class="citem '+cls+'" data-cid="'+r.cid+'"><span class="cid">'+r.cid+'</span><span class="tag">'+typeLabel(r.type)+'</span><span class="snip">'+snip+'</span></div>';
+    if(r.type==='equal'&&r.numChanged){const mp=[];if(r.oldMarker)mp.push('<del>'+esc(r.oldMarker)+'</del>');if(r.meta&&r.meta.marker)mp.push('<ins>'+esc(r.meta.marker)+'</ins>');snip=mp.join(' ')+' '+snip;}
+    const tag=(r.type==='equal'&&r.numChanged)?'Numbering':typeLabel(r.type);
+    items+='<div class="citem '+cls+'" data-cid="'+r.cid+'"><span class="cid">'+r.cid+'</span><span class="tag">'+tag+'</span><span class="snip">'+snip+'</span></div>';
   }
   $('clist').innerHTML=items;
   $('clist').querySelectorAll('.citem').forEach(el=>el.addEventListener('click',()=>{const cid=+el.dataset.cid;const idx=changeOrder.indexOf(cid);if(idx>=0){curIdx=idx;goToCurrent();}}));
