@@ -17,6 +17,22 @@ assigned during development (numbering is not sequential/uniform by design).
 
 
 -------------------------------------------------------------------------------
+ v1.15.0  -  List Renumbering Detection              (2026-08-26)
+-------------------------------------------------------------------------------
+ - List items whose effective number changes between versions are now detected.
+   The old number appears struck through next to the new number, the same way
+   changed text is marked, on screen and in the PDF.
+ - Renumbered items form their own "Numbering" category, with their own entries
+   in the change navigator, so they are easy to find and step through alongside
+   other changes.
+ - A new "Count renumbering in total" option (checked by default) controls
+   whether a renumbered item counts toward the total change count and appears
+   in the navigator; turning it off leaves the marker visible but out of the
+   count.
+ - A margin change bar now marks a renumbered line, the same as any other kind
+   of change.
+
+-------------------------------------------------------------------------------
  v1.14.1  -  Header Border & Style Formatting Fixes  (2026-08-26)
 -------------------------------------------------------------------------------
  - A compared header no longer draws two separator lines. Word draws ONE rule
